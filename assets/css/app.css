@@ -1142,11 +1142,11 @@ body.nkp-page {
 	z-index: 1;
 }
 
-/* Leicht durchscheinend, damit die Ranke hinter den Flächen zu ahnen ist */
+/* Durchscheinend, damit die Ranke hinter den Flächen zu sehen ist; Eingabefelder bleiben deckend */
 .nkp-panel,
 .nkp-card,
 .nkp-type {
-	background: rgb(255 253 249 / 92%);
+	background: rgb(255 253 249 / 80%);
 }
 
 .nkp-vine-toggle {
@@ -1174,4 +1174,18 @@ body.nkp-page {
 
 .nkp-topbar__nav {
 	align-items: center;
+}
+
+/* Weicher Schein in Papierfarbe hält Überschriften außerhalb der Flächen über der Ranke lesbar */
+.nkp-header,
+.nkp-back,
+.nkp-group__summary,
+.nkp-note,
+.nkp-empty {
+	text-shadow: 0 0 2px var(--nkp-bg), 0 0 6px var(--nkp-bg), 0 0 12px var(--nkp-bg);
+}
+
+.nkp-header .nkp-button,
+.nkp-group__count {
+	text-shadow: none;
 }

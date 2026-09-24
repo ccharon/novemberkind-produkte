@@ -7,6 +7,7 @@
 	const PARALLAX = 0.25; // Ranke bewegt sich mit einem Viertel der Scrollgeschwindigkeit
 	const STEP = 4; // Länge eines Stielstücks in px
 	const LEAF_UNFOLD_MS = 2200;
+	const LEAF_SIZE = 1.3;
 
 	// Stiele deckend, die Ebene selbst ist per CSS durchscheinend; sonst werden Überlappungen zu dunklen Punkten
 	const COLORS = {
@@ -96,7 +97,7 @@
 				x,
 				y,
 				angle: heading + side * (0.7 + rnd() * 0.6),
-				size: size * leafScale,
+				size: size * leafScale * LEAF_SIZE,
 				birth: birth + 300,
 				color: COLORS.leaves[Math.floor(rnd() * COLORS.leaves.length)],
 				phase: rnd() * Math.PI * 2,
@@ -104,7 +105,7 @@
 			});
 		}
 
-		function grow({ start, heading, route, maxLength, width: lineWidth, birth, depth, curl }) {
+		function grow({ start, heading, route, maxLength, width: lineWidth, birth, depth, curl, taper: tapers = !route }) {
 			let x = start.x;
 			let y = start.y;
 			let angle = heading;
@@ -112,6 +113,7 @@
 			let length = 0;
 			let nextLeaf = 10 + rnd() * 14;
 			let nextBranch = 60 + rnd() * 90;
+			let nextRunner = 250 + rnd() * 250;
 			let side = rnd() < 0.5 ? -1 : 1;
 			const wobblePhase = rnd() * Math.PI * 2;
 			let curve = curl || 0;
@@ -140,7 +142,7 @@
 				const nx = x + Math.cos(angle) * STEP;
 				const ny = y + Math.sin(angle) * STEP;
 				const time = birth + length * msPerPx;
-				const taper = route ? 1 : Math.max(0.35, 1 - length / maxLength);
+				const taper = tapers ? Math.max(0.35, 1 - length / maxLength) : 1;
 				segments.push({ x0: x, y0: y, x1: nx, y1: ny, width: lineWidth * taper, birth: time, color: depth > 1 ? COLORS.tendril : COLORS.stem });
 				x = nx;
 				y = ny;
@@ -150,6 +152,23 @@
 					addLeaf(x, y, angle, side, time, depth === 0 ? 11 + rnd() * 9 : 8 + rnd() * 7);
 					side = -side;
 					nextLeaf += 18 + rnd() * 16;
+				}
+
+				// Ausläufer von den Rändern in die Bildmitte, die sich dort selbst verzweigen
+				if (depth === 0 && length >= nextRunner) {
+					const target = { x: width * (0.22 + rnd() * 0.56), y: height * (0.25 + rnd() * 0.45) };
+					const distance = Math.hypot(target.x - x, target.y - y);
+					grow({
+						start: { x, y },
+						heading: angleTowards({ x, y }, target) + (rnd() - 0.5) * 0.8,
+						route: [target],
+						maxLength: distance * 1.3,
+						width: lineWidth * 0.75,
+						birth: time,
+						depth: 1,
+						taper: true,
+					});
+					nextRunner += 320 + rnd() * 300;
 				}
 
 				if (depth < 2 && length >= nextBranch) {
