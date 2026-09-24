@@ -273,7 +273,33 @@
 		}
 	});
 
+	function renderBackups(backups) {
+		const section = document.querySelector('[data-nkp-backups]');
+		if (!section || !backups) {
+			return;
+		}
+		const link = (href, text, newTab) => {
+			const a = document.createElement('a');
+			a.href = href;
+			a.textContent = text;
+			if (newTab) {
+				a.target = '_blank';
+				a.rel = 'noopener';
+			}
+			return a;
+		};
+		section.querySelector('[data-nkp-backup-list]').replaceChildren(...backups.map((backup) => {
+			const item = document.createElement('li');
+			const date = document.createElement('span');
+			date.textContent = backup.date;
+			item.append(date, link(backup.view, i18n.view, true), link(backup.download, i18n.download, false));
+			return item;
+		}));
+		section.hidden = backups.length === 0;
+	}
+
 	function applySaved(data) {
+		renderBackups(data.backups);
 		form.elements.product_id.value = data.id;
 
 		const title = document.querySelector('[data-nkp-title]');

@@ -54,6 +54,7 @@ final class Ajax
                 ? __('Gespeichert. Das Produkt ist jetzt im Shop zu sehen.', 'novemberkind-produkte')
                 : __('Als Entwurf gespeichert.', 'novemberkind-produkte'),
             'viewUrl' => get_permalink($result->get_id()),
+            'backups' => (new Backups())->summary($result->get_id()),
         ]);
     }
 

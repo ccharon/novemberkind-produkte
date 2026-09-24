@@ -388,6 +388,45 @@ check('fremdes Medium geht nicht an Claude', $sent_image === null);
 $huge = $processor->import(make_png(9000, 10));
 check('Foto mit über 8000 px wird abgelehnt', is_wp_error($huge));
 
+section('Sicherungen');
+$backups = new NovemberkindProdukte\Backups();
+$backup_button = $service->save(ProductType::get('button'), ['sku' => ShopData::next_sku(), 'motif' => 'Sicherungstest', 'price' => '4,5', 'stock' => '5']);
+$cleanup['products'][] = $backup_button->get_id();
+check('neues Produkt: keine Sicherung', $backups->for_product($backup_button->get_id()) === []);
+
+$first_variation = wc_get_product($backup_button->get_children()[0]);
+$first_variation->set_sale_price('3.99');
+$first_variation->save();
+foreach (['6', '7', '8', '9'] as $stock) {
+    $service->save(ProductType::get('button'), ['sku' => $backup_button->get_sku(), 'motif' => 'Sicherungstest', 'price' => '4,5', 'stock' => $stock], $backup_button->get_id());
+}
+$kept_backups = $backups->for_product($backup_button->get_id());
+check('nach vier Änderungen genau drei Sicherungen', count($kept_backups) === 3);
+$newest = json_decode(NovemberkindProdukte\Backups::snapshot($kept_backups[0]->ID), true);
+$oldest = json_decode(NovemberkindProdukte\Backups::snapshot($kept_backups[2]->ID), true);
+check('neueste Sicherung enthält den Stand vor der letzten Änderung', ($newest['product']['stock_quantity'] ?? null) === 8);
+check('älteste behaltene Sicherung ist der Stand mit Bestand 6', ($oldest['product']['stock_quantity'] ?? null) === 6);
+check('Sicherung enthält Artikelnummer und Angebotspreis der Variante', ($newest['product']['sku'] ?? '') === $backup_button->get_sku() && ($newest['variations'][0]['sale_price'] ?? '') === '3.99');
+check('Speichern lässt den Angebotspreis der Variante stehen', wc_get_product($first_variation->get_id())->get_sale_price() === '3.99');
+check('Sicherung enthält 8 Varianten', count($newest['variations'] ?? []) === 8);
+check('Sicherung enthält Metadaten und Kategorien', in_array('Buttons', $newest['product']['categories'] ?? [], true) && !empty($newest['product']['meta_data']));
+check('Aufräumen hat das Produkt nicht berührt', wc_get_product($backup_button->get_id())->get_stock_quantity() === 9 && count(wc_get_product($backup_button->get_id())->get_children()) === 8);
+$type_object = get_post_type_object(NovemberkindProdukte\Backups::POST_TYPE);
+check('Sicherungen sind nicht öffentlich', !$type_object->public && !$type_object->publicly_queryable && !$type_object->show_ui && !$type_object->can_export && get_post_status($kept_backups[0]) === 'private');
+check('Sicherungen erscheinen nicht in Produktabfragen', !in_array($kept_backups[0]->ID, wc_get_products(['limit' => -1, 'status' => 'any', 'return' => 'ids']), true));
+
+$failed_before = count($backups->for_product($backup_button->get_id()));
+$service->save(ProductType::get('button'), ['sku' => $backup_button->get_sku(), 'motif' => '', 'price' => '4,5'], $backup_button->get_id());
+check('ungültige Eingaben: keine neue Sicherung', count($backups->for_product($backup_button->get_id())) === $failed_before);
+
+add_filter('wp_insert_post_empty_content', $refuse = static fn($empty, $data) => $data['post_type'] === NovemberkindProdukte\Backups::POST_TYPE ? true : $empty, 10, 2);
+$blocked = $service->save(ProductType::get('button'), ['sku' => $backup_button->get_sku(), 'motif' => 'Sollte nicht ankommen', 'price' => '4,5', 'stock' => '1'], $backup_button->get_id());
+remove_filter('wp_insert_post_empty_content', $refuse, 10);
+check('ohne Sicherung wird nichts gespeichert', is_wp_error($blocked) && wc_get_product($backup_button->get_id())->get_name() === 'Button: Sicherungstest');
+foreach ($backups->for_product($backup_button->get_id()) as $leftover) {
+    wp_delete_post($leftover->ID, true);
+}
+
 section('Updates aus GitHub-Releases (ohne echte Anfrage)');
 $github = null;
 $fake_github = static function ($pre, array $args, string $url) use (&$github) {

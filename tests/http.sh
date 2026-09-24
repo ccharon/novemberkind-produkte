@@ -95,6 +95,13 @@ check 'gleiche ID nach Ändern' "$(json "d['data']['id']")" "$product_id"
 check 'Ändern mit falscher Produktart abgelehnt' "$(ajax -d action=novemberkind_produkte_save -d "nonce=$nonce" -d type=sticker -d "product_id=$product_id" \
   -d motif=x -d finish=matt -d width=1 -d height=1 -d price=1)" 422
 
+backup_url=$(curl -s -b "$JAR" "$APP/$product_id/" | grep -oP 'href="\K[^"]*admin-post\.php\?action=novemberkind_produkte_backup[^"]*inline=0[^"]*' | head -1 | sed 's/&#038;/\&/g; s/&amp;/\&/g')
+check 'Sicherung im Formular verlinkt' "$([ -n "$backup_url" ] && echo ja)" ja
+check 'Sicherung herunterladen' "$(curl -s -b "$JAR" -o "$TMP/backup.json" -w '%{http_code}' "$backup_url")" 200
+check 'Sicherung enthält den alten Namen' "$(python3 -c "import json; print(json.load(open('$TMP/backup.json'))['product']['name'])")" 'Karte: HTTP-Test'
+check 'Sicherung ohne Nonce abgelehnt' "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$(sed 's/_wpnonce=[^&]*/_wpnonce=falsch/' <<<"$backup_url")")" 403
+check 'Sicherung ohne Anmeldung nicht erreichbar' "$(curl -s -o /dev/null -w '%{http_code}' "$backup_url")" 400
+bin/wp post list --post_type=novemberkind_backup --post_status=private --post_parent="$product_id" --format=ids | xargs -r bin/wp post delete --force >/dev/null
 for id in $product_id $image_id; do bin/wp post delete "$id" --force >/dev/null; done
 
 echo

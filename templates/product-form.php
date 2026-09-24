@@ -12,6 +12,7 @@
  * @var string                   $price
  * @var int[]                    $gallery_ids
  * @var int[]                    $back_images
+ * @var array<int, array{date: string, view: string, download: string}> $backups
  */
 
 declare(strict_types=1);
@@ -309,6 +310,25 @@ $choice = static function (string $name, string $value, string $label, string $c
             <?php if (!$is_new && Originals::is_sold($product)) : ?>
                 <p class="nkp-field__hint"><?php esc_html_e('Verkauft. Das Bild erscheint nicht mehr im Shop, die Seite ist über ihren Link noch erreichbar.', 'novemberkind-produkte'); ?></p>
             <?php endif; ?>
+        </section>
+
+        <section class="nkp-panel" data-nkp-backups <?php echo $is_new ? 'hidden' : ''; ?>>
+            <h2 class="nkp-panel__title"><?php esc_html_e('Sicherungen', 'novemberkind-produkte'); ?></h2>
+            <ul class="nkp-backups" data-nkp-backup-list>
+                <?php foreach ($backups as $backup) : ?>
+                    <li>
+                        <span><?php echo esc_html($backup['date']); ?></span>
+                        <a href="<?php echo esc_url($backup['view']); ?>" target="_blank" rel="noopener"><?php esc_html_e('Ansehen', 'novemberkind-produkte'); ?></a>
+                        <a href="<?php echo esc_url($backup['download']); ?>"><?php esc_html_e('Herunterladen', 'novemberkind-produkte'); ?></a>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+            <p class="nkp-field__hint">
+                <?php
+                /* translators: %d: Anzahl der Sicherungen, die behalten werden */
+                echo esc_html(sprintf(__('Vor jedem Speichern wird der bisherige Stand gesichert. Die neuesten %d bleiben erhalten.', 'novemberkind-produkte'), Backups::KEEP));
+                ?>
+            </p>
         </section>
 
         <button type="submit" class="nkp-button nkp-button--primary nkp-button--block" data-nkp-submit>

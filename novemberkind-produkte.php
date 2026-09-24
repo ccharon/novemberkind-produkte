@@ -34,6 +34,7 @@ require_once __DIR__ . '/includes/class-plugin.php';
 require_once __DIR__ . '/includes/class-admin-page.php';
 require_once __DIR__ . '/includes/class-ajax.php';
 require_once __DIR__ . '/includes/class-app.php';
+require_once __DIR__ . '/includes/class-backups.php';
 require_once __DIR__ . '/includes/class-image-processor.php';
 require_once __DIR__ . '/includes/class-product-service.php';
 require_once __DIR__ . '/includes/class-product-type.php';

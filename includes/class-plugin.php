@@ -19,6 +19,7 @@ final class Plugin
             return;
         }
 
+        (new Backups())->register();
         (new App())->register();
         (new AdminPage())->register();
         (new Ajax())->register();

@@ -63,6 +63,14 @@ final class ProductService
             return new \WP_Error('invalid', __('Bitte prüfe die markierten Felder.', 'novemberkind-produkte'), $errors);
         }
 
+        // Stand vor der Änderung sichern; ohne Sicherung wird nichts geändert
+        if (!$is_new) {
+            $backup = (new Backups())->create($product);
+            if (is_wp_error($backup)) {
+                return $backup;
+            }
+        }
+
         $status = (string) ($data['status'] ?? 'draft');
         if (!in_array($status, self::STATUSES, true)) {
             $status = 'draft';

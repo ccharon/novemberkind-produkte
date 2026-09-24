@@ -140,6 +140,8 @@ final class App
                 'suggest'        => __('Vorschlag holen', 'novemberkind-produkte'),
                 'modeNew'        => __('Die Beschreibung war noch unvollständig. Claude hat sie nach der Vorlage neu geschrieben.', 'novemberkind-produkte'),
                 'modeImproved'   => __('Claude hat deine Beschreibung behutsam überarbeitet.', 'novemberkind-produkte'),
+                'view'           => __('Ansehen', 'novemberkind-produkte'),
+                'download'       => __('Herunterladen', 'novemberkind-produkte'),
                 'resetText'      => __('Deine Änderungen an der Beschreibung gehen dabei verloren. Trotzdem neu erstellen?', 'novemberkind-produkte'),
             ],
         ]);
@@ -255,6 +257,7 @@ final class App
                 static fn(int $id): bool => !$service->is_variation_image($type, $id)
             )) : [],
             'back_images' => $back_images,
+            'backups'     => $product ? (new Backups())->summary($product->get_id()) : [],
         ];
     }
 
