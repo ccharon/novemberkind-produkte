@@ -94,6 +94,16 @@ final class App
         exit;
     }
 
+    /**
+     * Plugin-Version plus Änderungszeit der Datei, damit Browser nach jeder Änderung die neue Fassung laden.
+     */
+    private static function asset_version(string $file): string
+    {
+        $path = dirname(PLUGIN_FILE) . '/' . $file;
+
+        return VERSION . '.' . (is_readable($path) ? (string) filemtime($path) : '0');
+    }
+
     public static function manifest_url(): string
     {
         return self::url() . 'manifest.webmanifest';
@@ -146,7 +156,7 @@ final class App
 
     public function login_style(): void
     {
-        wp_enqueue_style('novemberkind-produkte-login', plugin_dir_url(PLUGIN_FILE) . 'assets/css/login.css', [], VERSION);
+        wp_enqueue_style('novemberkind-produkte-login', plugin_dir_url(PLUGIN_FILE) . 'assets/css/login.css', [], self::asset_version('assets/css/login.css'));
     }
 
     private static function url_for_route(string $route): string
@@ -162,9 +172,9 @@ final class App
     private function render(string $route): void
     {
         $base = plugin_dir_url(PLUGIN_FILE);
-        wp_register_style('novemberkind-produkte-app', $base . 'assets/css/app.css', [], VERSION);
-        wp_register_script('novemberkind-produkte-app', $base . 'assets/js/app.js', [], VERSION, true);
-        wp_register_script('novemberkind-produkte-vine', $base . 'assets/js/vine.js', [], VERSION, true);
+        wp_register_style('novemberkind-produkte-app', $base . 'assets/css/app.css', [], self::asset_version('assets/css/app.css'));
+        wp_register_script('novemberkind-produkte-app', $base . 'assets/js/app.js', [], self::asset_version('assets/js/app.js'), true);
+        wp_register_script('novemberkind-produkte-vine', $base . 'assets/js/vine.js', [], self::asset_version('assets/js/vine.js'), true);
         wp_localize_script('novemberkind-produkte-app', 'novemberkindProdukte', [
             'ajaxUrl'        => admin_url('admin-ajax.php'),
             'nonce'          => wp_create_nonce(Ajax::NONCE),
