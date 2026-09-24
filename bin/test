@@ -26,12 +26,12 @@ else
   echo "  - übersprungen, Node.js nicht installiert"
 fi
 
-bin/wp eval-file wp-content/plugins/easy-product/tests/integration.php || status=1
+bin/wp eval-file wp-content/plugins/novemberkind-produkte/tests/integration.php || status=1
 bash tests/http.sh || status=1
 
 echo
 echo "Debug-Log"
-log=$(docker compose exec -T wordpress sh -c 'cat wp-content/debug.log 2>/dev/null' | grep -i 'easy-product' || true)
+log=$(docker compose exec -T wordpress sh -c 'cat wp-content/debug.log 2>/dev/null' | grep -i 'novemberkind-produkte' || true)
 if [ -z "$log" ]; then echo "  ✓ keine Meldungen aus dem Plugin"; else echo "$log"; status=1; fi
 
 echo

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace EasyProduct;
+namespace NovemberkindProdukte;
 
 use Anthropic\Client;
 use Anthropic\Messages\Base64ImageSource;
@@ -34,18 +34,18 @@ final class Suggestions
     ];
 
     /**
-     * Schlüssel aus der Konstante EASY_PRODUCT_ANTHROPIC_KEY (wp-config.php) oder der gleichnamigen Umgebungsvariable.
+     * Schlüssel aus der Konstante NOVEMBERKIND_PRODUKTE_ANTHROPIC_KEY (wp-config.php) oder der gleichnamigen Umgebungsvariable.
      */
     public static function api_key(): string
     {
-        $key = defined('EASY_PRODUCT_ANTHROPIC_KEY') ? (string) constant('EASY_PRODUCT_ANTHROPIC_KEY') : '';
+        $key = defined('NOVEMBERKIND_PRODUKTE_ANTHROPIC_KEY') ? (string) constant('NOVEMBERKIND_PRODUKTE_ANTHROPIC_KEY') : '';
 
-        return $key !== '' ? $key : (string) getenv('EASY_PRODUCT_ANTHROPIC_KEY');
+        return $key !== '' ? $key : (string) getenv('NOVEMBERKIND_PRODUKTE_ANTHROPIC_KEY');
     }
 
     public static function model(): string
     {
-        return defined('EASY_PRODUCT_ANTHROPIC_MODEL') ? (string) constant('EASY_PRODUCT_ANTHROPIC_MODEL') : self::DEFAULT_MODEL;
+        return defined('NOVEMBERKIND_PRODUKTE_ANTHROPIC_MODEL') ? (string) constant('NOVEMBERKIND_PRODUKTE_ANTHROPIC_MODEL') : self::DEFAULT_MODEL;
     }
 
     public static function is_available(): bool
@@ -71,7 +71,7 @@ final class Suggestions
         $message = $this->user_message($type, $context, $current, $tags, $image_id);
 
         // Tests und andere Plugins können hier eine Antwort liefern, ohne die API aufzurufen
-        $raw = apply_filters('easy_product_pre_suggestion', null, $message, $type);
+        $raw = apply_filters('novemberkind_produkte_pre_suggestion', null, $message, $type);
         if ($raw === null) {
             $raw = $this->call_api($message);
             if (is_wp_error($raw)) {
@@ -141,7 +141,7 @@ final class Suggestions
     private function call_api(array $message): array|\WP_Error
     {
         if (!self::is_available()) {
-            return new \WP_Error('unavailable', __('Für Vorschläge fehlt der API-Schlüssel.', 'easy-product'));
+            return new \WP_Error('unavailable', __('Für Vorschläge fehlt der API-Schlüssel.', 'novemberkind-produkte'));
         }
 
         static $registered = false;
@@ -182,15 +182,15 @@ final class Suggestions
             );
         } catch (\Throwable $error) {
             // Details nur ins Log, die Nutzerin bekommt eine verständliche Meldung
-            error_log('easy-product: Claude API: ' . $error->getMessage()); // phpcs:ignore WordPress.PHP.DevelopmentFunctions
-            return new \WP_Error('api', __('Claude ist gerade nicht erreichbar. Bitte versuch es gleich noch einmal.', 'easy-product'));
+            error_log('novemberkind-produkte: Claude API: ' . $error->getMessage()); // phpcs:ignore WordPress.PHP.DevelopmentFunctions
+            return new \WP_Error('api', __('Claude ist gerade nicht erreichbar. Bitte versuch es gleich noch einmal.', 'novemberkind-produkte'));
         }
 
         if ($response->stopReason === 'refusal') {
-            return new \WP_Error('refusal', __('Claude hat für dieses Produkt keinen Vorschlag erstellt.', 'easy-product'));
+            return new \WP_Error('refusal', __('Claude hat für dieses Produkt keinen Vorschlag erstellt.', 'novemberkind-produkte'));
         }
         if ($response->stopReason === 'max_tokens') {
-            return new \WP_Error('max_tokens', __('Der Vorschlag wurde zu lang und ist unvollständig. Bitte versuch es noch einmal.', 'easy-product'));
+            return new \WP_Error('max_tokens', __('Der Vorschlag wurde zu lang und ist unvollständig. Bitte versuch es noch einmal.', 'novemberkind-produkte'));
         }
 
         foreach ($response->content as $block) {
@@ -202,7 +202,7 @@ final class Suggestions
             }
         }
 
-        return new \WP_Error('format', __('Die Antwort von Claude war unvollständig. Bitte versuch es noch einmal.', 'easy-product'));
+        return new \WP_Error('format', __('Die Antwort von Claude war unvollständig. Bitte versuch es noch einmal.', 'novemberkind-produkte'));
     }
 
     /**
@@ -217,7 +217,7 @@ final class Suggestions
         $title = $type->motif_from_name(sanitize_text_field((string) ($data['title'] ?? '')));
         $html  = wp_kses_post((string) ($data['description'] ?? ''));
         if ($title === '' || trim(wp_strip_all_tags($html)) === '') {
-            return new \WP_Error('format', __('Die Antwort von Claude war unvollständig. Bitte versuch es noch einmal.', 'easy-product'));
+            return new \WP_Error('format', __('Die Antwort von Claude war unvollständig. Bitte versuch es noch einmal.', 'novemberkind-produkte'));
         }
 
         $fixed = array_map('mb_strtolower', $type->tags($context));

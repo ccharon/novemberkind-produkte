@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace EasyProduct;
+namespace NovemberkindProdukte;
 
 defined('ABSPATH') || exit;
 
@@ -45,6 +45,6 @@ final class Originals
 
     public function availability_text(string $text, \WC_Product $product): string
     {
-        return self::is_sold($product) ? __('Verkauft', 'easy-product') : $text;
+        return self::is_sold($product) ? __('Verkauft', 'novemberkind-produkte') : $text;
     }
 }

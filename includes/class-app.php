@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace EasyProduct;
+namespace NovemberkindProdukte;
 
 defined('ABSPATH') || exit;
 
@@ -11,11 +11,11 @@ defined('ABSPATH') || exit;
  */
 final class App
 {
-    public const QUERY_VAR = 'easy_product';
+    public const QUERY_VAR = 'novemberkind_produkte';
 
     public static function path(): string
     {
-        return trim((string) apply_filters('easy_product_path', 'produkte-verwalten'), '/');
+        return trim((string) apply_filters('novemberkind_produkte_path', 'produkte-verwalten'), '/');
     }
 
     public static function url(): string
@@ -53,9 +53,9 @@ final class App
 
         // Regeln neu schreiben, sobald sich Pfad oder Regeln ändern
         $signature = 'v2|' . self::path();
-        if (get_option('easy_product_rewrite') !== $signature) {
+        if (get_option('novemberkind_produkte_rewrite') !== $signature) {
             flush_rewrite_rules(false);
-            update_option('easy_product_rewrite', $signature);
+            update_option('novemberkind_produkte_rewrite', $signature);
         }
     }
 
@@ -74,8 +74,8 @@ final class App
         }
         if (!current_user_can(Plugin::CAPABILITY)) {
             wp_die(
-                esc_html__('Für die Produktverwaltung fehlen dir die Berechtigungen.', 'easy-product'),
-                esc_html__('Keine Berechtigung', 'easy-product'),
+                esc_html__('Für die Produktverwaltung fehlen dir die Berechtigungen.', 'novemberkind-produkte'),
+                esc_html__('Keine Berechtigung', 'novemberkind-produkte'),
                 ['response' => 403, 'back_link' => true]
             );
         }
@@ -103,7 +103,7 @@ final class App
 
     public function login_style(): void
     {
-        wp_enqueue_style('easy-product-login', plugin_dir_url(PLUGIN_FILE) . 'assets/css/login.css', [], VERSION);
+        wp_enqueue_style('novemberkind-produkte-login', plugin_dir_url(PLUGIN_FILE) . 'assets/css/login.css', [], VERSION);
     }
 
     private static function url_for_route(string $route): string
@@ -119,9 +119,9 @@ final class App
     private function render(string $route): void
     {
         $base = plugin_dir_url(PLUGIN_FILE);
-        wp_register_style('easy-product-app', $base . 'assets/css/app.css', [], VERSION);
-        wp_register_script('easy-product-app', $base . 'assets/js/app.js', [], VERSION, true);
-        wp_localize_script('easy-product-app', 'easyProduct', [
+        wp_register_style('novemberkind-produkte-app', $base . 'assets/css/app.css', [], VERSION);
+        wp_register_script('novemberkind-produkte-app', $base . 'assets/js/app.js', [], VERSION, true);
+        wp_localize_script('novemberkind-produkte-app', 'novemberkindProdukte', [
             'ajaxUrl'        => admin_url('admin-ajax.php'),
             'nonce'          => wp_create_nonce(Ajax::NONCE),
             'appUrl'         => self::url(),
@@ -129,35 +129,35 @@ final class App
             'maxWidth'       => ImageProcessor::MAX_WIDTH,
             'suggestions'    => Suggestions::is_available(),
             'i18n'           => [
-                'saving'         => __('Wird gespeichert …', 'easy-product'),
-                'save'           => __('Speichern', 'easy-product'),
-                'waitForUpload'  => __('Einen Moment noch, die Fotos werden gerade hochgeladen.', 'easy-product'),
-                'unreadable'     => __('Dieses Foto kann der Browser nicht öffnen. Bitte als JPEG oder PNG versuchen.', 'easy-product'),
-                'networkError'   => __('Keine Verbindung zum Shop. Bitte prüfe die Internetverbindung und versuche es noch einmal.', 'easy-product'),
-                'loggedOut'      => __('Du bist inzwischen abgemeldet. Bitte lade die Seite neu und melde dich wieder an.', 'easy-product'),
-                'unsaved'        => __('Es gibt ungespeicherte Änderungen.', 'easy-product'),
-                'suggesting'     => __('Claude denkt nach …', 'easy-product'),
-                'suggest'        => __('Vorschlag holen', 'easy-product'),
-                'modeNew'        => __('Die Beschreibung war noch unvollständig. Claude hat sie nach der Vorlage neu geschrieben.', 'easy-product'),
-                'modeImproved'   => __('Claude hat deine Beschreibung behutsam überarbeitet.', 'easy-product'),
-                'resetText'      => __('Deine Änderungen an der Beschreibung gehen dabei verloren. Trotzdem neu erstellen?', 'easy-product'),
+                'saving'         => __('Wird gespeichert …', 'novemberkind-produkte'),
+                'save'           => __('Speichern', 'novemberkind-produkte'),
+                'waitForUpload'  => __('Einen Moment noch, die Fotos werden gerade hochgeladen.', 'novemberkind-produkte'),
+                'unreadable'     => __('Dieses Foto kann der Browser nicht öffnen. Bitte als JPEG oder PNG versuchen.', 'novemberkind-produkte'),
+                'networkError'   => __('Keine Verbindung zum Shop. Bitte prüfe die Internetverbindung und versuche es noch einmal.', 'novemberkind-produkte'),
+                'loggedOut'      => __('Du bist inzwischen abgemeldet. Bitte lade die Seite neu und melde dich wieder an.', 'novemberkind-produkte'),
+                'unsaved'        => __('Es gibt ungespeicherte Änderungen.', 'novemberkind-produkte'),
+                'suggesting'     => __('Claude denkt nach …', 'novemberkind-produkte'),
+                'suggest'        => __('Vorschlag holen', 'novemberkind-produkte'),
+                'modeNew'        => __('Die Beschreibung war noch unvollständig. Claude hat sie nach der Vorlage neu geschrieben.', 'novemberkind-produkte'),
+                'modeImproved'   => __('Claude hat deine Beschreibung behutsam überarbeitet.', 'novemberkind-produkte'),
+                'resetText'      => __('Deine Änderungen an der Beschreibung gehen dabei verloren. Trotzdem neu erstellen?', 'novemberkind-produkte'),
             ],
         ]);
 
-        $title = __('Meine Produkte', 'easy-product');
+        $title = __('Meine Produkte', 'novemberkind-produkte');
         $view  = 'product-form';
         if ($route === 'overview') {
             $view = 'overview';
             $data = $this->overview_data();
         } elseif ($route === 'neu') {
             $view  = 'type-picker';
-            $title = __('Neues Produkt', 'easy-product');
+            $title = __('Neues Produkt', 'novemberkind-produkte');
             $data  = ['types' => ProductType::all()];
         } elseif (str_starts_with($route, 'neu-')) {
             $type = ProductType::get(substr($route, 4));
             $data = $type ? $this->form_data($type) : null;
             /* translators: %s: Produktart, z. B. Button */
-            $title = $type ? sprintf(__('Neu: %s', 'easy-product'), $type->label()) : $title;
+            $title = $type ? sprintf(__('Neu: %s', 'novemberkind-produkte'), $type->label()) : $title;
         } else {
             $product = wc_get_product((int) $route);
             $type    = $product ? ProductType::detect($product) : null;
@@ -196,7 +196,7 @@ final class App
         foreach ($products as $product) {
             $category = self::group_category($product);
             $key      = $category ? $category->slug : '';
-            $groups[$key] ??= ['name' => $category ? $category->name : __('Ohne Kategorie', 'easy-product'), 'products' => []];
+            $groups[$key] ??= ['name' => $category ? $category->name : __('Ohne Kategorie', 'novemberkind-produkte'), 'products' => []];
             $groups[$key]['products'][] = $product;
         }
         uasort($groups, static fn(array $a, array $b): int => strcasecmp($a['name'], $b['name']));

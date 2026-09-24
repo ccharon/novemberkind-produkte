@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace EasyProduct;
+namespace NovemberkindProdukte;
 
 defined('ABSPATH') || exit;
 

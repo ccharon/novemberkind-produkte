@@ -24,7 +24,7 @@ fi
 wp language core install de_DE --activate || true
 wp plugin is-installed woocommerce || wp plugin install woocommerce
 wp plugin is-installed woocommerce-germanized || wp plugin install woocommerce-germanized
-wp plugin activate woocommerce woocommerce-germanized easy-product
+wp plugin activate woocommerce woocommerce-germanized novemberkind-produkte
 wp language plugin install woocommerce woocommerce-germanized de_DE || true
 wp rewrite structure '/%postname%/'
 wp transient delete _wc_gzd_setup_wizard_redirect >/dev/null
@@ -52,7 +52,7 @@ for name in "1-3 Werktage" "3-5 Werktage"; do
   wp term list product_delivery_time --name="$name" --format=count | grep -qx 0 && wp term create product_delivery_time "$name" >/dev/null
 done
 
-wp eval-file wp-content/plugins/easy-product/bin/seed.php
+wp eval-file wp-content/plugins/novemberkind-produkte/bin/seed.php
 
 echo
 echo "Fertig: http://localhost:8888/wp-admin"

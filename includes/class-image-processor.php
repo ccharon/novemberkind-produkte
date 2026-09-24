@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace EasyProduct;
+namespace NovemberkindProdukte;
 
 defined('ABSPATH') || exit;
 
@@ -15,7 +15,7 @@ final class ImageProcessor
     public const MAX_WIDTH = 1024;
     public const QUALITY = 85;
     public const MAX_SOURCE_SIDE = 8000;
-    public const META_UPLOAD = '_easy_product_upload';
+    public const META_UPLOAD = '_novemberkind_produkte_upload';
 
     /**
      * Ob ein Foto über dieses Plugin hochgeladen wurde. Nur solche Fotos darf das Plugin umbenennen.
@@ -59,7 +59,7 @@ final class ImageProcessor
         $size = wp_getimagesize($source);
         if (!$size || max($size[0], $size[1]) > self::MAX_SOURCE_SIDE) {
             wp_delete_file($source);
-            return new \WP_Error('dimensions', __('Das Foto ist zu groß oder beschädigt.', 'easy-product'));
+            return new \WP_Error('dimensions', __('Das Foto ist zu groß oder beschädigt.', 'novemberkind-produkte'));
         }
 
         $webp = $this->convert($source);

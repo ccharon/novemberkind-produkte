@@ -1,39 +1,39 @@
-/* Easy Product, Produktformular: Speichern, Fotos verkleinern und hochladen. */
+/* Novemberkind Produkte, Produktformular: Speichern, Fotos verkleinern und hochladen. */
 (() => {
 	'use strict';
 
 	// Zugeklappte Kategorien der Übersicht merken. Ist der Speicher im Browser gesperrt, bleibt alles offen.
-	const groups = document.querySelectorAll('[data-ep-group]');
+	const groups = document.querySelectorAll('[data-nkp-group]');
 	let collapsed = [];
 	try {
-		collapsed = JSON.parse(window.localStorage.getItem('epCollapsedGroups') || '[]');
+		collapsed = JSON.parse(window.localStorage.getItem('nkpCollapsedGroups') || '[]');
 	} catch {
 		// Speicher gesperrt, z. B. im privaten Modus
 	}
 	groups.forEach((group) => {
-		group.open = !collapsed.includes(group.dataset.epGroup);
+		group.open = !collapsed.includes(group.dataset.nkpGroup);
 		group.addEventListener('toggle', () => {
-			const closed = [...groups].filter((g) => !g.open).map((g) => g.dataset.epGroup);
+			const closed = [...groups].filter((g) => !g.open).map((g) => g.dataset.nkpGroup);
 			try {
-				window.localStorage.setItem('epCollapsedGroups', JSON.stringify(closed));
+				window.localStorage.setItem('nkpCollapsedGroups', JSON.stringify(closed));
 			} catch {
 				// siehe oben
 			}
 		});
 	});
 
-	const config = window.easyProduct;
-	const form = document.querySelector('[data-ep-form]');
+	const config = window.novemberkindProdukte;
+	const form = document.querySelector('[data-nkp-form]');
 	if (!config || !form) {
 		return;
 	}
 
 	const { i18n } = config;
-	const submitButton = form.querySelector('[data-ep-submit]');
-	const toast = document.querySelector('[data-ep-toast]');
-	const gallery = form.querySelector('[data-ep-gallery]');
-	const galleryAdd = form.querySelector('[data-ep-gallery-add]');
-	const galleryTemplate = document.querySelector('[data-ep-gallery-item]');
+	const submitButton = form.querySelector('[data-nkp-submit]');
+	const toast = document.querySelector('[data-nkp-toast]');
+	const gallery = form.querySelector('[data-nkp-gallery]');
+	const galleryAdd = form.querySelector('[data-nkp-gallery-add]');
+	const galleryTemplate = document.querySelector('[data-nkp-gallery-item]');
 
 	let dirty = false;
 	let pendingUploads = 0;
@@ -44,7 +44,7 @@
 	let toastTimer;
 	function showToast(message, type = 'success') {
 		toast.textContent = message;
-		toast.className = `ep-toast ep-toast--${type}`;
+		toast.className = `nkp-toast nkp-toast--${type}`;
 		toast.hidden = false;
 		clearTimeout(toastTimer);
 		toastTimer = setTimeout(() => { toast.hidden = true; }, type === 'error' ? 8000 : 4000);
@@ -156,7 +156,7 @@
 	}
 
 	async function uploadInto(photo, file) {
-		const image = photo.querySelector('.ep-photo__image');
+		const image = photo.querySelector('.nkp-photo__image');
 		const idInput = photo.querySelector('input[type="hidden"]');
 		const previousSrc = image.getAttribute('src');
 		const hadImage = photo.classList.contains('has-image');
@@ -172,7 +172,7 @@
 			const { blob, name } = await resize(file);
 			const body = new FormData();
 			body.append('file', blob, name);
-			const data = await post('easy_product_upload', body);
+			const data = await post('novemberkind_produkte_upload', body);
 			idInput.value = data.id;
 			image.src = data.url;
 			markDirty();
@@ -206,15 +206,15 @@
 		if (images.length === 0) {
 			return;
 		}
-		if (dropzone.hasAttribute('data-ep-gallery-add')) {
+		if (dropzone.hasAttribute('data-nkp-gallery-add')) {
 			addGalleryPhotos(images);
 		} else {
-			uploadInto(dropzone.closest('.ep-photo'), images[0]);
+			uploadInto(dropzone.closest('.nkp-photo'), images[0]);
 		}
 	}
 
-	form.querySelectorAll('[data-ep-dropzone]').forEach((dropzone) => {
-		const input = dropzone.querySelector('[data-ep-file]');
+	form.querySelectorAll('[data-nkp-dropzone]').forEach((dropzone) => {
+		const input = dropzone.querySelector('[data-nkp-file]');
 		input.addEventListener('change', () => {
 			handleFiles(dropzone, input.files);
 			input.value = '';
@@ -233,15 +233,15 @@
 	});
 
 	form.addEventListener('click', (event) => {
-		const remove = event.target.closest('[data-ep-remove]');
+		const remove = event.target.closest('[data-nkp-remove]');
 		if (!remove) {
 			return;
 		}
-		const photo = remove.closest('.ep-photo');
-		if (photo.hasAttribute('data-ep-main-photo')) {
+		const photo = remove.closest('.nkp-photo');
+		if (photo.hasAttribute('data-nkp-main-photo')) {
 			photo.classList.remove('has-image');
 			photo.querySelector('input[type="hidden"]').value = '';
-			photo.querySelector('.ep-photo__image').hidden = true;
+			photo.querySelector('.nkp-photo__image').hidden = true;
 		} else {
 			photo.remove();
 		}
@@ -258,11 +258,11 @@
 
 	// Vorschau, wie das Produkt im Shop heißen wird
 	const motifInput = form.elements.motif;
-	const namePreview = form.querySelector('[data-ep-name-preview]');
+	const namePreview = form.querySelector('[data-nkp-name-preview]');
 	motifInput?.addEventListener('input', () => {
 		const motif = motifInput.value.trim();
 		namePreview.hidden = motif === '';
-		namePreview.querySelector('strong').textContent = motifInput.dataset.epNamePattern.replace('%s', motif);
+		namePreview.querySelector('strong').textContent = motifInput.dataset.nkpNamePattern.replace('%s', motif);
 	});
 	form.addEventListener('change', markDirty);
 
@@ -276,11 +276,11 @@
 	function applySaved(data) {
 		form.elements.product_id.value = data.id;
 
-		const title = document.querySelector('[data-ep-title]');
+		const title = document.querySelector('[data-nkp-title]');
 		title.textContent = data.name;
 		document.title = document.title.replace(/^.*?(?= · )/, data.name);
 
-		const viewLink = document.querySelector('[data-ep-view-link]');
+		const viewLink = document.querySelector('[data-nkp-view-link]');
 		if (data.viewUrl) {
 			viewLink.href = data.viewUrl;
 			viewLink.hidden = false;
@@ -291,8 +291,8 @@
 
 	// ---------------------------------------------------------------- Beschreibung
 
-	const description = form.querySelector('[data-ep-description]');
-	const editor = form.querySelector('[data-ep-editor]');
+	const description = form.querySelector('[data-nkp-description]');
+	const editor = form.querySelector('[data-nkp-editor]');
 	let previewTimer;
 	let previewRequest = 0;
 
@@ -307,7 +307,7 @@
 		}
 		const request = ++previewRequest;
 		try {
-			const data = await post('easy_product_preview', new FormData(form));
+			const data = await post('novemberkind_produkte_preview', new FormData(form));
 			// Nur die Antwort auf die letzte Anfrage zählt, und nur ohne eigene Änderung dazwischen
 			if (request === previewRequest && description.dataset.custom !== '1') {
 				editor.innerHTML = data.html;
@@ -326,16 +326,16 @@
 		document.execCommand('insertText', false, event.clipboardData.getData('text/plain'));
 	});
 
-	form.querySelectorAll('[data-ep-command]').forEach((button) => {
+	form.querySelectorAll('[data-nkp-command]').forEach((button) => {
 		// mousedown statt click, damit die Markierung im Text erhalten bleibt
 		button.addEventListener('mousedown', (event) => {
 			event.preventDefault();
-			document.execCommand(button.dataset.epCommand);
+			document.execCommand(button.dataset.nkpCommand);
 			editor.dispatchEvent(new Event('input', { bubbles: true }));
 		});
 	});
 
-	form.querySelector('[data-ep-description-reset]').addEventListener('click', () => {
+	form.querySelector('[data-nkp-description-reset]').addEventListener('click', () => {
 		if (description.dataset.custom === '1' && !window.confirm(i18n.resetText)) {
 			return;
 		}
@@ -345,7 +345,7 @@
 	});
 
 	function scheduleRefresh(event) {
-		if (event.target.closest('[data-ep-editor]') || event.target.type === 'file') {
+		if (event.target.closest('[data-nkp-editor]') || event.target.type === 'file') {
 			return;
 		}
 		clearTimeout(previewTimer);
@@ -357,8 +357,8 @@
 
 	// ---------------------------------------------------------------- Vorschlag von Claude
 
-	const suggestButton = form.querySelector('[data-ep-suggest]');
-	const dialog = document.querySelector('[data-ep-suggestion]');
+	const suggestButton = form.querySelector('[data-nkp-suggest]');
+	const dialog = document.querySelector('[data-nkp-suggestion]');
 	let suggestion = null;
 
 	suggestButton?.addEventListener('click', async () => {
@@ -370,19 +370,19 @@
 		suggestButton.textContent = i18n.suggesting;
 		try {
 			form.elements.description.value = editor.innerHTML;
-			suggestion = await post('easy_product_suggest', new FormData(form));
-			dialog.querySelector('[data-ep-suggestion-mode]').textContent = suggestion.mode === 'neu' ? i18n.modeNew : i18n.modeImproved;
-			dialog.querySelector('[data-ep-suggestion-title]').textContent = suggestion.title;
-			const chips = dialog.querySelector('[data-ep-suggestion-tags]');
+			suggestion = await post('novemberkind_produkte_suggest', new FormData(form));
+			dialog.querySelector('[data-nkp-suggestion-mode]').textContent = suggestion.mode === 'neu' ? i18n.modeNew : i18n.modeImproved;
+			dialog.querySelector('[data-nkp-suggestion-title]').textContent = suggestion.title;
+			const chips = dialog.querySelector('[data-nkp-suggestion-tags]');
 			chips.replaceChildren(...suggestion.tags.map((tag) => {
 				const chip = document.createElement('span');
-				chip.className = 'ep-chip';
+				chip.className = 'nkp-chip';
 				chip.textContent = tag;
 				return chip;
 			}));
 			// Vom Server mit wp_kses_post bereinigt
-			dialog.querySelector('[data-ep-suggestion-description]').innerHTML = suggestion.description;
-			dialog.querySelectorAll('[data-ep-take]').forEach((box) => { box.checked = true; });
+			dialog.querySelector('[data-nkp-suggestion-description]').innerHTML = suggestion.description;
+			dialog.querySelectorAll('[data-nkp-take]').forEach((box) => { box.checked = true; });
 			dialog.showModal();
 		} catch (error) {
 			showToast(error.message, 'error');
@@ -396,7 +396,7 @@
 		if (dialog.returnValue !== 'apply' || !suggestion) {
 			return;
 		}
-		const take = (part) => dialog.querySelector(`[data-ep-take="${part}"]`).checked;
+		const take = (part) => dialog.querySelector(`[data-nkp-take="${part}"]`).checked;
 		if (take('description')) {
 			setCustom(true);
 			editor.innerHTML = suggestion.description;
@@ -429,7 +429,7 @@
 
 		try {
 			form.elements.description.value = editor.innerHTML;
-			const data = await post('easy_product_save', new FormData(form));
+			const data = await post('novemberkind_produkte_save', new FormData(form));
 			dirty = false;
 			applySaved(data);
 			showToast(data.message);

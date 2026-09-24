@@ -9,7 +9,7 @@
 
 declare(strict_types=1);
 
-namespace EasyProduct;
+namespace NovemberkindProdukte;
 
 defined('ABSPATH') || exit;
 
@@ -25,26 +25,26 @@ $shop_name = get_bloginfo('name');
     <?php if (has_site_icon()) : ?>
         <link rel="icon" href="<?php echo esc_url(get_site_icon_url(64)); ?>">
     <?php endif; ?>
-    <?php wp_print_styles('easy-product-app'); ?>
+    <?php wp_print_styles('novemberkind-produkte-app'); ?>
 </head>
-<body class="ep-page">
-    <header class="ep-topbar">
-        <a class="ep-topbar__brand" href="<?php echo esc_url(App::url()); ?>"><?php echo esc_html($shop_name); ?></a>
-        <nav class="ep-topbar__nav">
-            <a href="<?php echo esc_url(home_url('/')); ?>" target="_blank" rel="noopener"><?php esc_html_e('Zum Shop', 'easy-product'); ?></a>
-            <a href="<?php echo esc_url(wp_logout_url(App::url())); ?>"><?php esc_html_e('Abmelden', 'easy-product'); ?></a>
+<body class="nkp-page">
+    <header class="nkp-topbar">
+        <a class="nkp-topbar__brand" href="<?php echo esc_url(App::url()); ?>"><?php echo esc_html($shop_name); ?></a>
+        <nav class="nkp-topbar__nav">
+            <a href="<?php echo esc_url(home_url('/')); ?>" target="_blank" rel="noopener"><?php esc_html_e('Zum Shop', 'novemberkind-produkte'); ?></a>
+            <a href="<?php echo esc_url(wp_logout_url(App::url())); ?>"><?php esc_html_e('Abmelden', 'novemberkind-produkte'); ?></a>
         </nav>
     </header>
 
-    <main class="ep-wrap">
+    <main class="nkp-wrap">
         <?php if ($view === 'not-found') : ?>
-            <a class="ep-back" href="<?php echo esc_url(App::url()); ?>"><?php esc_html_e('← Alle Produkte', 'easy-product'); ?></a>
-            <p class="ep-empty"><?php esc_html_e('Dieses Produkt gibt es nicht mehr.', 'easy-product'); ?></p>
+            <a class="nkp-back" href="<?php echo esc_url(App::url()); ?>"><?php esc_html_e('← Alle Produkte', 'novemberkind-produkte'); ?></a>
+            <p class="nkp-empty"><?php esc_html_e('Dieses Produkt gibt es nicht mehr.', 'novemberkind-produkte'); ?></p>
         <?php else : ?>
             <?php include __DIR__ . "/{$view}.php"; ?>
         <?php endif; ?>
     </main>
 
-    <?php wp_print_scripts('easy-product-app'); ?>
+    <?php wp_print_scripts('novemberkind-produkte-app'); ?>
 </body>
 </html>

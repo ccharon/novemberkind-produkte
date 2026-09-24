@@ -5,10 +5,10 @@
  * Aufruf über bin/setup (wp eval-file). Läuft nur, wenn es noch keine Produkte gibt.
  */
 
-use EasyProduct\ImageProcessor;
-use EasyProduct\ProductService;
-use EasyProduct\ProductType;
-use EasyProduct\ShopData;
+use NovemberkindProdukte\ImageProcessor;
+use NovemberkindProdukte\ProductService;
+use NovemberkindProdukte\ProductType;
+use NovemberkindProdukte\ShopData;
 
 defined('ABSPATH') || exit(1);
 

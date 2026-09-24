@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace EasyProduct;
+namespace NovemberkindProdukte;
 
 defined('ABSPATH') || exit;
 
@@ -11,7 +11,7 @@ defined('ABSPATH') || exit;
  */
 final class AdminPage
 {
-    public const SLUG = 'easy-product';
+    public const SLUG = 'novemberkind-produkte';
 
     public function register(): void
     {
@@ -21,8 +21,8 @@ final class AdminPage
     public function add_menu(): void
     {
         $hook_suffix = add_menu_page(
-            __('Meine Produkte', 'easy-product'),
-            __('Meine Produkte', 'easy-product'),
+            __('Meine Produkte', 'novemberkind-produkte'),
+            __('Meine Produkte', 'novemberkind-produkte'),
             Plugin::CAPABILITY,
             self::SLUG,
             '__return_null',

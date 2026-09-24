@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Plugin Name:          Easy Product
+ * Plugin Name:          Novemberkind Produkte
  * Description:          Einfache Produktverwaltung für WooCommerce: Übersicht, Anlegen und Bearbeiten mit automatischer Bildverkleinerung.
  * Version:              0.1.0
  * Requires at least:    6.5
@@ -12,13 +12,13 @@
  * Author:               Christian Charon
  * License:              GPL-2.0-or-later
  * License URI:          https://www.gnu.org/licenses/gpl-2.0.html
- * Update URI:           https://github.com/ccharon/easy-product
- * Text Domain:          easy-product
+ * Update URI:           https://github.com/ccharon/novemberkind-produkte
+ * Text Domain:          novemberkind-produkte
  */
 
 declare(strict_types=1);
 
-namespace EasyProduct;
+namespace NovemberkindProdukte;
 
 defined('ABSPATH') || exit;
 

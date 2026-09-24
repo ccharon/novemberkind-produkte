@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace EasyProduct;
+namespace NovemberkindProdukte;
 
 defined('ABSPATH') || exit;
 
@@ -12,9 +12,9 @@ defined('ABSPATH') || exit;
  */
 final class ProductType
 {
-    public const META_TYPE = '_easy_product_type';
-    public const META_CONTEXT = '_easy_product_context';
-    public const META_CUSTOM_DESCRIPTION = '_easy_product_custom_description';
+    public const META_TYPE = '_novemberkind_produkte_type';
+    public const META_CONTEXT = '_novemberkind_produkte_context';
+    public const META_CUSTOM_DESCRIPTION = '_novemberkind_produkte_custom_description';
 
     public const TECHNIQUES = ['Aquarell', 'Tusche', 'Bleistift', 'Buntstift', 'Mischtechnik'];
 
@@ -34,7 +34,7 @@ final class ProductType
     public static function all(): array
     {
         if (self::$types === null) {
-            $config = (array) apply_filters('easy_product_types', require __DIR__ . '/product-types.php');
+            $config = (array) apply_filters('novemberkind_produkte_types', require __DIR__ . '/product-types.php');
             self::$types = [];
             foreach ($config as $key => $type) {
                 self::$types[$key] = new self($key, $type);
@@ -164,8 +164,8 @@ final class ProductType
 
         if ($context['motif'] === '') {
             $errors['motif'] = $this->is_unique()
-                ? __('Bitte gib dem Bild einen Titel.', 'easy-product')
-                : __('Bitte gib den Namen des Motivs ein.', 'easy-product');
+                ? __('Bitte gib dem Bild einen Titel.', 'novemberkind-produkte')
+                : __('Bitte gib den Namen des Motivs ein.', 'novemberkind-produkte');
         }
 
         foreach ($this->fields() as $field) {
@@ -173,23 +173,23 @@ final class ProductType
                 case 'format':
                     $context['format'] = $value('format');
                     if (!in_array($context['format'], ['quer', 'hoch'], true)) {
-                        $errors['format'] = __('Bitte wähle Hoch- oder Querformat.', 'easy-product');
+                        $errors['format'] = __('Bitte wähle Hoch- oder Querformat.', 'novemberkind-produkte');
                     }
                     break;
 
                 case 'finish':
                     $context['finish'] = $value('finish');
                     if (!in_array($context['finish'], ['matt', 'glaenzend'], true)) {
-                        $errors['finish'] = __('Bitte wähle matt oder glänzend.', 'easy-product');
+                        $errors['finish'] = __('Bitte wähle matt oder glänzend.', 'novemberkind-produkte');
                     }
                     break;
 
                 case 'size':
-                    foreach (['width' => __('Breite', 'easy-product'), 'height' => __('Höhe', 'easy-product')] as $key => $label) {
+                    foreach (['width' => __('Breite', 'novemberkind-produkte'), 'height' => __('Höhe', 'novemberkind-produkte')] as $key => $label) {
                         $number = self::parse_number($value($key));
                         if ($number === null) {
                             /* translators: %s: Breite oder Höhe */
-                            $errors[$key] = sprintf(__('Bitte gib die %s in cm ein, z. B. 7,5.', 'easy-product'), $label);
+                            $errors[$key] = sprintf(__('Bitte gib die %s in cm ein, z. B. 7,5.', 'novemberkind-produkte'), $label);
                         }
                         $context[$key] = (string) $number;
                     }
@@ -198,28 +198,28 @@ final class ProductType
                 case 'bookmark_width':
                     $context['width'] = $value('width');
                     if (!in_array($context['width'], ['5', '7'], true)) {
-                        $errors['width'] = __('Bitte wähle die Breite.', 'easy-product');
+                        $errors['width'] = __('Bitte wähle die Breite.', 'novemberkind-produkte');
                     }
                     break;
 
                 case 'technique':
                     $context['technique'] = $value('technique');
                     if (!in_array($context['technique'], self::TECHNIQUES, true)) {
-                        $errors['technique'] = __('Bitte wähle die Technik.', 'easy-product');
+                        $errors['technique'] = __('Bitte wähle die Technik.', 'novemberkind-produkte');
                     }
                     break;
 
                 case 'year':
                     $context['year'] = $value('year');
                     if (!preg_match('/^(19|20)\d\d$/', $context['year']) || (int) $context['year'] > (int) gmdate('Y')) {
-                        $errors['year'] = __('Bitte gib das Jahr vierstellig ein, z. B. 2026.', 'easy-product');
+                        $errors['year'] = __('Bitte gib das Jahr vierstellig ein, z. B. 2026.', 'novemberkind-produkte');
                     }
                     break;
 
                 case 'text':
                     $context['text'] = trim(sanitize_textarea_field(wp_unslash((string) ($input['text'] ?? ''))));
                     if ($context['text'] === '') {
-                        $errors['text'] = __('Bitte beschreibe das Bild mit ein paar Sätzen.', 'easy-product');
+                        $errors['text'] = __('Bitte beschreibe das Bild mit ein paar Sätzen.', 'novemberkind-produkte');
                     }
                     break;
             }

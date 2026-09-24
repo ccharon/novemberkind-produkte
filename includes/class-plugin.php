@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace EasyProduct;
+namespace NovemberkindProdukte;
 
 defined('ABSPATH') || exit;
 
@@ -25,7 +25,7 @@ final class Plugin
 
     public static function activate(): void
     {
-        update_option('easy_product_webp_supported', self::webp_supported() ? 'yes' : 'no');
+        update_option('novemberkind_produkte_webp_supported', self::webp_supported() ? 'yes' : 'no');
     }
 
     public static function webp_supported(): bool
@@ -44,7 +44,7 @@ final class Plugin
 
         printf(
             '<div class="notice notice-error"><p>%s</p></div>',
-            esc_html__('Easy Product: Der Server kann keine WebP-Bilder erzeugen. Bitte beim Hoster die GD- oder Imagick-Erweiterung mit WebP-Unterstützung aktivieren lassen.', 'easy-product')
+            esc_html__('Novemberkind Produkte: Der Server kann keine WebP-Bilder erzeugen. Bitte beim Hoster die GD- oder Imagick-Erweiterung mit WebP-Unterstützung aktivieren lassen.', 'novemberkind-produkte')
         );
     }
 }

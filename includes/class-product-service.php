@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace EasyProduct;
+namespace NovemberkindProdukte;
 
 defined('ABSPATH') || exit;
 
@@ -25,10 +25,10 @@ final class ProductService
         } else {
             $product = wc_get_product($product_id);
             if (!$product instanceof \WC_Product) {
-                return new \WP_Error('not_found', __('Dieses Produkt gibt es nicht mehr.', 'easy-product'));
+                return new \WP_Error('not_found', __('Dieses Produkt gibt es nicht mehr.', 'novemberkind-produkte'));
             }
             if (ProductType::detect($product)?->key() !== $type->key()) {
-                return new \WP_Error('wrong_type', __('Dieses Produkt passt nicht zur gewählten Produktart.', 'easy-product'));
+                return new \WP_Error('wrong_type', __('Dieses Produkt passt nicht zur gewählten Produktart.', 'novemberkind-produkte'));
             }
         }
 
@@ -36,31 +36,31 @@ final class ProductService
 
         $sku = strtoupper(trim(sanitize_text_field((string) ($data['sku'] ?? ''))));
         if (!preg_match('/^A\d{6}$/', $sku)) {
-            $errors['sku'] = __('Bitte gib die Artikelnummer im Format A000123 ein.', 'easy-product');
+            $errors['sku'] = __('Bitte gib die Artikelnummer im Format A000123 ein.', 'novemberkind-produkte');
         } else {
             $owner = wc_get_product_id_by_sku($sku);
             if ($owner && $owner !== $product->get_id()) {
                 /* translators: 1: Artikelnummer, 2: Produktname */
-                $errors['sku'] = sprintf(__('Die Artikelnummer %1$s gehört schon zu „%2$s“.', 'easy-product'), $sku, get_the_title($owner));
+                $errors['sku'] = sprintf(__('Die Artikelnummer %1$s gehört schon zu „%2$s“.', 'novemberkind-produkte'), $sku, get_the_title($owner));
             }
         }
 
         $price = self::parse_price((string) ($data['price'] ?? ''));
         if ($price === null) {
-            $errors['price'] = __('Bitte gib einen Preis ein, z. B. 24,90.', 'easy-product');
+            $errors['price'] = __('Bitte gib einen Preis ein, z. B. 24,90.', 'novemberkind-produkte');
         }
 
         $stock = null;
         if (!$type->is_unique()) {
             $stock_raw = trim((string) ($data['stock'] ?? ''));
             if ($stock_raw !== '' && !ctype_digit($stock_raw)) {
-                $errors['stock'] = __('Der Lagerbestand muss eine ganze Zahl ab 0 sein.', 'easy-product');
+                $errors['stock'] = __('Der Lagerbestand muss eine ganze Zahl ab 0 sein.', 'novemberkind-produkte');
             }
             $stock = $stock_raw === '' ? null : (int) $stock_raw;
         }
 
         if ($errors !== []) {
-            return new \WP_Error('invalid', __('Bitte prüfe die markierten Felder.', 'easy-product'), $errors);
+            return new \WP_Error('invalid', __('Bitte prüfe die markierten Felder.', 'novemberkind-produkte'), $errors);
         }
 
         $status = (string) ($data['status'] ?? 'draft');

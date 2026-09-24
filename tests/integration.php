@@ -5,11 +5,11 @@
  * Aufruf über bin/test (führt `wp eval-file` aus). Räumt alle angelegten Daten wieder auf.
  */
 
-use EasyProduct\ImageProcessor;
-use EasyProduct\Originals;
-use EasyProduct\ProductService;
-use EasyProduct\ProductType;
-use EasyProduct\ShopData;
+use NovemberkindProdukte\ImageProcessor;
+use NovemberkindProdukte\Originals;
+use NovemberkindProdukte\ProductService;
+use NovemberkindProdukte\ProductType;
+use NovemberkindProdukte\ShopData;
 
 defined('ABSPATH') || exit(1);
 
@@ -29,7 +29,7 @@ function section(string $title): void
 
 function make_png(int $width, int $height): string
 {
-    $path  = wp_tempnam('ep-test') . '.png';
+    $path  = wp_tempnam('nkp-test') . '.png';
     $image = imagecreatetruecolor($width, $height);
     imagefill($image, 0, 0, imagecolorallocate($image, 176, 85, 58));
     imagepng($image, $path);
@@ -292,7 +292,7 @@ $cleanup['products'][] = $variable_card->get_id();
 check('Karte mit Varianten hat keine Vorlage', ProductType::detect($variable_card) === null);
 
 section('Vorschläge von Claude (ohne API-Aufruf)');
-$suggestions = new EasyProduct\Suggestions();
+$suggestions = new NovemberkindProdukte\Suggestions();
 $sent = null;
 $fake = static function ($pre, array $message) use (&$sent) {
     $sent = $message;
@@ -303,12 +303,12 @@ $fake = static function ($pre, array $message) use (&$sent) {
         'tags'        => ['Eule', 'Vinyl', 'nacht', 'eule', 'Sticker'],
     ];
 };
-add_filter('easy_product_pre_suggestion', $fake, 10, 2);
+add_filter('novemberkind_produkte_pre_suggestion', $fake, 10, 2);
 $result = $suggestions->suggest(ProductType::get('sticker'), [
     'motif' => 'Eule', 'finish' => 'matt', 'width' => '7,5', 'height' => '6',
     'description' => '<p>eule, nachts, niedlich</p>', 'tags' => 'eule', 'image_id' => (string) $image_id,
 ]);
-remove_filter('easy_product_pre_suggestion', $fake, 10);
+remove_filter('novemberkind_produkte_pre_suggestion', $fake, 10);
 check('Vorschlag geliefert', is_array($result));
 check('Titel ohne Produktart', $result['title'] === 'Eule Emma');
 check('Beschreibung ohne Skript', !str_contains($result['description'], 'script') && str_contains($result['description'], '<strong>Eule</strong>'));
@@ -318,9 +318,9 @@ check('Anfrage enthält das Foto als WebP', is_string($sent['image']) && $sent['
 check('Systemprompt mit Shopname', str_contains($suggestions->system_prompt(), '„' . get_bloginfo('name') . '“'));
 
 $empty = static fn() => ['mode' => 'verbessert', 'title' => '', 'description' => '', 'tags' => []];
-add_filter('easy_product_pre_suggestion', $empty);
+add_filter('novemberkind_produkte_pre_suggestion', $empty);
 check('leere Antwort wird abgelehnt', is_wp_error($suggestions->suggest(ProductType::get('card'), ['motif' => 'x'])));
-remove_filter('easy_product_pre_suggestion', $empty);
+remove_filter('novemberkind_produkte_pre_suggestion', $empty);
 
 foreach (['Sticker Set: Wolken im Kopf' => ['Physische Produkte', 'Sticker'], 'Kartenset: Wolken im Kopf' => ['Physische Produkte', 'Karten']] as $set_name => $set_category) {
     $set = new WC_Product_Simple();
@@ -380,9 +380,9 @@ $spy = static function ($pre, array $message) use (&$sent_image) {
     $sent_image = $message['image'];
     return ['mode' => 'neu', 'title' => 'x', 'description' => '<p>x</p>', 'tags' => []];
 };
-add_filter('easy_product_pre_suggestion', $spy, 10, 2);
+add_filter('novemberkind_produkte_pre_suggestion', $spy, 10, 2);
 $suggestions->suggest(ProductType::get('card'), ['motif' => 'x', 'image_id' => (string) $foreign]);
-remove_filter('easy_product_pre_suggestion', $spy, 10);
+remove_filter('novemberkind_produkte_pre_suggestion', $spy, 10);
 check('fremdes Medium geht nicht an Claude', $sent_image === null);
 
 $huge = $processor->import(make_png(9000, 10));

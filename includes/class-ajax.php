@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace EasyProduct;
+namespace NovemberkindProdukte;
 
 defined('ABSPATH') || exit;
 
@@ -11,14 +11,14 @@ defined('ABSPATH') || exit;
  */
 final class Ajax
 {
-    public const NONCE = 'easy_product';
+    public const NONCE = 'novemberkind_produkte';
 
     public function register(): void
     {
-        add_action('wp_ajax_easy_product_save', [$this, 'save']);
-        add_action('wp_ajax_easy_product_upload', [$this, 'upload']);
-        add_action('wp_ajax_easy_product_preview', [$this, 'preview']);
-        add_action('wp_ajax_easy_product_suggest', [$this, 'suggest']);
+        add_action('wp_ajax_novemberkind_produkte_save', [$this, 'save']);
+        add_action('wp_ajax_novemberkind_produkte_upload', [$this, 'upload']);
+        add_action('wp_ajax_novemberkind_produkte_preview', [$this, 'preview']);
+        add_action('wp_ajax_novemberkind_produkte_suggest', [$this, 'suggest']);
     }
 
     public function save(): void
@@ -28,13 +28,13 @@ final class Ajax
         // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
         $product_id = absint($_POST['product_id'] ?? 0);
         if ($product_id && !current_user_can('edit_post', $product_id)) {
-            wp_send_json_error(['message' => __('Dafür fehlen dir die Berechtigungen.', 'easy-product')], 403);
+            wp_send_json_error(['message' => __('Dafür fehlen dir die Berechtigungen.', 'novemberkind-produkte')], 403);
         }
 
         // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
         $type = ProductType::get(sanitize_key($_POST['type'] ?? ''));
         if (!$type) {
-            wp_send_json_error(['message' => __('Unbekannte Produktart.', 'easy-product')], 400);
+            wp_send_json_error(['message' => __('Unbekannte Produktart.', 'novemberkind-produkte')], 400);
         }
 
         // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
@@ -51,8 +51,8 @@ final class Ajax
             'name'    => $result->get_name(),
             'status'  => $result->get_status(),
             'message' => $result->get_status() === 'publish'
-                ? __('Gespeichert. Das Produkt ist jetzt im Shop zu sehen.', 'easy-product')
-                : __('Als Entwurf gespeichert.', 'easy-product'),
+                ? __('Gespeichert. Das Produkt ist jetzt im Shop zu sehen.', 'novemberkind-produkte')
+                : __('Als Entwurf gespeichert.', 'novemberkind-produkte'),
             'viewUrl' => get_permalink($result->get_id()),
         ]);
     }
@@ -67,7 +67,7 @@ final class Ajax
         // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
         $type = ProductType::get(sanitize_key($_POST['type'] ?? ''));
         if (!$type) {
-            wp_send_json_error(['message' => __('Unbekannte Produktart.', 'easy-product')], 400);
+            wp_send_json_error(['message' => __('Unbekannte Produktart.', 'novemberkind-produkte')], 400);
         }
 
         // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
@@ -85,7 +85,7 @@ final class Ajax
         // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
         $type = ProductType::get(sanitize_key($_POST['type'] ?? ''));
         if (!$type) {
-            wp_send_json_error(['message' => __('Unbekannte Produktart.', 'easy-product')], 400);
+            wp_send_json_error(['message' => __('Unbekannte Produktart.', 'novemberkind-produkte')], 400);
         }
 
         if (function_exists('set_time_limit')) {
@@ -107,7 +107,7 @@ final class Ajax
 
         // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
         if (empty($_FILES['file'])) {
-            wp_send_json_error(['message' => __('Es wurde kein Foto übertragen.', 'easy-product')], 400);
+            wp_send_json_error(['message' => __('Es wurde kein Foto übertragen.', 'novemberkind-produkte')], 400);
         }
 
         // phpcs:ignore WordPress.Security.ValidatedSanitizedInput, WordPress.Security.NonceVerification.Missing -- wp_handle_upload prüft die Datei, authorize() die Nonce
@@ -116,7 +116,7 @@ final class Ajax
             wp_send_json_error([
                 'message' => sprintf(
                     /* translators: %s: technische Fehlermeldung */
-                    __('Das Foto konnte nicht gespeichert werden (%s).', 'easy-product'),
+                    __('Das Foto konnte nicht gespeichert werden (%s).', 'novemberkind-produkte'),
                     $result->get_error_message()
                 ),
             ], 500);
@@ -131,12 +131,12 @@ final class Ajax
     private function authorize(string ...$extra_caps): void
     {
         if (!check_ajax_referer(self::NONCE, 'nonce', false)) {
-            wp_send_json_error(['message' => __('Die Sitzung ist abgelaufen. Bitte lade die Seite neu.', 'easy-product')], 403);
+            wp_send_json_error(['message' => __('Die Sitzung ist abgelaufen. Bitte lade die Seite neu.', 'novemberkind-produkte')], 403);
         }
 
         foreach ([Plugin::CAPABILITY, ...$extra_caps] as $cap) {
             if (!current_user_can($cap)) {
-                wp_send_json_error(['message' => __('Dafür fehlen dir die Berechtigungen.', 'easy-product')], 403);
+                wp_send_json_error(['message' => __('Dafür fehlen dir die Berechtigungen.', 'novemberkind-produkte')], 403);
             }
         }
     }

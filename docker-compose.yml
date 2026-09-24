@@ -1,10 +1,10 @@
 # Lokale Testumgebung: WordPress + WooCommerce mit eingebundenem Plugin.
 # Start und Einrichtung: bin/setup  ·  WP-CLI: bin/wp <befehl>
-name: easy-product
+name: novemberkind-produkte
 
 x-wordpress-volumes: &wordpress-volumes
   - wordpress:/var/www/html
-  - .:/var/www/html/wp-content/plugins/easy-product:ro
+  - .:/var/www/html/wp-content/plugins/novemberkind-produkte:ro
 
 x-wordpress-env: &wordpress-env
   WORDPRESS_DB_HOST: db
@@ -13,13 +13,13 @@ x-wordpress-env: &wordpress-env
   WORDPRESS_DB_NAME: wordpress
   WORDPRESS_DEBUG: 1
   # Aus der lokalen .env, siehe .env.example
-  EASY_PRODUCT_ANTHROPIC_KEY: ${EASY_PRODUCT_ANTHROPIC_KEY:-}
+  NOVEMBERKIND_PRODUKTE_ANTHROPIC_KEY: ${NOVEMBERKIND_PRODUKTE_ANTHROPIC_KEY:-}
   WORDPRESS_CONFIG_EXTRA: |
     define('WP_DEBUG_LOG', true);
     define('WP_DEBUG_DISPLAY', false);
     define('SCRIPT_DEBUG', true);
     define('WP_ENVIRONMENT_TYPE', 'local');
-    define('EASY_PRODUCT_ANTHROPIC_KEY', getenv('EASY_PRODUCT_ANTHROPIC_KEY') ?: '');
+    define('NOVEMBERKIND_PRODUKTE_ANTHROPIC_KEY', getenv('NOVEMBERKIND_PRODUKTE_ANTHROPIC_KEY') ?: '');
 
 services:
   db:
