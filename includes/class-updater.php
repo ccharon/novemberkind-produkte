@@ -15,11 +15,13 @@ final class Updater
     public const SLUG = 'novemberkind-produkte';
     public const ASSET = 'novemberkind-produkte.zip';
     private const CACHE = 'novemberkind_produkte_release';
+    private const RETRY = HOUR_IN_SECONDS;
 
     public function register(): void
     {
         add_filter('update_plugins_github.com', [$this, 'check'], 10, 3);
         add_filter('plugins_api', [$this, 'details'], 10, 3);
+        add_filter('plugin_row_meta', [$this, 'row_notice'], 10, 2);
         add_action('upgrader_process_complete', static fn() => delete_site_transient(self::CACHE));
     }
 
@@ -36,7 +38,14 @@ final class Updater
 
         $release = $this->latest_release();
         if ($release === null) {
-            return $update;
+            // Ohne Antwort von GitHub als aktuell melden, sonst blendet WordPress den Schalter für automatische Updates aus
+            return [
+                'id'      => 'github.com/' . self::REPOSITORY,
+                'slug'    => self::SLUG,
+                'version' => $plugin_data['Version'] ?? VERSION,
+                'url'     => 'https://github.com/' . self::REPOSITORY,
+                'package' => '',
+            ];
         }
 
         return [
@@ -96,30 +105,65 @@ final class Updater
             return $cached['release'];
         }
 
-        $release = $this->fetch_release();
+        $result  = $this->fetch_release();
+        $release = is_wp_error($result) ? null : $result;
         // Fehlschläge nur kurz merken, damit ein Ausfall von GitHub nicht stundenlang nachwirkt
-        set_site_transient(self::CACHE, ['release' => $release], $release === null ? HOUR_IN_SECONDS : 12 * HOUR_IN_SECONDS);
+        set_site_transient(self::CACHE, [
+            'release' => $release,
+            'error'   => is_wp_error($result) ? $result->get_error_message() : '',
+            'checked' => time(),
+        ], $release === null ? self::RETRY : 12 * HOUR_IN_SECONDS);
 
         return $release;
     }
 
     /**
-     * @return array{version: string, url: string, package: string, notes: string, published: string}|null
+     * Hinweis in der Plugin-Liste, wenn die letzte Abfrage bei GitHub gescheitert ist.
+     *
+     * @param string[] $meta
+     * @return string[]
      */
-    private function fetch_release(): ?array
+    public function row_notice(array $meta, string $plugin_file): array
+    {
+        $cached = get_site_transient(self::CACHE);
+        if ($plugin_file !== plugin_basename(PLUGIN_FILE) || !is_array($cached) || empty($cached['error'])) {
+            return $meta;
+        }
+
+        $meta[] = sprintf(
+            '<span style="color:#b32d2e">%s</span>',
+            esc_html(sprintf(
+                /* translators: 1: Fehlerbeschreibung, 2: Uhrzeit des nächsten Versuchs */
+                __('Update-Prüfung bei GitHub fehlgeschlagen: %1$s. Nächster Versuch um %2$s Uhr oder sofort über Dashboard > Aktualisierungen > Erneut prüfen.', 'novemberkind-produkte'),
+                $cached['error'],
+                wp_date('H:i', (int) $cached['checked'] + self::RETRY)
+            ))
+        );
+
+        return $meta;
+    }
+
+    /**
+     * @return array{version: string, url: string, package: string, notes: string, published: string}|\WP_Error
+     */
+    private function fetch_release(): array|\WP_Error
     {
         $response = wp_remote_get('https://api.github.com/repos/' . self::REPOSITORY . '/releases/latest', [
             'timeout' => 10,
             'headers' => ['Accept' => 'application/vnd.github+json', 'User-Agent' => 'WordPress/' . self::SLUG],
         ]);
-        if (is_wp_error($response) || wp_remote_retrieve_response_code($response) !== 200) {
-            return null;
+        if (is_wp_error($response)) {
+            return $response;
+        }
+        $code = (int) wp_remote_retrieve_response_code($response);
+        if ($code !== 200) {
+            return new \WP_Error('http', trim(sprintf('HTTP %d %s', $code, wp_remote_retrieve_response_message($response))));
         }
 
         $data    = json_decode(wp_remote_retrieve_body($response), true);
         $version = is_array($data) ? ltrim((string) ($data['tag_name'] ?? ''), 'v') : '';
         if (!preg_match('/^\d+\.\d+\.\d+$/', $version)) {
-            return null;
+            return new \WP_Error('format', __('unerwartete Antwort', 'novemberkind-produkte'));
         }
 
         // Nur das eigene Paket aus diesem Repository annehmen
@@ -137,6 +181,6 @@ final class Updater
             }
         }
 
-        return null;
+        return new \WP_Error('asset', __('Release ohne Plugin-Paket', 'novemberkind-produkte'));
     }
 }

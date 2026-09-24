@@ -452,11 +452,17 @@ check('Antwort kommt aus dem Zwischenspeicher', $updater->latest_release()['vers
 
 delete_site_transient('novemberkind_produkte_release');
 $github = $release_json('https://github.com/fremd/boeses-plugin/releases/download/v9.9.9/novemberkind-produkte.zip');
-check('Paket aus fremdem Repository wird abgelehnt', $updater->latest_release() === null);
+check('Paket aus fremdem Repository wird abgelehnt', $updater->latest_release() === null && str_contains(implode(' ', $updater->row_notice([], $plugin_file)), 'ohne Plugin-Paket'));
 
 delete_site_transient('novemberkind_produkte_release');
 $github = ['response' => ['code' => 404, 'message' => 'Not Found'], 'headers' => [], 'body' => '{}'];
-check('ohne Release kein Angebot', $updater->check(false, ['Version' => '0.1.0'], $plugin_file) === false);
+$offline = $updater->check(false, ['Version' => '0.1.0'], $plugin_file);
+check('ohne Antwort von GitHub als aktuell gemeldet, ohne Paket', is_array($offline) && $offline['version'] === '0.1.0' && $offline['package'] === '');
+check('Hinweis mit Fehlergrund in der Plugin-Liste', str_contains(implode(' ', $updater->row_notice([], $plugin_file)), 'HTTP 404 Not Found'));
+check('kein Hinweis bei anderen Plugins', $updater->row_notice([], 'anderes/anderes.php') === []);
+delete_site_transient('update_plugins');
+wp_update_plugins();
+check('WordPress führt das Plugin trotzdem als aktualisierbar', isset(get_site_transient('update_plugins')->no_update[$plugin_file]));
 
 delete_site_transient('novemberkind_produkte_release');
 $github = $release_json('https://github.com/ccharon/novemberkind-produkte/releases/download/v9.9.9/novemberkind-produkte.zip');
@@ -467,6 +473,7 @@ delete_site_transient('update_plugins');
 wp_update_plugins();
 $updates = get_site_transient('update_plugins');
 check('WordPress meldet das Update in der Plugin-Liste', ($updates->response[$plugin_file]->new_version ?? '') === '9.9.9');
+check('nach Erfolg kein Fehlerhinweis', $updater->row_notice([], $plugin_file) === []);
 remove_filter('pre_http_request', $fake_github, 10);
 delete_site_transient('novemberkind_produkte_release');
 delete_site_transient('update_plugins');
