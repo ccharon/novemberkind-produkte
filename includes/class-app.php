@@ -164,6 +164,7 @@ final class App
         $base = plugin_dir_url(PLUGIN_FILE);
         wp_register_style('novemberkind-produkte-app', $base . 'assets/css/app.css', [], VERSION);
         wp_register_script('novemberkind-produkte-app', $base . 'assets/js/app.js', [], VERSION, true);
+        wp_register_script('novemberkind-produkte-vine', $base . 'assets/js/vine.js', [], VERSION, true);
         wp_localize_script('novemberkind-produkte-app', 'novemberkindProdukte', [
             'ajaxUrl'        => admin_url('admin-ajax.php'),
             'nonce'          => wp_create_nonce(Ajax::NONCE),

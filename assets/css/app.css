@@ -1095,3 +1095,83 @@ body.nkp-page {
 .nkp-backups a {
 	font-size: 13px;
 }
+
+/* Ranke im Hintergrund (assets/js/vine.js) */
+
+.nkp-vine {
+	inset: 0 0 auto;
+	pointer-events: none;
+	position: fixed;
+	will-change: transform;
+	z-index: 0;
+}
+
+.nkp-vine canvas {
+	left: 0;
+	position: absolute;
+	top: 0;
+}
+
+.nkp-vine .nkp-vine__stems {
+	opacity: 0.55;
+}
+
+/* Auf schmalen Bildschirmen läuft die Ranke durch den Text, dort etwas blasser */
+@media (max-width: 600px) {
+	.nkp-vine {
+		opacity: 0.6;
+	}
+}
+
+/* Links der Kopfzeile bleiben über der Ranke lesbar */
+.nkp-topbar__brand,
+.nkp-topbar__nav a,
+.nkp-vine-toggle {
+	background: rgb(246 241 234 / 85%);
+	border-radius: 999px;
+}
+
+.nkp-topbar__brand,
+.nkp-topbar__nav a {
+	padding: 2px 8px;
+}
+
+.nkp-topbar,
+.nkp-wrap {
+	position: relative;
+	z-index: 1;
+}
+
+/* Leicht durchscheinend, damit die Ranke hinter den Flächen zu ahnen ist */
+.nkp-panel,
+.nkp-card,
+.nkp-type {
+	background: rgb(255 253 249 / 92%);
+}
+
+.nkp-vine-toggle {
+	align-items: center;
+	background: none;
+	border: 1px solid transparent;
+	border-radius: 999px;
+	color: var(--nkp-text-muted);
+	cursor: pointer;
+	display: inline-flex;
+	height: 32px;
+	justify-content: center;
+	padding: 0;
+	width: 32px;
+}
+
+.nkp-vine-toggle[aria-pressed="true"] {
+	color: #7a8c6e;
+}
+
+.nkp-vine-toggle:hover,
+.nkp-vine-toggle:focus-visible {
+	border-color: var(--nkp-border-strong);
+}
+
+.nkp-topbar__nav {
+	align-items: center;
+}
