@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Führt alle Prüfungen gegen die laufende Testumgebung aus (vorher bin/setup).
+set -uo pipefail
+cd "$(dirname "$0")/.."
+
+status=0
+
+echo "PHP-Syntax (PHP 8.1 und 8.3)"
+files=$(git ls-files --cached --others --exclude-standard '*.php')
+for version in 8.1 8.3; do
+  # shellcheck disable=SC2086
+  if docker run --rm -v "$PWD:/app:ro" -w /app "php:$version-cli-alpine" sh -c 'for f; do php -l "$f" >/dev/null || exit 1; done' _ $files; then
+    echo "  ✓ PHP $version"
+  else
+    echo "  ✗ PHP $version"; status=1
+  fi
+done
+
+echo
+echo "JavaScript-Syntax"
+if command -v node >/dev/null; then
+  for f in assets/js/*.js; do
+    if node --check "$f"; then echo "  ✓ $f"; else echo "  ✗ $f"; status=1; fi
+  done
+else
+  echo "  - übersprungen, Node.js nicht installiert"
+fi
+
+bin/wp eval-file wp-content/plugins/easy-product/tests/integration.php || status=1
+bash tests/http.sh || status=1
+
+echo
+echo "Debug-Log"
+log=$(docker compose exec -T wordpress sh -c 'cat wp-content/debug.log 2>/dev/null' | grep -i 'easy-product' || true)
+if [ -z "$log" ]; then echo "  ✓ keine Meldungen aus dem Plugin"; else echo "$log"; status=1; fi
+
+echo
+if [ "$status" -eq 0 ]; then echo "Alles grün."; else echo "Es gibt Fehler."; fi
+exit $status

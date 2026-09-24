@@ -1,0 +1,3 @@
+# Lokale Secrets und Shop-Exporte nie ausliefern
+RedirectMatch 404 /\.env
+RedirectMatch 404 /data/

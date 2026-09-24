@@ -1,0 +1,103 @@
+/* Easy Product: Login-Seite im Stil der Produktverwaltung. */
+
+body.login {
+	background: #f6f1ea;
+	color: #2e2823;
+}
+
+.login h1 a {
+	background: none;
+	color: #2e2823;
+	font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+	font-size: 28px;
+	font-weight: 600;
+	height: auto;
+	line-height: 1.2;
+	text-indent: 0;
+	width: auto;
+}
+
+.login form {
+	background: #fffdf9;
+	border: 1px solid #e8ddd0;
+	border-radius: 16px;
+	box-shadow: 0 1px 2px rgb(60 40 20 / 5%), 0 6px 20px rgb(60 40 20 / 6%);
+	padding: 28px;
+}
+
+.login label {
+	color: #2e2823;
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.login input[type="text"],
+.login input[type="password"],
+.login input[type="email"] {
+	background: #fffdf9;
+	border: 1px solid #d8c8b6;
+	border-radius: 10px;
+	box-shadow: none;
+	font-size: 16px;
+	min-height: 46px;
+	padding: 8px 14px;
+}
+
+.login input[type="text"]:focus,
+.login input[type="password"]:focus,
+.login input[type="email"]:focus {
+	border-color: #b0553a;
+	box-shadow: 0 0 0 3px #f7e7df;
+	outline: none;
+}
+
+.login .button.wp-hide-pw {
+	color: #6e645a;
+	height: 46px;
+}
+
+.login .button.wp-hide-pw:focus {
+	border-color: #b0553a;
+	box-shadow: none;
+}
+
+.login input[type="checkbox"] {
+	accent-color: #b0553a;
+}
+
+.login .button-primary {
+	background: #b0553a;
+	border: 0;
+	border-radius: 999px;
+	box-shadow: 0 2px 8px rgb(176 85 58 / 25%);
+	font-size: 15px;
+	font-weight: 600;
+	min-height: 42px;
+	padding: 0 24px;
+}
+
+.login .button-primary:hover,
+.login .button-primary:focus {
+	background: #914430;
+	box-shadow: 0 0 0 3px #f7e7df;
+}
+
+.login #nav a,
+.login #backtoblog a {
+	color: #6e645a;
+}
+
+.login #nav a:hover,
+.login #backtoblog a:hover {
+	color: #914430;
+}
+
+.login .message,
+.login .notice,
+.login #login_error {
+	border-radius: 10px;
+}
+
+.login .language-switcher {
+	display: none;
+}

@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# WP-CLI in der Testumgebung ausführen, z. B.: bin/wp plugin list
+cd "$(dirname "$0")/.." || exit 1
+exec docker compose --progress quiet run --rm -T cli wp "$@"

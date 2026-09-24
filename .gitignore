@@ -1,0 +1,18 @@
+/node_modules/
+/vendor/
+/dist/
+*.zip
+.DS_Store
+
+# IntelliJ
+/.idea/
+*.iml
+
+# Eigene Notizen
+/Produkt-Helfer für WooCommerce Ideendokument.md
+
+# Exporte aus dem echten Shop
+/data/
+
+# Secrets für die Testumgebung
+/.env
