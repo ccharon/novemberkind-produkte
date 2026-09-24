@@ -64,8 +64,10 @@ final class ProductType
         foreach (self::all() as $type) {
             $category = $type->config['category'];
             $prefix   = explode('%s', $type->config['name'], 2)[0];
+            $type_matches = $product->get_type() === $type->config['product_type']
+                || ($type->has_field('a4') && CardSizes::has_sizes($product));
             if (
-                $product->get_type() === $type->config['product_type']
+                $type_matches
                 && in_array(end($category), $category_names, true)
                 && ($prefix === '' || str_starts_with($product->get_name(), $prefix))
             ) {
@@ -202,6 +204,10 @@ final class ProductType
                     }
                     break;
 
+                case 'a4':
+                    $context['a4'] = $value('a4') === '1' ? '1' : '';
+                    break;
+
                 case 'technique':
                     $context['technique'] = $value('technique');
                     if (!in_array($context['technique'], self::TECHNIQUES, true)) {
@@ -258,6 +264,9 @@ final class ProductType
                 case 'bookmark_width':
                     $context['width'] = self::from_shop_unit($product->get_width());
                     break;
+                case 'a4':
+                    $context['a4'] = CardSizes::a4_enabled($product) ? '1' : '';
+                    break;
                 default:
                     $context[$field] = '';
             }
@@ -288,6 +297,8 @@ final class ProductType
             '{oberflaeche_satz}' => $finish === 'glaenzend' ? 'Glänzender' : 'Matter',
             '{material}'         => $finish === 'glaenzend' ? 'Vinyl irisierend (glänzend), wasserabweisend' : 'Vinyl, weiß, matt, wasserabweisend',
             '{technik}'          => esc_html($context['technique'] ?? ''),
+            '{masse}'            => $this->size_lines($context, $dimensions),
+            '{karte}'            => ($context['a4'] ?? '') === '1' ? 'A6-Karte' : 'Karte',
             '{jahr}'             => esc_html($context['year'] ?? ''),
             '{beschreibung}'     => wpautop(esc_html($context['text'] ?? '')),
         ];
@@ -307,6 +318,27 @@ final class ProductType
         $normalize = static fn(string $html): string => (string) preg_replace('/\s+/', ' ', trim($html));
 
         return $normalize($product->get_description()) !== $normalize($this->description($this->context_from_product($product)));
+    }
+
+    /**
+     * Maße für den Beschreibungstext, bei Karten mit A4 für beide Größen.
+     *
+     * @param array<string, string> $context
+     * @param array{length?: string, width?: string, height?: string} $dimensions
+     */
+    private function size_lines(array $context, array $dimensions): string
+    {
+        if (($context['a4'] ?? '') !== '1') {
+            return sprintf("• Breite: %s cm<br>\n• Höhe: %s cm", self::format_number($dimensions['width'] ?? ''), self::format_number($dimensions['height'] ?? ''));
+        }
+
+        $lines = [];
+        foreach ([CardSizes::A6, CardSizes::A4] as $size) {
+            [$width, $height] = CardSizes::dimensions($size, $context['format'] ?? 'quer');
+            $lines[]          = sprintf('• Größe %s: %s × %s cm', $size, self::format_number($width), self::format_number($height));
+        }
+
+        return implode("<br>\n", $lines);
     }
 
     /**

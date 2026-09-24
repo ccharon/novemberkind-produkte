@@ -10,6 +10,9 @@
  * @var bool                     $custom_description
  * @var string[]                 $motif_tags
  * @var string                   $price
+ * @var string                   $stock
+ * @var string                   $price_a4
+ * @var string                   $stock_a4
  * @var int[]                    $gallery_ids
  * @var int[]                    $back_images
  * @var array<int, array{date: string, view: string, download: string}> $backups
@@ -24,7 +27,14 @@ defined('ABSPATH') || exit;
 $is_new    = $product === null;
 $is_online = !$is_new && $product->get_status() === 'publish';
 $image_id  = $is_new ? 0 : (int) $product->get_image_id();
-$stock     = !$is_new && $product->managing_stock() ? (string) $product->get_stock_quantity() : '';
+$with_a4   = $type->has_field('a4') && ($context['a4'] ?? '') === '1';
+$size_label = static function (string $plain, string $a6) use ($type, $with_a4): void {
+    if (!$type->has_field('a4')) {
+        echo esc_html($plain);
+        return;
+    }
+    printf('<span data-nkp-a6-label="%s" data-nkp-plain-label="%s">%s</span>', esc_attr($a6), esc_attr($plain), esc_html($with_a4 ? $a6 : $plain));
+};
 
 $field_error = static function (string $field): void {
     printf('<span class="nkp-field__error" data-error-for="%s" hidden></span>', esc_attr($field));
@@ -98,6 +108,13 @@ $choice = static function (string $name, string $value, string $label, string $c
                     </div>
                     <?php $field_error('format'); ?>
                 </div>
+            <?php endif; ?>
+
+            <?php if ($type->has_field('a4')) : ?>
+                <label class="nkp-check">
+                    <input type="checkbox" name="a4" value="1" data-nkp-a4-toggle <?php checked($with_a4); ?>>
+                    <?php esc_html_e('Auch in A4 anbieten', 'novemberkind-produkte'); ?>
+                </label>
             <?php endif; ?>
 
             <?php if ($type->has_field('finish')) : ?>
@@ -178,7 +195,7 @@ $choice = static function (string $name, string $value, string $label, string $c
 
             <div class="nkp-row">
                 <label class="nkp-field">
-                    <span class="nkp-field__label"><?php esc_html_e('Preis', 'novemberkind-produkte'); ?></span>
+                    <span class="nkp-field__label"><?php $size_label(__('Preis', 'novemberkind-produkte'), __('Preis A6', 'novemberkind-produkte')); ?></span>
                     <span class="nkp-input-unit">
                         <input type="text" name="price" inputmode="decimal" required autocomplete="off"
                                value="<?php echo esc_attr($price === '' ? '' : wc_format_localized_price($price)); ?>" placeholder="0,00">
@@ -191,13 +208,33 @@ $choice = static function (string $name, string $value, string $label, string $c
                 </label>
                 <?php if (!$type->is_unique()) : ?>
                     <label class="nkp-field">
-                        <span class="nkp-field__label"><?php esc_html_e('Lagerbestand', 'novemberkind-produkte'); ?></span>
+                        <span class="nkp-field__label"><?php $size_label(__('Lagerbestand', 'novemberkind-produkte'), __('Lagerbestand A6', 'novemberkind-produkte')); ?></span>
                         <input type="number" name="stock" min="0" step="1" inputmode="numeric" value="<?php echo esc_attr($stock); ?>"
                                placeholder="<?php esc_attr_e('leer = nicht zählen', 'novemberkind-produkte'); ?>">
                         <?php $field_error('stock'); ?>
                     </label>
                 <?php endif; ?>
             </div>
+
+            <?php if ($type->has_field('a4')) : ?>
+                <div class="nkp-row" data-nkp-a4-fields <?php echo $with_a4 ? '' : 'hidden'; ?>>
+                    <label class="nkp-field">
+                        <span class="nkp-field__label"><?php esc_html_e('Preis A4', 'novemberkind-produkte'); ?></span>
+                        <span class="nkp-input-unit">
+                            <input type="text" name="price_a4" inputmode="decimal" autocomplete="off"
+                                   value="<?php echo esc_attr($price_a4 === '' ? '' : wc_format_localized_price($price_a4)); ?>" placeholder="0,00">
+                            <span aria-hidden="true">€</span>
+                        </span>
+                        <?php $field_error('price_a4'); ?>
+                    </label>
+                    <label class="nkp-field">
+                        <span class="nkp-field__label"><?php esc_html_e('Lagerbestand A4', 'novemberkind-produkte'); ?></span>
+                        <input type="number" name="stock_a4" min="0" step="1" inputmode="numeric" value="<?php echo esc_attr($stock_a4); ?>"
+                               placeholder="<?php esc_attr_e('leer = nicht zählen', 'novemberkind-produkte'); ?>">
+                        <?php $field_error('stock_a4'); ?>
+                    </label>
+                </div>
+            <?php endif; ?>
 
             <label class="nkp-field">
                 <span class="nkp-field__label"><?php esc_html_e('Schlagwörter zum Motiv', 'novemberkind-produkte'); ?></span>

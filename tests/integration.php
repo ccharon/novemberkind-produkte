@@ -203,6 +203,49 @@ check('keine alten Dateien übrig', glob(dirname((string) get_attached_file($sec
 $cleanup['attachments'][] = $single;
 $cleanup['attachments'][] = $second;
 
+section('Karten in A6 und A4');
+$backups = new NovemberkindProdukte\Backups();
+$card_a4 = $service->save(ProductType::get('card'), [
+    'sku' => ShopData::next_sku(), 'motif' => 'Großkarte', 'format' => 'quer', 'price' => '2,50', 'stock' => '3',
+    'a4' => '1', 'price_a4' => '5,00', 'stock_a4' => '1', 'status' => 'publish',
+]);
+$cleanup['products'][] = $card_a4->get_id();
+$a6 = NovemberkindProdukte\CardSizes::variation($card_a4, NovemberkindProdukte\CardSizes::A6);
+$a4 = NovemberkindProdukte\CardSizes::variation($card_a4, NovemberkindProdukte\CardSizes::A4);
+check('Karte mit A4 ist ein Variantenprodukt mit A6 und A4', $card_a4 instanceof WC_Product_Variable && $a6 && $a4);
+check('Preise und Bestände je Größe', $a6->get_regular_price() === '2.50' && $a4->get_regular_price() === '5.00' && $a6->get_stock_quantity() === 3 && $a4->get_stock_quantity() === 1);
+check('Artikelnummern -1 (A6) und -2 (A4)', $a6->get_sku() === $card_a4->get_sku() . '-1' && $a4->get_sku() === $card_a4->get_sku() . '-2');
+check('Maße A6 15 × 10,5 und A4 29,7 × 21', [$a6->get_width(), $a6->get_height(), $a4->get_width(), $a4->get_height()] === ['15', '10.5', '29.7', '21']);
+check('Standard ist A6', array_values($card_a4->get_default_attributes()) === ['A6']);
+check('Beschreibung nennt beide Größen', str_contains($card_a4->get_description(), 'Größe A4: 29,7 × 21 cm') && str_contains($card_a4->get_description(), 'Zur A6-Karte gibt es'));
+check('wird als Karte erkannt, A4 aktiv', ProductType::detect($card_a4)?->key() === 'card' && NovemberkindProdukte\CardSizes::a4_enabled($card_a4));
+check('Formularwerte', NovemberkindProdukte\CardSizes::values($card_a4, '5.00') === ['price' => '2.50', 'stock' => '3', 'price_a4' => '5.00', 'stock_a4' => '1']);
+check('ohne Preis A4 kein Speichern', in_array('price_a4', $errors($service->save(ProductType::get('card'), ['sku' => ShopData::next_sku(), 'motif' => 'x', 'format' => 'quer', 'price' => '2', 'a4' => '1'])), true));
+
+$card_off = $service->save(ProductType::get('card'), ['sku' => $card_a4->get_sku(), 'motif' => 'Großkarte', 'format' => 'quer', 'price' => '2,50', 'stock' => '3', 'status' => 'publish'], $card_a4->get_id());
+$a4_off = NovemberkindProdukte\CardSizes::variation($card_off, NovemberkindProdukte\CardSizes::A4);
+check('A4 aus: Variante nur deaktiviert, nicht gelöscht', $a4_off && $a4_off->get_status() === 'private' && $a4_off->get_regular_price() === '5.00');
+check('A4 aus: nur A6 kaufbar, Beschreibung ohne A4', !NovemberkindProdukte\CardSizes::a4_enabled($card_off) && !str_contains($card_off->get_description(), 'A4') && $card_off->get_price() === '2.50');
+$card_on = $service->save(ProductType::get('card'), ['sku' => $card_a4->get_sku(), 'motif' => 'Großkarte', 'format' => 'hoch', 'price' => '2,50', 'stock' => '3', 'a4' => '1', 'price_a4' => '6', 'stock_a4' => ''], $card_a4->get_id());
+$a4_on = NovemberkindProdukte\CardSizes::variation($card_on, NovemberkindProdukte\CardSizes::A4);
+check('A4 wieder an: dieselbe Variante, neuer Preis', $a4_on->get_id() === $a4->get_id() && $a4_on->get_status() === 'publish' && $a4_on->get_regular_price() === '6.00');
+check('Hochformat: A4 21 × 29,7, Bestand A4 nicht gezählt', [$a4_on->get_width(), $a4_on->get_height()] === ['21', '29.7'] && !$a4_on->managing_stock());
+check('keine zusätzlichen Varianten entstanden', count($card_on->get_children()) === 2);
+
+$simple_card = $service->save(ProductType::get('card'), ['sku' => ShopData::next_sku(), 'motif' => 'Einfachkarte', 'format' => 'quer', 'price' => '2,50', 'stock' => '4', 'image_id' => (string) $gallery_id]);
+$cleanup['products'][] = $simple_card->get_id();
+$converted = $service->save(ProductType::get('card'), [
+    'sku' => $simple_card->get_sku(), 'motif' => 'Einfachkarte', 'format' => 'quer', 'price' => '2,80', 'stock' => '4', 'a4' => '1', 'price_a4' => '5', 'stock_a4' => '2', 'image_id' => (string) $gallery_id,
+], $simple_card->get_id());
+check('einfache Karte wird bei A4 umgewandelt, gleiche ID, Artikelnummer und Foto', $converted instanceof WC_Product_Variable && $converted->get_id() === $simple_card->get_id() && $converted->get_sku() === $simple_card->get_sku() && (int) $converted->get_image_id() === $gallery_id);
+check('umgewandelt: A6 mit Preis und Bestand aus dem Formular', NovemberkindProdukte\CardSizes::values($converted, '5.00') === ['price' => '2.80', 'stock' => '4', 'price_a4' => '5.00', 'stock_a4' => '2']);
+check('umgewandelt: Sicherung enthält den einfachen Stand', (json_decode(NovemberkindProdukte\Backups::snapshot($backups->for_product($simple_card->get_id())[0]->ID), true)['product']['regular_price'] ?? '') === '2.50');
+foreach ([$card_a4->get_id(), $simple_card->get_id()] as $backup_parent) {
+    foreach ($backups->for_product($backup_parent) as $leftover) {
+        wp_delete_post($leftover->ID, true);
+    }
+}
+
 section('Karte, Sticker, Lesezeichen');
 $next_sku = ShopData::next_sku();
 $card = $service->save(ProductType::get('card'), ['sku' => $next_sku, 'motif' => 'Testkarte', 'format' => 'hoch', 'price' => '2,5', 'stock' => '']);

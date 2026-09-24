@@ -60,7 +60,8 @@ return [
         'weight'            => '',
         'dimensions'        => [],
         'tags'              => ['karte', 'postkarte', 'matt', 'Papier'],
-        'fields'            => ['format'],
+        'fields'            => ['format', 'a4'],
+        'price_a4'          => '5.00',
         'plastic_free_note' => true,
     ],
 

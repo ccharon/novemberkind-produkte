@@ -20,8 +20,12 @@ final class ProductService
     public function save(ProductType $type, array $data, int $product_id = 0): \WC_Product|\WP_Error
     {
         $is_new = $product_id === 0;
+        [$context, $errors] = $type->parse($data);
+        // Karten mit A4 sind Variantenprodukte mit den Größen A6 und A4
+        $with_a4 = $type->has_field('a4') && ($context['a4'] ?? '') === '1';
+
         if ($is_new) {
-            $product = $type->is_variable() ? new \WC_Product_Variable() : new \WC_Product_Simple();
+            $product = $type->is_variable() || $with_a4 ? new \WC_Product_Variable() : new \WC_Product_Simple();
         } else {
             $product = wc_get_product($product_id);
             if (!$product instanceof \WC_Product) {
@@ -31,8 +35,6 @@ final class ProductService
                 return new \WP_Error('wrong_type', __('Dieses Produkt passt nicht zur gewählten Produktart.', 'novemberkind-produkte'));
             }
         }
-
-        [$context, $errors] = $type->parse($data);
 
         $sku = strtoupper(trim(sanitize_text_field((string) ($data['sku'] ?? ''))));
         if (!preg_match('/^A\d{6}$/', $sku)) {
@@ -59,6 +61,20 @@ final class ProductService
             $stock = $stock_raw === '' ? null : (int) $stock_raw;
         }
 
+        $price_a4 = null;
+        $stock_a4 = null;
+        if ($with_a4) {
+            $price_a4 = self::parse_price((string) ($data['price_a4'] ?? ''));
+            if ($price_a4 === null) {
+                $errors['price_a4'] = __('Bitte gib einen Preis für A4 ein, z. B. 5,00.', 'novemberkind-produkte');
+            }
+            $stock_a4_raw = trim((string) ($data['stock_a4'] ?? ''));
+            if ($stock_a4_raw !== '' && !ctype_digit($stock_a4_raw)) {
+                $errors['stock_a4'] = __('Der Lagerbestand muss eine ganze Zahl ab 0 sein.', 'novemberkind-produkte');
+            }
+            $stock_a4 = $stock_a4_raw === '' ? null : (int) $stock_a4_raw;
+        }
+
         if ($errors !== []) {
             return new \WP_Error('invalid', __('Bitte prüfe die markierten Felder.', 'novemberkind-produkte'), $errors);
         }
@@ -69,7 +85,12 @@ final class ProductService
             if (is_wp_error($backup)) {
                 return $backup;
             }
+            // Einfache Karte bekommt A4: WooCommerce wandelt den Typ beim Speichern um, Fotos und Artikelnummer bleiben
+            if ($with_a4 && !$product instanceof \WC_Product_Variable) {
+                $product = new \WC_Product_Variable($product->get_id());
+            }
         }
+        $sized = $type->has_field('a4') && $product instanceof \WC_Product_Variable;
 
         $status = (string) ($data['status'] ?? 'draft');
         if (!in_array($status, self::STATUSES, true)) {
@@ -135,7 +156,7 @@ final class ProductService
             }
         }
 
-        if (!$type->is_unique()) {
+        if (!$type->is_unique() && !$sized) {
             $product->set_manage_stock($stock !== null);
             $product->set_stock_quantity($stock);
             if ($stock === null) {
@@ -143,7 +164,7 @@ final class ProductService
             }
         }
 
-        if (!$type->is_variable()) {
+        if (!$product instanceof \WC_Product_Variable) {
             $product->set_regular_price($price);
         }
 
@@ -154,6 +175,14 @@ final class ProductService
         if ($type->is_variable()) {
             $is_new ? $this->create_variations($product, $type, $price) : $this->update_variations($product, $price, $sku_changed);
             \WC_Product_Variable::sync($product->get_id());
+        }
+        if ($sized && $product instanceof \WC_Product_Variable) {
+            (new CardSizes())->apply($product, $context['format'] ?? 'quer', $with_a4, [
+                'price'    => (string) $price,
+                'stock'    => $stock,
+                'price_a4' => $price_a4,
+                'stock_a4' => $stock_a4,
+            ], $sku_changed);
         }
 
         return wc_get_product($product->get_id());

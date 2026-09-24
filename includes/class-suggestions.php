@@ -97,6 +97,9 @@ final class Suggestions
                 $details[] = "{$label}: " . ($key === 'finish' ? ($context[$key] === 'glaenzend' ? 'glänzend' : 'matt') : $context[$key]);
             }
         }
+        if (($context['a4'] ?? '') === '1') {
+            $details[] = 'Größen: A6 und A4';
+        }
         $dimensions = $type->dimensions($context);
         if (!empty($dimensions['width']) && !empty($dimensions['height'])) {
             $details[] = sprintf('Maße: %s × %s cm', ProductType::format_number($dimensions['width']), ProductType::format_number($dimensions['height']));

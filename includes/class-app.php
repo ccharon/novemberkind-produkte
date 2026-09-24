@@ -288,7 +288,7 @@ final class App
 
         $context = $product ? $type->context_from_product($product) : self::default_context($type);
 
-        return [
+        $data = [
             'type'        => $type,
             'product'     => $product,
             'context'     => $context,
@@ -296,6 +296,9 @@ final class App
             'custom_description' => $product && $type->has_custom_description($product),
             'motif_tags'  => $product ? ProductService::motif_tags($product, $type) : [],
             'price'       => $product ? self::current_price($product) : (string) $type->config('price'),
+            'stock'       => $product && $product->managing_stock() ? (string) $product->get_stock_quantity() : '',
+            'price_a4'    => (string) $type->config('price_a4'),
+            'stock_a4'    => '',
             'gallery_ids' => $product ? array_values(array_filter(
                 array_map('intval', $product->get_gallery_image_ids()),
                 static fn(int $id): bool => !$service->is_variation_image($type, $id)
@@ -303,6 +306,11 @@ final class App
             'back_images' => $back_images,
             'backups'     => $product ? (new Backups())->summary($product->get_id()) : [],
         ];
+        if ($product && $type->has_field('a4')) {
+            $data = array_merge($data, CardSizes::values($product, (string) $type->config('price_a4')));
+        }
+
+        return $data;
     }
 
     /**
