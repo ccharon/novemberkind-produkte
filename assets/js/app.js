@@ -385,10 +385,9 @@
 
 	const a4Toggle = form.querySelector('[data-nkp-a4-toggle]');
 	a4Toggle?.addEventListener('change', () => {
-		form.querySelector('[data-nkp-a4-fields]').hidden = !a4Toggle.checked;
-		form.querySelectorAll('[data-nkp-a6-label]').forEach((label) => {
-			label.textContent = a4Toggle.checked ? label.dataset.nkpA6Label : label.dataset.nkpPlainLabel;
-		});
+		const fields = form.querySelector('[data-nkp-a4-fields]');
+		fields.classList.toggle('is-off', !a4Toggle.checked);
+		fields.querySelectorAll('input').forEach((input) => { input.disabled = !a4Toggle.checked; });
 	});
 
 	// ---------------------------------------------------------------- Vorschlag von Claude
