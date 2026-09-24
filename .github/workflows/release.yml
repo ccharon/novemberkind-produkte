@@ -1,0 +1,30 @@
+# Baut beim Push eines Tags wie v0.2.0 das Plugin-ZIP und legt damit ein GitHub-Release an.
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: PHP-Syntax unter 8.1 und 8.3
+        run: |
+          for version in 8.1 8.3; do
+            docker run --rm -v "$PWD:/app:ro" -w /app "php:$version-cli-alpine" \
+              sh -c 'find . -name "*.php" -not -path "./vendor/*" -print0 | xargs -0 -n1 php -l > /dev/null'
+          done
+
+      - name: Paket bauen
+        run: bin/build "$GITHUB_REF_NAME"
+
+      - name: Release anlegen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/novemberkind-produkte.zip --title "$GITHUB_REF_NAME" --generate-notes --verify-tag

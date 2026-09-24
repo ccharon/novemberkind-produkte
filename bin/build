@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# Baut dist/novemberkind-produkte.zip aus dem Stand im Git-Index, mit vendor/ ohne Entwicklungspakete.
+# Mit Tag als Argument (z. B. bin/build v0.2.0) muss die Version im Plugin zum Tag passen.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+slug=novemberkind-produkte
+version=$(sed -n 's/^ \* Version: *//p' "$slug.php")
+constant=$(sed -n "s/^const VERSION = '\(.*\)';/\1/p" "$slug.php")
+
+if [ "$version" != "$constant" ]; then
+  echo "Version im Plugin-Kopf ($version) und Konstante VERSION ($constant) weichen ab." >&2
+  exit 1
+fi
+if [ $# -gt 0 ] && [ "${1#v}" != "$version" ]; then
+  echo "Tag $1 passt nicht zur Version $version im Plugin." >&2
+  exit 1
+fi
+
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+target="$work/$slug"
+mkdir -p "$target" dist
+
+# Nur eingecheckte Dateien ohne die Einträge aus .distignore, damit lokale Reste nicht ins Paket geraten
+git ls-files -z | python3 -c '
+import fnmatch, sys
+patterns = [l.strip().lstrip("/") for l in open(".distignore", encoding="utf-8") if l.strip() and not l.startswith("#")]
+for path in sys.stdin.read().split("\0"):
+    if path and not any(path == p or path.startswith(p + "/") or fnmatch.fnmatch(path, p) for p in patterns):
+        sys.stdout.write(path + "\0")
+' | rsync -a --from0 --files-from=- ./ "$target/"
+cp composer.lock "$target/"
+
+if command -v composer >/dev/null; then
+  composer install --working-dir="$target" --no-dev --optimize-autoloader --no-interaction --quiet
+else
+  docker run --rm -u "$(id -u):$(id -g)" -v "$target":/app -w /app -e COMPOSER_HOME=/tmp \
+    composer:2 install --no-dev --optimize-autoloader --no-interaction --quiet
+fi
+rm "$target/composer.lock"
+
+# Tests, Werkzeuge und Bibliotheken anderer Sprachen aus den Abhängigkeiten entfernen
+find "$target/vendor" -depth -type d \( -name tests -o -name .github -o -name examples \) -exec rm -rf {} +
+webhooks="$target/vendor/standard-webhooks/standard-webhooks"
+find "$webhooks" -mindepth 1 -maxdepth 1 ! -name libraries ! -name composer.json ! -name LICENSE -exec rm -rf {} +
+find "$webhooks/libraries" -mindepth 1 -maxdepth 1 ! -name php -exec rm -rf {} +
+
+rm -f "dist/$slug.zip"
+(cd "$work" && zip -qr -X "$OLDPWD/dist/$slug.zip" "$slug")
+echo "dist/$slug.zip (Version $version, $(du -h "dist/$slug.zip" | cut -f1))"

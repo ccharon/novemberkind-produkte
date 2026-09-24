@@ -12,6 +12,9 @@ final class Plugin
 
     public static function init(): void
     {
+        // Updates auch ohne aktives WooCommerce, damit sich ein fehlerhaftes Release beheben lässt
+        (new Updater())->register();
+
         if (!class_exists(\WooCommerce::class)) {
             return;
         }
@@ -21,6 +24,24 @@ final class Plugin
         (new Ajax())->register();
         (new Originals())->register();
         add_action('admin_notices', [self::class, 'webp_notice']);
+        add_action('admin_notices', [self::class, 'permalink_notice']);
+    }
+
+    /**
+     * Die Adresse /produkte-verwalten/ funktioniert nur mit sprechenden Permalinks.
+     */
+    public static function permalink_notice(): void
+    {
+        if (!current_user_can('manage_options') || get_option('permalink_structure') !== '') {
+            return;
+        }
+
+        printf(
+            '<div class="notice notice-error"><p>%s <a href="%s">%s</a></p></div>',
+            esc_html__('Novemberkind Produkte braucht sprechende Permalinks, sonst ist /produkte-verwalten/ nicht erreichbar.', 'novemberkind-produkte'),
+            esc_url(admin_url('options-permalink.php')),
+            esc_html__('Permalinks einstellen', 'novemberkind-produkte')
+        );
     }
 
     public static function activate(): void

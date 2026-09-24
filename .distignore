@@ -1,0 +1,18 @@
+# Nicht im Release-ZIP. Pfade relativ zum Repository.
+/.distignore
+/.env
+/.env.example
+/.git
+/.github
+/.gitignore
+/.htaccess
+/.idea
+/bin
+/CLAUDE.md
+/composer.lock
+/data
+/dist
+/docker-compose.yml
+/tests
+/*.iml
+/Produkt-Helfer für WooCommerce Ideendokument.md

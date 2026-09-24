@@ -40,6 +40,7 @@ require_once __DIR__ . '/includes/class-product-type.php';
 require_once __DIR__ . '/includes/class-shop-data.php';
 require_once __DIR__ . '/includes/class-originals.php';
 require_once __DIR__ . '/includes/class-suggestions.php';
+require_once __DIR__ . '/includes/class-updater.php';
 if (interface_exists(\Psr\Http\Client\ClientInterface::class)) {
     require_once __DIR__ . '/includes/class-wp-http-client.php';
     require_once __DIR__ . '/includes/class-wp-http-network-exception.php';
