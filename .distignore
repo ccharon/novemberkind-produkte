@@ -1,4 +1,4 @@
-# Nicht im Release-ZIP. Pfade relativ zum Repository.
+# Diese Pfade bleiben außerhalb des Release-ZIP. Pfade relativ zum Repository.
 /.distignore
 /.env
 /.env.example

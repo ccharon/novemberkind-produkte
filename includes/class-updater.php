@@ -22,7 +22,9 @@ final class Updater
         add_filter('update_plugins_github.com', [$this, 'check'], 10, 3);
         add_filter('plugins_api', [$this, 'details'], 10, 3);
         add_filter('plugin_row_meta', [$this, 'row_notice'], 10, 2);
-        add_action('upgrader_process_complete', static fn() => delete_site_transient(self::CACHE));
+        add_action('upgrader_process_complete', static function (): void {
+            delete_site_transient(self::CACHE);
+        });
     }
 
     /**
@@ -38,7 +40,7 @@ final class Updater
 
         $release = $this->latest_release();
         if ($release === null) {
-            // Ohne Antwort von GitHub als aktuell melden, sonst blendet WordPress den Schalter für automatische Updates aus
+            // Antwortet GitHub nicht, als aktuell melden; sonst blendet WordPress den Schalter für automatische Updates aus
             return [
                 'id'      => 'github.com/' . self::REPOSITORY,
                 'slug'    => self::SLUG,

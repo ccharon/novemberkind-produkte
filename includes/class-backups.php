@@ -37,6 +37,9 @@ final class Backups
             'query_var'           => false,
             'can_export'          => false,
             'supports'            => [],
+            // Rechte wie bei Produkten, damit nur Rollen mit Produktrechten an Sicherungen kommen
+            'capability_type'     => 'product',
+            'map_meta_cap'        => true,
         ]);
     }
 
@@ -135,7 +138,7 @@ final class Backups
 
         $product  = wc_get_product($backup->post_parent);
         $filename = sprintf('%s-sicherung-%s.json', $product ? $product->get_sku() : 'produkt', get_post_time('Y-m-d-His', false, $backup));
-        $inline   = ($_GET['inline'] ?? '') === '1'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- oben geprüft
+        $inline   = sanitize_key(wp_unslash($_GET['inline'] ?? '')) === '1'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- oben geprüft
 
         nocache_headers();
         header('Content-Type: application/json; charset=utf-8');
