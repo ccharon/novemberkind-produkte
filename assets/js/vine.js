@@ -354,6 +354,12 @@
 		onScroll();
 
 		const control = {
+			regrow() {
+				state.seed = Math.floor(Math.random() * 2 ** 31);
+				state.progress = 0;
+				saveState(state);
+				setup();
+			},
 			show() {
 				layer.hidden = false;
 				if (!reducedMotion && !running) {
@@ -390,6 +396,10 @@
 			toggle.hidden = false;
 			toggle.addEventListener('click', () => {
 				state.off = !state.off;
+				// Wieder eingeschaltet: eine neue Ranke wächst von vorn
+				if (!state.off) {
+					control.regrow();
+				}
 				saveState(state);
 				apply();
 			});
