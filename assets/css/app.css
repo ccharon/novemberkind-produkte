@@ -356,6 +356,7 @@ body.nkp-page {
 	box-shadow: var(--nkp-shadow);
 	display: grid;
 	gap: 22px;
+	grid-template-columns: minmax(0, 1fr);
 	padding: 24px;
 }
 
@@ -460,7 +461,19 @@ body.nkp-page {
 .nkp-photo {
 	aspect-ratio: 1;
 	border-radius: var(--nkp-radius-small);
+	min-width: 0;
 	position: relative;
+	width: 100%;
+}
+
+/*
+ * Klickfläche und Bild liegen absolut im Foto-Feld und bestimmen seine Größe nicht mit.
+ * Sonst behält Safari beim Drehen des Geräts die alte Größe aus dem Querformat.
+ */
+.nkp-photo > .nkp-dropzone,
+.nkp-photo .nkp-photo__image {
+	inset: 0;
+	position: absolute;
 }
 
 .nkp-photo__image {
@@ -586,7 +599,7 @@ body.nkp-page {
 .nkp-gallery {
 	display: grid;
 	gap: 10px;
-	grid-template-columns: repeat(4, 1fr);
+	grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 /* Sichtbarkeit */

@@ -474,6 +474,17 @@
 		save();
 	});
 
+	// Safari rechnet Felder mit festem Seitenverhältnis nach dem Drehen nicht immer neu
+	const relayoutPhotos = () => {
+		form.querySelectorAll('.nkp-photo').forEach((photo) => {
+			photo.style.aspectRatio = 'auto';
+			void photo.offsetWidth;
+			photo.style.aspectRatio = '';
+		});
+	};
+	window.addEventListener('orientationchange', () => setTimeout(relayoutPhotos, 300));
+	window.screen.orientation?.addEventListener('change', () => setTimeout(relayoutPhotos, 300));
+
 	// Cmd+S / Strg+S speichert, statt die Seite herunterzuladen
 	document.addEventListener('keydown', (event) => {
 		if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
