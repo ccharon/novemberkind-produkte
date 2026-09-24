@@ -8,6 +8,8 @@
 	const STEP = 4; // Länge eines Stielstücks in px
 	const LEAF_UNFOLD_MS = 2200;
 	const LEAF_SIZE = 1.3;
+	const BLOOM_SPREAD_MS = 90 * 1000; // über diese Zeit nach dem Wachsen erscheinen die Blüten
+	const BLOOM_OPEN_MS = 10 * 1000;
 
 	// Stiele deckend, die Ebene selbst ist per CSS durchscheinend; sonst werden Überlappungen zu dunklen Punkten
 	const COLORS = {
@@ -16,6 +18,9 @@
 		leaves: ['rgb(143 165 130 / 55%)', 'rgb(128 152 118 / 55%)', 'rgb(160 178 143 / 50%)'],
 		vein: 'rgb(246 241 234 / 45%)',
 		bud: 'rgb(176 85 58 / 50%)',
+		blossoms: ['rgb(248 242 226)', 'rgb(240 220 150)'], // cremeweiß und gedecktes Gelb
+		blossomEdge: 'rgb(196 176 136 / 55%)',
+		blossomCenter: 'rgb(204 158 84)',
 	};
 
 	const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -81,6 +86,7 @@
 		const segments = [];
 		const leaves = [];
 		const buds = [];
+		const tips = []; // Zweigenden als Plätze für Blüten
 
 		const mainRoutes = [
 			[{ x: inset, y: height + 20 }, { x: inset, y: inset }, { x: width / 2, y: inset * 1.2 }],
@@ -188,6 +194,9 @@
 			}
 
 			const end = birth + length * msPerPx;
+			if (depth > 0) {
+				tips.push({ x, y, angle });
+			}
 			if (!route && rnd() < 0.18) {
 				buds.push({ x, y, r: (2 + rnd() * 2) * leafScale, birth: end + 400 });
 			}
@@ -206,9 +215,31 @@
 		}
 
 		segments.sort((a, b) => a.birth - b.birth);
-		const done = Math.max(...segments.map((s) => s.birth), ...leaves.map((l) => l.birth + LEAF_UNFOLD_MS), ...buds.map((b) => b.birth + 1500));
+		const grown = Math.max(...segments.map((s) => s.birth), ...leaves.map((l) => l.birth + LEAF_UNFOLD_MS), ...buds.map((b) => b.birth + 1500));
 
-		return { segments, leaves, buds, done };
+		// Blüten, wenn die Ranke ausgewachsen ist: bevorzugt an Zweigenden, gut verteilt
+		const blossoms = [];
+		const wanted = Math.max(10, Math.min(28, Math.round((width * height) / 60000)));
+		const pool = tips.slice();
+		while (blossoms.length < wanted && pool.length > 0) {
+			const spot = pool.splice(Math.floor(rnd() * pool.length), 1)[0];
+			const minGap = Math.min(width, height) * 0.08;
+			if (blossoms.some((b) => Math.hypot(b.x - spot.x, b.y - spot.y) < minGap)) {
+				continue;
+			}
+			blossoms.push({
+				x: spot.x,
+				y: spot.y,
+				r: (9 + rnd() * 6) * leafScale * LEAF_SIZE,
+				angle: rnd() * Math.PI * 2,
+				color: COLORS.blossoms[Math.floor(rnd() * COLORS.blossoms.length)],
+				birth: grown + rnd() * BLOOM_SPREAD_MS,
+				phase: rnd() * Math.PI * 2,
+			});
+		}
+		const done = Math.max(grown, ...blossoms.map((b) => b.birth + BLOOM_OPEN_MS));
+
+		return { segments, leaves, buds, blossoms, done };
 	}
 
 	// ------------------------------------------------------------ Zeichnen
@@ -296,6 +327,12 @@
 				}
 				leavesCtx.restore();
 			}
+			for (const blossom of plan.blossoms) {
+				if (blossom.birth > time) {
+					continue;
+				}
+				drawBlossom(blossom, Math.min(1, (time - blossom.birth) / BLOOM_OPEN_MS), clock);
+			}
 			for (const bud of plan.buds) {
 				if (bud.birth > time) {
 					continue;
@@ -306,6 +343,43 @@
 				leavesCtx.fillStyle = COLORS.bud;
 				leavesCtx.fill();
 			}
+		}
+
+		/**
+		 * Erst wächst eine geschlossene Knospe, dann spreizen sich fünf Blütenblätter und die Mitte erscheint.
+		 */
+		function drawBlossom(blossom, progress, clock) {
+			const ease = (v) => 1 - (1 - v) ** 3;
+			const bud = ease(Math.min(1, progress / 0.3));
+			const open = ease(Math.max(0, (progress - 0.3) / 0.7));
+			const sway = reducedMotion ? 0 : Math.sin(clock * 0.0009 + blossom.phase) * 0.12;
+			const petalLength = blossom.r * (0.45 + 0.55 * open) * bud;
+			const petalWidth = blossom.r * (0.3 + 0.25 * open) * bud;
+
+			leavesCtx.save();
+			leavesCtx.translate(blossom.x, blossom.y);
+			leavesCtx.rotate(blossom.angle + sway);
+			leavesCtx.fillStyle = blossom.color;
+			leavesCtx.strokeStyle = COLORS.blossomEdge;
+			leavesCtx.lineWidth = 0.8;
+			for (let i = 0; i < 5; i++) {
+				// Geschlossen liegen die Blätter eng beieinander, geöffnet im Kreis
+				const spread = (i / 5) * Math.PI * 2 * (0.15 + 0.85 * open);
+				leavesCtx.save();
+				leavesCtx.rotate(spread);
+				leavesCtx.beginPath();
+				leavesCtx.ellipse(petalLength * 0.55, 0, petalLength * 0.55, petalWidth * 0.5, 0, 0, Math.PI * 2);
+				leavesCtx.fill();
+				leavesCtx.stroke();
+				leavesCtx.restore();
+			}
+			if (open > 0) {
+				leavesCtx.beginPath();
+				leavesCtx.arc(0, 0, blossom.r * 0.2 * open, 0, Math.PI * 2);
+				leavesCtx.fillStyle = COLORS.blossomCenter;
+				leavesCtx.fill();
+			}
+			leavesCtx.restore();
 		}
 
 		function frame(now) {
