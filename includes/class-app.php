@@ -38,6 +38,8 @@ final class App
         add_action('init', [$this, 'add_rewrite_rules']);
         add_filter('query_vars', static fn(array $vars): array => [...$vars, self::QUERY_VAR]);
         add_action('template_redirect', [$this, 'maybe_render']);
+        // Sonst hängt WordPress an manifest.webmanifest einen Schrägstrich an
+        add_filter('redirect_canonical', static fn($redirect) => get_query_var(self::QUERY_VAR) !== '' ? false : $redirect);
         add_filter('login_redirect', [$this, 'login_redirect'], 10, 3);
         add_action('login_enqueue_scripts', [$this, 'login_style']);
         add_filter('login_headerurl', static fn(): string => home_url('/'));
@@ -50,9 +52,10 @@ final class App
         add_rewrite_rule("^{$path}/?$", 'index.php?' . self::QUERY_VAR . '=overview', 'top');
         add_rewrite_rule("^{$path}/(neu|\\d+)/?$", 'index.php?' . self::QUERY_VAR . '=$matches[1]', 'top');
         add_rewrite_rule("^{$path}/neu/([a-z]+)/?$", 'index.php?' . self::QUERY_VAR . '=neu-$matches[1]', 'top');
+        add_rewrite_rule("^{$path}/manifest\\.webmanifest$", 'index.php?' . self::QUERY_VAR . '=manifest', 'top');
 
         // Regeln neu schreiben, sobald sich Pfad oder Regeln ändern
-        $signature = 'v2|' . self::path();
+        $signature = 'v3|' . self::path();
         if (get_option('novemberkind_produkte_rewrite') !== $signature) {
             flush_rewrite_rules(false);
             update_option('novemberkind_produkte_rewrite', $signature);
@@ -64,6 +67,11 @@ final class App
         $route = (string) get_query_var(self::QUERY_VAR);
         if ($route === '') {
             return;
+        }
+
+        // Safari lädt das Manifest ohne Anmeldung; es enthält nur Name, Farben und Icons
+        if ($route === 'manifest') {
+            $this->manifest();
         }
 
         nocache_headers();
@@ -83,6 +91,41 @@ final class App
         status_header(200);
         send_frame_options_header();
         $this->render($route);
+        exit;
+    }
+
+    public static function manifest_url(): string
+    {
+        return self::url() . 'manifest.webmanifest';
+    }
+
+    /**
+     * Web-App-Manifest, damit die Seite auf dem Home-Bildschirm wie eine eigene App startet.
+     */
+    private function manifest(): void
+    {
+        $icons = plugin_dir_url(PLUGIN_FILE) . 'assets/icons/';
+        $home  = (string) wp_parse_url(home_url('/'), PHP_URL_PATH);
+
+        status_header(200);
+        header('Content-Type: application/manifest+json; charset=utf-8');
+        header('Cache-Control: public, max-age=86400');
+        echo wp_json_encode([
+            'name'             => __('Novemberkind Produkte', 'novemberkind-produkte'),
+            'short_name'       => __('Produkte', 'novemberkind-produkte'),
+            'lang'             => 'de',
+            'start_url'        => (string) wp_parse_url(self::url(), PHP_URL_PATH),
+            // Ganze Website als Bereich, damit die Anmeldung unter wp-login.php in der App bleibt
+            'scope'            => $home !== '' ? $home : '/',
+            'display'          => 'standalone',
+            'background_color' => '#f6f1ea',
+            'theme_color'      => '#f6f1ea',
+            'icons'            => [
+                ['src' => $icons . 'app-icon-192.png', 'sizes' => '192x192', 'type' => 'image/png', 'purpose' => 'any'],
+                ['src' => $icons . 'app-icon-512.png', 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'any'],
+                ['src' => $icons . 'app-icon-512.png', 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'maskable'],
+            ],
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         exit;
     }
 

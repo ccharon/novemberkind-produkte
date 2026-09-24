@@ -21,10 +21,15 @@ $shop_name = get_bloginfo('name');
     <meta charset="<?php bloginfo('charset'); ?>">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
+    <meta name="theme-color" content="#f6f1ea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="<?php esc_attr_e('Produkte', 'novemberkind-produkte'); ?>">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="manifest" href="<?php echo esc_url(App::manifest_url()); ?>">
+    <link rel="apple-touch-icon" href="<?php echo esc_url(plugin_dir_url(PLUGIN_FILE) . 'assets/icons/app-icon-180.png'); ?>">
     <title><?php echo esc_html($title . ' · ' . $shop_name); ?></title>
-    <?php if (has_site_icon()) : ?>
-        <link rel="icon" href="<?php echo esc_url(get_site_icon_url(64)); ?>">
-    <?php endif; ?>
+    <link rel="icon" href="<?php echo esc_url(has_site_icon() ? get_site_icon_url(64) : plugin_dir_url(PLUGIN_FILE) . 'assets/icons/app-icon-192.png'); ?>">
     <?php wp_print_styles('novemberkind-produkte-app'); ?>
 </head>
 <body class="nkp-page">

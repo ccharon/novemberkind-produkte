@@ -28,6 +28,12 @@ location() {
   curl -s -o /dev/null -w '%{redirect_url}' "$@"
 }
 
+manifest=$(curl -s -w '\n%{http_code} %{content_type}' "$APP/manifest.webmanifest")
+check 'Manifest ohne Anmeldung abrufbar' "$(tail -1 <<<"$manifest")" '200 application/manifest+json; charset=utf-8'
+check 'Manifest startet in der Produktverwaltung, ohne Browserleisten' "$(head -1 <<<"$manifest" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['start_url'], d['display'], d['short_name'], len(d['icons']))")" '/produkte-verwalten/ standalone Produkte 3'
+for size in 180 192 512; do
+  check "App-Icon ${size} px erreichbar" "$(curl -s -o /dev/null -w '%{http_code} %{content_type}' "$BASE/wp-content/plugins/novemberkind-produkte/assets/icons/app-icon-$size.png")" '200 image/png'
+done
 check 'ohne Login zur Anmeldung' "$(location "$APP/neu/" | grep -c '/wp-login.php?redirect_to=.*produkte-verwalten%2Fneu')" 1
 
 curl -s -c "$JAR" -b "$JAR" -o /dev/null "$BASE/wp-login.php"
@@ -39,6 +45,7 @@ page=$(curl -s -b "$JAR" "$APP/neu/button/")
 nonce=$(grep -oP 'var novemberkindProdukte = .*?"nonce":"\K[a-f0-9]+' <<<"$page")
 check 'Button-Formular lädt mit Nonce' "$([ -n "$nonce" ] && echo ja)" ja
 check 'Schutz gegen Einbetten' "$(curl -s -b "$JAR" -D - -o /dev/null "$APP/neu/button/" | grep -ci '^x-frame-options: sameorigin')" 1
+check 'Seite verweist auf Manifest und Apple-Icon' "$(grep -cE 'rel="manifest"|rel="apple-touch-icon"|apple-mobile-web-app-capable' <<<"$page")" 3
 check 'ohne WordPress-Oberfläche' "$(grep -c 'id="wpadminbar"' <<<"$page")" 0
 check 'unbekannte Produktart liefert 404' "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$APP/neu/tasse/")" 404
 overview=$(curl -s -b "$JAR" "$APP/")
