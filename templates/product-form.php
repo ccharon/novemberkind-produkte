@@ -243,7 +243,7 @@ $choice = static function (string $name, string $value, string $label, string $c
     </div>
 
     <aside class="nkp-form__side">
-        <section class="nkp-panel">
+        <section class="nkp-panel nkp-panel--photos">
             <h2 class="nkp-panel__title"><?php esc_html_e('Fotos', 'novemberkind-produkte'); ?></h2>
 
             <div class="nkp-photo nkp-photo--main <?php echo $image_id ? 'has-image' : ''; ?>" data-nkp-main-photo>

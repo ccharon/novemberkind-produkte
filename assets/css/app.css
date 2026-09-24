@@ -329,9 +329,23 @@ body.nkp-page {
 	top: 24px;
 }
 
+/* Einspaltig: Fotos zuerst, weil sie auch die Grundlage für den Vorschlag von Claude sind; Speichern bleibt unten */
 @media (max-width: 960px) {
 	.nkp-form__side {
-		position: static;
+		display: contents;
+	}
+
+	.nkp-panel--photos {
+		order: -1;
+	}
+
+	.nkp-form__side > :not(.nkp-panel--photos) {
+		order: 1;
+	}
+
+	/* Leeres Foto-Feld flacher, damit die Eingabefelder im ersten Bildschirm sichtbar bleiben */
+	.nkp-photo--main:not(.has-image) {
+		aspect-ratio: 2 / 1;
 	}
 }
 
