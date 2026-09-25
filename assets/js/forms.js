@@ -222,6 +222,24 @@
 				element.replaceWith(...element.childNodes);
 			}
 		});
+		// Lose Textstücke auf oberster Ebene in Absätze fassen, br trennt dabei Absätze
+		let paragraph = null;
+		[...copy.childNodes].forEach((node) => {
+			if (node.nodeType === Node.ELEMENT_NODE && ['P', 'H2'].includes(node.tagName)) {
+				paragraph = null;
+			} else if (node.nodeName === 'BR') {
+				paragraph = null;
+				node.remove();
+			} else {
+				paragraph ??= node.parentNode.insertBefore(document.createElement('p'), node);
+				paragraph.append(node);
+			}
+		});
+		copy.querySelectorAll('p, h2').forEach((block) => {
+			if (!block.textContent.trim()) {
+				block.remove();
+			}
+		});
 		copy.normalize();
 		const walker = document.createTreeWalker(copy, NodeFilter.SHOW_TEXT);
 		while (walker.nextNode()) {
@@ -236,7 +254,16 @@
 		}
 	}
 
+	// Ohne Absatz tippt der Browser die erste Zeile als losen Text
+	function ensureParagraph() {
+		if (editor.isContentEditable && !editor.textContent.trim() && !editor.querySelector('p, h2')) {
+			editor.innerHTML = '<p><br></p>';
+		}
+	}
+
 	if (editor) {
+		ensureParagraph();
+		editor.addEventListener('focus', ensureParagraph);
 		document.execCommand('defaultParagraphSeparator', false, 'p');
 		document.execCommand('styleWithCSS', false, false);
 
