@@ -12,7 +12,12 @@ defined('ABSPATH') || exit;
 final class Ajax
 {
     public const NONCE = 'novemberkind_produkte';
+    // Puffer für langsame Antworten der API; manche Hoster brechen PHP sonst schon nach 30 Sekunden ab
+    private const SUGGESTION_TIME_LIMIT = 120;
 
+    /**
+     * Meldet alle AJAX-Aktionen an; alle verlangen eine Anmeldung.
+     */
     public function register(): void
     {
         add_action('wp_ajax_novemberkind_produkte_save', [$this, 'save']);
@@ -25,6 +30,9 @@ final class Ajax
         add_action('wp_ajax_novemberkind_produkte_toggle_coupon', [$this, 'toggle_coupon']);
     }
 
+    /**
+     * Legt einen Gutschein an oder ändert ihn.
+     */
     public function save_coupon(): void
     {
         $this->authorize('edit_shop_coupons');
@@ -48,6 +56,9 @@ final class Ajax
         ]);
     }
 
+    /**
+     * Deaktiviert einen Gutschein oder aktiviert ihn wieder (`value` = on oder off).
+     */
     public function toggle_coupon(): void
     {
         $this->authorize('edit_shop_coupons');
@@ -69,6 +80,9 @@ final class Ajax
         ]);
     }
 
+    /**
+     * Legt eine Rabattaktion an oder ändert sie.
+     */
     public function save_campaign(): void
     {
         $this->authorize();
@@ -97,6 +111,9 @@ final class Ajax
         ]);
     }
 
+    /**
+     * Beendet eine laufende Aktion sofort oder sagt eine geplante ab.
+     */
     public function end_campaign(): void
     {
         $this->authorize();
@@ -114,6 +131,9 @@ final class Ajax
         ]);
     }
 
+    /**
+     * Speichert das Produktformular und antwortet mit dem neuen Stand für die Seite.
+     */
     public function save(): void
     {
         $this->authorize();
@@ -201,7 +221,7 @@ final class Ajax
         }
 
         if (function_exists('set_time_limit')) {
-            set_time_limit(120);
+            set_time_limit(self::SUGGESTION_TIME_LIMIT);
         }
 
         // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
@@ -213,6 +233,9 @@ final class Ajax
         wp_send_json_success($result);
     }
 
+    /**
+     * Nimmt ein im Browser verkleinertes Foto an und legt es als WebP in der Mediathek ab.
+     */
     public function upload(): void
     {
         $this->authorize('upload_files');

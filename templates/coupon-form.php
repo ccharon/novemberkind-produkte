@@ -53,7 +53,7 @@ $field_error = static function (string $field): void {
         <div class="nkp-field">
             <label class="nkp-field__label" for="nkp-coupon-code"><?php esc_html_e('Code', 'novemberkind-produkte'); ?></label>
             <div class="nkp-code-input">
-                <input type="text" id="nkp-coupon-code" name="code" required autocomplete="off" maxlength="30" autocapitalize="characters" spellcheck="false"
+                <input type="text" id="nkp-coupon-code" name="code" required autocomplete="off" maxlength="<?php echo esc_attr((string) Coupons::CODE_MAX_LENGTH); ?>" autocapitalize="characters" spellcheck="false"
                        value="<?php echo esc_attr($coupon['code'] ?? ''); ?>" placeholder="HERBST10">
                 <button type="button" class="nkp-button nkp-button--secondary" data-nkp-generate-code><?php esc_html_e('Zufällig', 'novemberkind-produkte'); ?></button>
             </div>
@@ -78,7 +78,7 @@ $field_error = static function (string $field): void {
         </div>
         <label class="nkp-field nkp-field--narrow" data-nkp-show-for="kind:percent" <?php echo $kind === 'percent' ? '' : 'hidden'; ?>>
             <span class="nkp-field__label"><?php esc_html_e('Rabatt in Prozent', 'novemberkind-produkte'); ?></span>
-            <input type="number" name="percent" min="1" max="100" step="1" inputmode="numeric" value="<?php echo esc_attr($kind === 'percent' && $coupon ? (string) $coupon['percent'] : ''); ?>" placeholder="10">
+            <input type="number" name="percent" min="1" max="<?php echo esc_attr((string) Coupons::MAX_PERCENT); ?>" step="1" inputmode="numeric" value="<?php echo esc_attr($kind === 'percent' && $coupon ? (string) $coupon['percent'] : ''); ?>" placeholder="10">
             <?php $field_error('percent'); ?>
         </label>
     </section>

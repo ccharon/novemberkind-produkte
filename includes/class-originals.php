@@ -14,17 +14,26 @@ final class Originals
 {
     private bool $updating = false;
 
+    /**
+     * Meldet die Hooks für verkaufte Unikate an.
+     */
     public function register(): void
     {
         add_action('woocommerce_product_set_stock_status', [$this, 'update_visibility'], 10, 3);
         add_filter('woocommerce_get_availability_text', [$this, 'availability_text'], 10, 2);
     }
 
+    /**
+     * Ob ein Unikat verkauft ist (nicht mehr vorrätig).
+     */
     public static function is_sold(\WC_Product $product): bool
     {
         return (bool) ProductType::detect($product)?->is_unique() && !$product->is_in_stock();
     }
 
+    /**
+     * Nimmt ein verkauftes Unikat aus Shop, Kategorie und Suche und zeigt es wieder, wenn es erneut vorrätig ist.
+     */
     public function update_visibility(int $product_id, string $stock_status, ?\WC_Product $product = null): void
     {
         $product = wc_get_product($product_id);
@@ -43,6 +52,9 @@ final class Originals
         $this->updating = false;
     }
 
+    /**
+     * Zeigt bei verkauften Unikaten „Verkauft“ statt „Nicht vorrätig“.
+     */
     public function availability_text(string $text, \WC_Product $product): string
     {
         return self::is_sold($product) ? __('Verkauft', 'novemberkind-produkte') : $text;

@@ -15,10 +15,15 @@ final class CardSizes
     public const ATTRIBUTE = 'Größe';
     public const A6 = 'A6';
     public const A4 = 'A4';
+    // Reihenfolge der Varianten und Endung ihrer Artikelnummer (A000123-1, -2)
+    private const POSITIONS = [self::A6 => 1, self::A4 => 2];
 
     /** Maße in cm im Querformat: Breite, Höhe */
     private const DIMENSIONS = [self::A6 => ['15', '10.5'], self::A4 => ['29.7', '21']];
 
+    /**
+     * Schlüssel des Attributs „Größe“, wie WooCommerce ihn an Varianten speichert.
+     */
     public static function attribute_key(): string
     {
         return sanitize_title(self::ATTRIBUTE);
@@ -41,6 +46,9 @@ final class CardSizes
         return false;
     }
 
+    /**
+     * Variante einer Karte für eine Größe (A6 oder A4), falls vorhanden.
+     */
     public static function variation(\WC_Product $product, string $size): ?\WC_Product_Variation
     {
         foreach ($product->get_children() as $child_id) {
@@ -53,6 +61,9 @@ final class CardSizes
         return null;
     }
 
+    /**
+     * Ob eine Karte gerade auch in A4 angeboten wird.
+     */
     public static function a4_enabled(\WC_Product $product): bool
     {
         $a4 = self::has_sizes($product) ? self::variation($product, self::A4) : null;
@@ -119,7 +130,7 @@ final class CardSizes
             $product->save();
         }
 
-        foreach ([self::A6 => 1, self::A4 => 2] as $size => $position) {
+        foreach (self::POSITIONS as $size => $position) {
             $variation = self::variation($product, $size);
             $is_new    = $variation === null;
             if ($is_new) {

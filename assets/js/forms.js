@@ -5,6 +5,9 @@
 	const config = window.novemberkindFormulare;
 	const toast = document.querySelector('[data-nkp-toast]');
 	const FLASH = 'nkpFlash';
+	const TOAST_MS = 4000;
+	const TOAST_ERROR_MS = 8000;
+	const CODE_LENGTH = 8;
 
 	let toastTimer;
 	function showToast(message, type = 'success') {
@@ -15,7 +18,7 @@
 		toast.className = `nkp-toast nkp-toast--${type}`;
 		toast.hidden = false;
 		clearTimeout(toastTimer);
-		toastTimer = setTimeout(() => { toast.hidden = true; }, type === 'error' ? 8000 : 4000);
+		toastTimer = setTimeout(() => { toast.hidden = true; }, type === 'error' ? TOAST_ERROR_MS : TOAST_MS);
 	}
 
 	// Meldung über den Seitenwechsel hinweg, weil nach dem Speichern die Liste erscheint
@@ -119,7 +122,7 @@
 	// Zufälliger Code ohne leicht verwechselbare Zeichen wie 0 und O; ob er frei ist, prüft der Server beim Speichern
 	form.querySelector('[data-nkp-generate-code]')?.addEventListener('click', () => {
 		const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-		const bytes = crypto.getRandomValues(new Uint8Array(8));
+		const bytes = crypto.getRandomValues(new Uint8Array(CODE_LENGTH));
 		form.elements.code.value = [...bytes].map((byte) => alphabet[byte % alphabet.length]).join('');
 		dirty = true;
 	});

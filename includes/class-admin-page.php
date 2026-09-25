@@ -13,11 +13,17 @@ final class AdminPage
 {
     public const SLUG = 'novemberkind-produkte';
 
+    /**
+     * Hängt den Menüeintrag ins Backend.
+     */
     public function register(): void
     {
         add_action('admin_menu', [$this, 'add_menu']);
     }
 
+    /**
+     * Menüeintrag „Meine Produkte“, der beim Aufruf zur Produktverwaltung weiterleitet.
+     */
     public function add_menu(): void
     {
         $hook_suffix = add_menu_page(

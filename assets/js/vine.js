@@ -10,6 +10,24 @@
 	const LEAF_SIZE = 1.3;
 	const BLOOM_SPREAD_MS = 90 * 1000; // über diese Zeit nach dem Wachsen erscheinen die Blüten
 	const BLOOM_OPEN_MS = 10 * 1000;
+	const BUD_GROW_MS = 1500;
+	const BUD_CHANCE = 0.18; // Anteil der Zweige mit Knospe
+	const MAIN_START_SPREAD_MS = 4000; // Hauptranken starten leicht versetzt
+	const MAX_DEPTH = 2; // Hauptranke, Seitenzweig, Seitenzweig davon
+	const MAX_LENGTH = 20000; // Obergrenze in px, falls eine Ranke ihr Ziel umkreist statt es zu erreichen
+	const BLOSSOMS_MIN = 10;
+	const BLOSSOMS_MAX = 28;
+	const PX_PER_BLOSSOM = 60000; // eine Blüte je so viel Fläche, innerhalb der Grenzen oben
+	const PETALS = 5;
+	const MAX_PIXEL_RATIO = 2; // schärfer sieht man nicht, kostet aber Speicher
+	const MAX_FRAME_GAP_MS = 100; // längere Pausen (Tab im Hintergrund) zählen nicht als Wachstum
+	const LEAF_FRAME_GROWING_MS = 33; // höchstens 30 Bilder pro Sekunde beim Wachsen
+	const LEAF_FRAME_WIND_MS = 50; // 20 Bilder pro Sekunde im Wind
+	const SAVE_INTERVAL_MS = 3000;
+	const RESIZE_DELAY_MS = 250;
+
+	// Die übrigen Zahlen in buildPlan und beim Zeichnen sind von Hand abgestimmte Formwerte:
+	// Abstände, Krümmungen, Blattumrisse und Zufallsbereiche. Sie haben keine Bedeutung außerhalb ihrer Zeile.
 
 	// Stiele deckend, die Ebene selbst ist per CSS durchscheinend; sonst werden Überlappungen zu dunklen Punkten
 	const COLORS = {
@@ -124,8 +142,7 @@
 			const wobblePhase = rnd() * Math.PI * 2;
 			let curve = curl || 0;
 
-			// Obergrenze, falls eine Ranke ihr Ziel umkreist statt es zu erreichen
-			while (length < maxLength && length < 20000) {
+			while (length < maxLength && length < MAX_LENGTH) {
 				let target = null;
 				if (route) {
 					while (waypoint < route.length && Math.hypot(route[waypoint].x - x, route[waypoint].y - y) < 24) {
@@ -177,7 +194,7 @@
 					nextRunner += 320 + rnd() * 300;
 				}
 
-				if (depth < 2 && length >= nextBranch) {
+				if (depth < MAX_DEPTH && length >= nextBranch) {
 					const branchSide = rnd() < 0.5 ? -1 : 1;
 					grow({
 						start: { x, y },
@@ -197,7 +214,7 @@
 			if (depth > 0) {
 				tips.push({ x, y, angle });
 			}
-			if (!route && rnd() < 0.18) {
+			if (!route && rnd() < BUD_CHANCE) {
 				buds.push({ x, y, r: (2 + rnd() * 2) * leafScale, birth: end + 400 });
 			}
 		}
@@ -209,17 +226,17 @@
 				route: route.slice(1),
 				maxLength: Infinity,
 				width: 2.4,
-				birth: rnd() * 4000,
+				birth: rnd() * MAIN_START_SPREAD_MS,
 				depth: 0,
 			});
 		}
 
 		segments.sort((a, b) => a.birth - b.birth);
-		const grown = Math.max(...segments.map((s) => s.birth), ...leaves.map((l) => l.birth + LEAF_UNFOLD_MS), ...buds.map((b) => b.birth + 1500));
+		const grown = Math.max(...segments.map((s) => s.birth), ...leaves.map((l) => l.birth + LEAF_UNFOLD_MS), ...buds.map((b) => b.birth + BUD_GROW_MS));
 
 		// Blüten, wenn die Ranke ausgewachsen ist: bevorzugt an Zweigenden, gut verteilt
 		const blossoms = [];
-		const wanted = Math.max(10, Math.min(28, Math.round((width * height) / 60000)));
+		const wanted = Math.max(BLOSSOMS_MIN, Math.min(BLOSSOMS_MAX, Math.round((width * height) / PX_PER_BLOSSOM)));
 		const pool = tips.slice();
 		while (blossoms.length < wanted && pool.length > 0) {
 			const spot = pool.splice(Math.floor(rnd() * pool.length), 1)[0];
@@ -267,7 +284,7 @@
 		let lastSave = 0;
 
 		function setup() {
-			const ratio = Math.min(2, window.devicePixelRatio || 1);
+			const ratio = Math.min(MAX_PIXEL_RATIO, window.devicePixelRatio || 1);
 			width = window.innerWidth;
 			height = Math.round(window.innerHeight * (1 + PARALLAX));
 			for (const canvas of [stemCanvas, leafCanvas]) {
@@ -337,7 +354,7 @@
 				if (bud.birth > time) {
 					continue;
 				}
-				const grown = Math.min(1, (time - bud.birth) / 1500);
+				const grown = Math.min(1, (time - bud.birth) / BUD_GROW_MS);
 				leavesCtx.beginPath();
 				leavesCtx.arc(bud.x, bud.y, bud.r * grown, 0, Math.PI * 2);
 				leavesCtx.fillStyle = COLORS.bud;
@@ -362,9 +379,9 @@
 			leavesCtx.fillStyle = blossom.color;
 			leavesCtx.strokeStyle = COLORS.blossomEdge;
 			leavesCtx.lineWidth = 0.8;
-			for (let i = 0; i < 5; i++) {
+			for (let i = 0; i < PETALS; i++) {
 				// Geschlossen liegen die Blätter eng beieinander, geöffnet im Kreis
-				const spread = (i / 5) * Math.PI * 2 * (0.15 + 0.85 * open);
+				const spread = (i / PETALS) * Math.PI * 2 * (0.15 + 0.85 * open);
 				leavesCtx.save();
 				leavesCtx.rotate(spread);
 				leavesCtx.beginPath();
@@ -386,20 +403,18 @@
 			if (!running) {
 				return;
 			}
-			// Große Sprünge (Tab im Hintergrund) nicht als Wachstum zählen
-			const delta = Math.min(100, now - (lastFrame || now));
+			const delta = Math.min(MAX_FRAME_GAP_MS, now - (lastFrame || now));
 			lastFrame = now;
 			const growing = state.progress < plan.done;
 			if (growing) {
 				state.progress += delta;
 				drawStems(state.progress);
 			}
-			// Blätter mit höchstens 30 Bildern pro Sekunde beim Wachsen, 20 im Wind
-			if (now - lastLeafFrame >= (growing ? 33 : 50)) {
+			if (now - lastLeafFrame >= (growing ? LEAF_FRAME_GROWING_MS : LEAF_FRAME_WIND_MS)) {
 				drawLeaves(state.progress, now);
 				lastLeafFrame = now;
 			}
-			if (now - lastSave > 3000) {
+			if (now - lastSave > SAVE_INTERVAL_MS) {
 				saveState(state);
 				lastSave = now;
 			}
@@ -414,7 +429,7 @@
 		let resizeTimer;
 		window.addEventListener('resize', () => {
 			clearTimeout(resizeTimer);
-			resizeTimer = setTimeout(setup, 250);
+			resizeTimer = setTimeout(setup, RESIZE_DELAY_MS);
 		});
 		window.addEventListener('scroll', onScroll, { passive: true });
 		window.addEventListener('pagehide', () => saveState(state));

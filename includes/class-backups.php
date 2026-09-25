@@ -17,12 +17,18 @@ final class Backups
     public const META_SNAPSHOT = '_novemberkind_produkte_snapshot';
     private const DOWNLOAD_ACTION = 'novemberkind_produkte_backup';
 
+    /**
+     * Meldet den Inhaltstyp und den Download der Sicherungen an.
+     */
     public function register(): void
     {
         add_action('init', [$this, 'register_post_type']);
         add_action('admin_post_' . self::DOWNLOAD_ACTION, [$this, 'download']);
     }
 
+    /**
+     * Privater Inhaltstyp für Sicherungen, ohne Backend-Oberfläche und ohne Export.
+     */
     public function register_post_type(): void
     {
         register_post_type(self::POST_TYPE, [
@@ -79,6 +85,9 @@ final class Backups
         return $backup_id;
     }
 
+    /**
+     * Gesicherter Stand als JSON.
+     */
     public static function snapshot(int $backup_id): string
     {
         return (string) get_post_meta($backup_id, self::META_SNAPSHOT, true);
@@ -112,6 +121,9 @@ final class Backups
         ], $this->for_product($product_id));
     }
 
+    /**
+     * Adresse zum Ansehen (`$inline`) oder Herunterladen einer Sicherung, mit Nonce.
+     */
     public static function download_url(int $backup_id, bool $inline = false): string
     {
         // add_query_arg statt wp_nonce_url, weil die Adresse auch per JavaScript gesetzt wird und dort kein &amp; enthalten darf

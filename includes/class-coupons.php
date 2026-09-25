@@ -17,10 +17,19 @@ final class Coupons
     // Kennzeichnet Gutscheine aus diesem Plugin; andere werden in WooCommerce bearbeitet
     public const META_OWN = '_novemberkind_produkte_coupon';
     public const KINDS = ['percent', 'shipping'];
+    public const CODE_MIN_LENGTH = 3;
+    public const CODE_MAX_LENGTH = 30;
+    private const CODE_PATTERN = '/^[A-Z0-9-]{' . self::CODE_MIN_LENGTH . ',' . self::CODE_MAX_LENGTH . '}$/';
+    public const MAX_PERCENT = 100;
+    // Nach anderen Versandfiltern (Standard 10), damit am Ende wirklich 0 steht
+    private const FILTER_PRIORITY = 20;
 
+    /**
+     * Meldet den Filter für kostenlosen Versand an.
+     */
     public function register(): void
     {
-        add_filter('woocommerce_package_rates', [$this, 'free_shipping_rates'], 20);
+        add_filter('woocommerce_package_rates', [$this, 'free_shipping_rates'], self::FILTER_PRIORITY);
     }
 
     /**
@@ -123,8 +132,13 @@ final class Coupons
 
         $errors = [];
         $code   = strtoupper(trim(sanitize_text_field(wp_unslash((string) ($data['code'] ?? '')))));
-        if (!preg_match('/^[A-Z0-9-]{3,30}$/', $code)) {
-            $errors['code'] = __('Der Code braucht 3 bis 30 Zeichen: Buchstaben ohne Umlaute, Ziffern und Bindestriche, z. B. HERBST10.', 'novemberkind-produkte');
+        if (!preg_match(self::CODE_PATTERN, $code)) {
+            $errors['code'] = sprintf(
+                /* translators: 1: kleinste, 2: größte Anzahl Zeichen */
+                __('Der Code braucht %1$d bis %2$d Zeichen: Buchstaben ohne Umlaute, Ziffern und Bindestriche, z. B. HERBST10.', 'novemberkind-produkte'),
+                self::CODE_MIN_LENGTH,
+                self::CODE_MAX_LENGTH
+            );
         } elseif (wc_get_coupon_id_by_code($code, $id) !== 0) {
             /* translators: %s: Gutscheincode */
             $errors['code'] = sprintf(__('Den Code %s gibt es schon.', 'novemberkind-produkte'), $code);
@@ -138,8 +152,9 @@ final class Coupons
         if ($kind === 'percent') {
             $raw     = trim((string) ($data['percent'] ?? ''));
             $percent = ctype_digit($raw) ? (int) $raw : 0;
-            if ($percent < 1 || $percent > 100) {
-                $errors['percent'] = __('Bitte gib einen Rabatt zwischen 1 und 100 Prozent ein.', 'novemberkind-produkte');
+            if ($percent < 1 || $percent > self::MAX_PERCENT) {
+                /* translators: %d: höchster erlaubter Rabatt */
+                $errors['percent'] = sprintf(__('Bitte gib einen Rabatt zwischen 1 und %d Prozent ein.', 'novemberkind-produkte'), self::MAX_PERCENT);
             }
         }
 
@@ -171,7 +186,7 @@ final class Coupons
             $coupon->set_discount_type('percent');
             $coupon->set_amount($percent);
             $coupon->set_free_shipping(false);
-            // Kein Gutschein auf Produkte, die schon reduziert sind, auch nicht durch eine Aktion
+            // Gilt nur für Produkte zum Normalpreis; Preise aus einer Aktion zählen als reduziert
             $coupon->set_exclude_sale_items(true);
         }
         $coupon->set_date_expires($expires);
@@ -205,6 +220,9 @@ final class Coupons
         return self::data($coupon);
     }
 
+    /**
+     * Ob Gutscheincodes in den WooCommerce-Einstellungen eingeschaltet sind.
+     */
     public static function enabled(): bool
     {
         return wc_coupons_enabled();

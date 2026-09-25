@@ -2,6 +2,15 @@
 (() => {
 	'use strict';
 
+	// Fehler bleiben länger stehen, damit man sie in Ruhe lesen kann
+	const TOAST_MS = 4000;
+	const TOAST_ERROR_MS = 8000;
+	// Wartezeit nach der letzten Eingabe, bevor die Beschreibung neu aus der Vorlage entsteht
+	const PREVIEW_DELAY_MS = 400;
+	// iOS meldet die neue Breite erst kurz nach dem Drehen
+	const RELAYOUT_DELAY_MS = 300;
+	const MS_PER_MINUTE = 60 * 1000;
+
 	// Zugeklappte Kategorien der Übersicht merken. Ist der Speicher im Browser gesperrt, bleibt alles offen.
 	const groups = document.querySelectorAll('[data-nkp-group]');
 	let collapsed = [];
@@ -119,7 +128,7 @@
 		toast.className = `nkp-toast nkp-toast--${type}`;
 		toast.hidden = false;
 		clearTimeout(toastTimer);
-		toastTimer = setTimeout(() => { toast.hidden = true; }, type === 'error' ? 8000 : 4000);
+		toastTimer = setTimeout(() => { toast.hidden = true; }, type === 'error' ? TOAST_ERROR_MS : TOAST_MS);
 	}
 
 	function clearFieldErrors() {
@@ -546,7 +555,7 @@
 			return;
 		}
 		clearTimeout(previewTimer);
-		previewTimer = setTimeout(refreshDescription, 400);
+		previewTimer = setTimeout(refreshDescription, PREVIEW_DELAY_MS);
 	}
 
 	form.addEventListener('input', scheduleRefresh);
@@ -561,8 +570,8 @@
 		schedule.disabled = !planned;
 		if (planned) {
 			// Frühestes Datum ist heute in der Zeit des Geräts; den genauen Zeitpunkt prüft der Server
-			const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60000);
-			form.elements.publish_date.min = today.toISOString().slice(0, 10);
+			const today = new Date(Date.now() - new Date().getTimezoneOffset() * MS_PER_MINUTE);
+			form.elements.publish_date.min = today.toISOString().split('T')[0];
 			form.elements.publish_date.focus();
 		}
 	}));
@@ -678,8 +687,8 @@
 			photo.style.aspectRatio = '';
 		});
 	};
-	window.addEventListener('orientationchange', () => setTimeout(relayoutPhotos, 300));
-	window.screen.orientation?.addEventListener('change', () => setTimeout(relayoutPhotos, 300));
+	window.addEventListener('orientationchange', () => setTimeout(relayoutPhotos, RELAYOUT_DELAY_MS));
+	window.screen.orientation?.addEventListener('change', () => setTimeout(relayoutPhotos, RELAYOUT_DELAY_MS));
 
 	// Cmd+S / Strg+S speichert, statt die Seite herunterzuladen
 	document.addEventListener('keydown', (event) => {

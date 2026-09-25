@@ -16,9 +16,12 @@ final class Campaigns
     public const POST_TYPE = 'novemberkind_aktion';
     public const META = '_novemberkind_produkte_campaign';
     public const MAX_PERCENT = 90;
+    public const NAME_MAX_LENGTH = 100;
     // Preisangabenverordnung: Vergleichspreis ist der niedrigste Preis der letzten 30 Tage
     public const REFERENCE_DAYS = 30;
     public const SCOPES = ['all', 'categories', 'products'];
+    // Nach anderen Preisfiltern (Standard 10), damit die Aktion den endgültigen Preis bestimmt
+    private const FILTER_PRIORITY = 20;
 
     /** @var array<int, array<string, mixed>>|null alle Aktionen dieser Anfrage */
     private static ?array $cache = null;
@@ -29,20 +32,26 @@ final class Campaigns
     /** @var array<int, int[]> genaueste Kategorien je Produkt-ID */
     private static array $categories = [];
 
+    /**
+     * Meldet den Inhaltstyp und die Preisfilter an.
+     */
     public function register(): void
     {
         add_action('init', [$this, 'register_post_type']);
         foreach (['woocommerce_product_get_price', 'woocommerce_product_get_sale_price', 'woocommerce_product_variation_get_price', 'woocommerce_product_variation_get_sale_price'] as $hook) {
-            add_filter($hook, [$this, 'filter_price'], 20, 2);
+            add_filter($hook, [$this, 'filter_price'], self::FILTER_PRIORITY, 2);
         }
         // Preisspannen variabler Produkte berechnet WooCommerce aus den Rohwerten der Varianten
-        add_filter('woocommerce_variation_prices_price', [$this, 'filter_price'], 20, 2);
-        add_filter('woocommerce_variation_prices_sale_price', [$this, 'filter_price'], 20, 2);
+        add_filter('woocommerce_variation_prices_price', [$this, 'filter_price'], self::FILTER_PRIORITY, 2);
+        add_filter('woocommerce_variation_prices_sale_price', [$this, 'filter_price'], self::FILTER_PRIORITY, 2);
         add_filter('woocommerce_get_variation_prices_hash', [$this, 'prices_hash']);
-        add_filter('woocommerce_get_price_html', [$this, 'range_price_html'], 20, 2);
+        add_filter('woocommerce_get_price_html', [$this, 'range_price_html'], self::FILTER_PRIORITY, 2);
         add_action('save_post_' . self::POST_TYPE, [self::class, 'flush']);
     }
 
+    /**
+     * Privater Inhaltstyp für Aktionen, ohne Backend-Oberfläche, REST und Export.
+     */
     public function register_post_type(): void
     {
         register_post_type(self::POST_TYPE, [
@@ -155,6 +164,9 @@ final class Campaigns
         $name   = trim(sanitize_text_field(wp_unslash((string) ($data['name'] ?? ''))));
         if ($name === '') {
             $errors['name'] = __('Bitte gib der Aktion einen Namen, z. B. Herbstaktion.', 'novemberkind-produkte');
+        } elseif (mb_strlen($name) > self::NAME_MAX_LENGTH) {
+            /* translators: %d: größte Anzahl Zeichen */
+            $errors['name'] = sprintf(__('Der Name darf höchstens %d Zeichen lang sein.', 'novemberkind-produkte'), self::NAME_MAX_LENGTH);
         }
 
         $percent_raw = trim((string) ($data['percent'] ?? ''));

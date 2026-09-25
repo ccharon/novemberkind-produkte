@@ -16,7 +16,12 @@ final class Updater
     public const ASSET = 'novemberkind-produkte.zip';
     private const CACHE = 'novemberkind_produkte_release';
     private const RETRY = HOUR_IN_SECONDS;
+    private const CACHE_TTL = 12 * HOUR_IN_SECONDS;
+    private const TIMEOUT = 10;
 
+    /**
+     * Meldet die Hooks für Updates aus den GitHub-Releases an.
+     */
     public function register(): void
     {
         add_filter('update_plugins_github.com', [$this, 'check'], 10, 3);
@@ -114,7 +119,7 @@ final class Updater
             'release' => $release,
             'error'   => is_wp_error($result) ? $result->get_error_message() : '',
             'checked' => time(),
-        ], $release === null ? self::RETRY : 12 * HOUR_IN_SECONDS);
+        ], $release === null ? self::RETRY : self::CACHE_TTL);
 
         return $release;
     }
@@ -151,7 +156,7 @@ final class Updater
     private function fetch_release(): array|\WP_Error
     {
         $response = wp_remote_get('https://api.github.com/repos/' . self::REPOSITORY . '/releases/latest', [
-            'timeout' => 10,
+            'timeout' => self::TIMEOUT,
             'headers' => ['Accept' => 'application/vnd.github+json', 'User-Agent' => 'WordPress/' . self::SLUG],
         ]);
         if (is_wp_error($response)) {

@@ -45,6 +45,9 @@ final class ShopData
         return $ids;
     }
 
+    /**
+     * ID einer Versandklasse über ihren Namen, 0 wenn es sie nicht gibt.
+     */
     public static function shipping_class_id(string $name): int
     {
         $term = get_term_by('name', $name, 'product_shipping_class');
@@ -103,11 +106,11 @@ final class ShopData
         $ids     = wc_get_products(['limit' => -1, 'status' => 'any', 'type' => ['simple', 'variable', 'grouped', 'external'], 'return' => 'ids']);
         foreach ($ids as $id) {
             $product = wc_get_product($id);
-            if ($product && preg_match('/^A(\d{6})$/', $product->get_sku('edit'), $match)) {
+            if ($product && preg_match(ProductService::SKU_PATTERN, $product->get_sku('edit'), $match)) {
                 $highest = max($highest, (int) $match[1]);
             }
         }
 
-        return sprintf('A%06d', $highest + 1);
+        return sprintf(ProductService::SKU_FORMAT, $highest + 1);
     }
 }

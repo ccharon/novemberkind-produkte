@@ -69,7 +69,7 @@ $status_labels = [
         <section class="nkp-panel">
             <label class="nkp-field">
                 <span class="nkp-field__label"><?php esc_html_e('Name', 'novemberkind-produkte'); ?></span>
-                <input type="text" name="name" required autocomplete="off" maxlength="100" value="<?php echo esc_attr($campaign['name'] ?? ''); ?>"
+                <input type="text" name="name" required autocomplete="off" maxlength="<?php echo esc_attr((string) Campaigns::NAME_MAX_LENGTH); ?>" value="<?php echo esc_attr($campaign['name'] ?? ''); ?>"
                        placeholder="<?php esc_attr_e('z. B. Herbstaktion', 'novemberkind-produkte'); ?>">
                 <span class="nkp-field__hint"><?php esc_html_e('Nur für dich, im Shop erscheint der Name nicht.', 'novemberkind-produkte'); ?></span>
                 <?php $field_error('name'); ?>

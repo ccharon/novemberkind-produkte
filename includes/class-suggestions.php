@@ -20,6 +20,10 @@ defined('ABSPATH') || exit;
 final class Suggestions
 {
     public const DEFAULT_MODEL = 'claude-sonnet-5';
+    // Das WebP aus der Mediathek hat höchstens 1024 px; größere Dateien sind kein Produktfoto aus dem Plugin
+    private const MAX_IMAGE_BYTES = 5 * MB_IN_BYTES;
+    // Obergrenze für Denken und Antwort zusammen, großzügig, damit die Antwort nie abgeschnitten wird
+    private const MAX_TOKENS = 16000;
 
     public const SCHEMA = [
         'type'                 => 'object',
@@ -43,11 +47,17 @@ final class Suggestions
         return $key !== '' ? $key : (string) getenv('NOVEMBERKIND_PRODUKTE_ANTHROPIC_KEY');
     }
 
+    /**
+     * Claude-Modell, änderbar über die Konstante `NOVEMBERKIND_PRODUKTE_ANTHROPIC_MODEL`.
+     */
     public static function model(): string
     {
         return defined('NOVEMBERKIND_PRODUKTE_ANTHROPIC_MODEL') ? (string) constant('NOVEMBERKIND_PRODUKTE_ANTHROPIC_MODEL') : self::DEFAULT_MODEL;
     }
 
+    /**
+     * Ob Vorschläge möglich sind: API-Schlüssel gesetzt und SDK installiert.
+     */
     public static function is_available(): bool
     {
         return self::api_key() !== '' && class_exists(Client::class);
@@ -126,11 +136,14 @@ final class Suggestions
 
         $file  = $image_id && wp_attachment_is_image($image_id) ? get_attached_file($image_id) : false;
         // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Foto aus der Mediathek
-        $image = $file && is_readable($file) && filesize($file) < 5 * MB_IN_BYTES ? (string) file_get_contents($file) : null;
+        $image = $file && is_readable($file) && filesize($file) < self::MAX_IMAGE_BYTES ? (string) file_get_contents($file) : null;
 
         return ['text' => $text, 'image' => $image, 'mime' => $image !== null ? (string) get_post_mime_type($image_id) : ''];
     }
 
+    /**
+     * Systemprompt aus `prompts/suggestion.md` mit dem Namen des Shops.
+     */
     public function system_prompt(): string
     {
         // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- lokale Datei des Plugins
@@ -175,7 +188,7 @@ final class Suggestions
             );
             $response = $client->messages->create(
                 model: self::model(),
-                maxTokens: 16000,
+                maxTokens: self::MAX_TOKENS,
                 system: $this->system_prompt(),
                 messages: [['role' => 'user', 'content' => $content]],
                 outputConfig: [

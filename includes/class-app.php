@@ -13,36 +13,57 @@ final class App
 {
     public const QUERY_VAR = 'novemberkind_produkte';
 
+    /**
+     * Pfad der Produktverwaltung ohne Schrägstriche, änderbar über den Filter `novemberkind_produkte_path`.
+     */
     public static function path(): string
     {
         return trim((string) apply_filters('novemberkind_produkte_path', 'produkte-verwalten'), '/');
     }
 
+    /**
+     * Adresse der Produktübersicht.
+     */
     public static function url(): string
     {
         return home_url('/' . self::path() . '/');
     }
 
+    /**
+     * Adresse des Formulars für ein bestehendes Produkt.
+     */
     public static function edit_url(int $product_id): string
     {
         return self::url() . $product_id . '/';
     }
 
+    /**
+     * Adresse der Auswahl der Produktart oder, mit Produktart, des leeren Formulars.
+     */
     public static function new_url(string $type = ''): string
     {
         return self::url() . 'neu/' . ($type !== '' ? $type . '/' : '');
     }
 
+    /**
+     * Adresse der Aktionsliste oder, mit ID oder „neu“, eines Aktionsformulars.
+     */
     public static function campaigns_url(int|string $campaign = ''): string
     {
         return self::url() . 'aktionen/' . ($campaign !== '' ? $campaign . '/' : '');
     }
 
+    /**
+     * Adresse der Gutscheinliste oder, mit ID oder „neu“, eines Gutscheinformulars.
+     */
     public static function coupons_url(int|string $coupon = ''): string
     {
         return self::url() . 'gutscheine/' . ($coupon !== '' ? $coupon . '/' : '');
     }
 
+    /**
+     * Meldet Adressen, Seitenaufbau und Anpassungen der Login-Seite an.
+     */
     public function register(): void
     {
         add_action('init', [$this, 'add_rewrite_rules']);
@@ -56,6 +77,9 @@ final class App
         add_filter('login_headertext', static fn(): string => get_bloginfo('name'));
     }
 
+    /**
+     * Adressen der eigenen Seiten; bei geändertem Pfad werden die Regeln einmal neu geschrieben.
+     */
     public function add_rewrite_rules(): void
     {
         $path = preg_quote(self::path(), '#');
@@ -76,6 +100,9 @@ final class App
         }
     }
 
+    /**
+     * Zeigt die eigene Seite an, wenn die Adresse dazu gehört, und prüft vorher Anmeldung und Rechte.
+     */
     public function maybe_render(): void
     {
         $route = (string) get_query_var(self::QUERY_VAR);
@@ -118,6 +145,9 @@ final class App
         return VERSION . '.' . (is_readable($path) ? (string) filemtime($path) : '0');
     }
 
+    /**
+     * Adresse des Web-App-Manifests für den Home-Bildschirm.
+     */
     public static function manifest_url(): string
     {
         return self::url() . 'manifest.webmanifest';
@@ -133,7 +163,7 @@ final class App
 
         status_header(200);
         header('Content-Type: application/manifest+json; charset=utf-8');
-        header('Cache-Control: public, max-age=86400');
+        header('Cache-Control: public, max-age=' . DAY_IN_SECONDS);
         echo wp_json_encode([
             'name'             => __('Novemberkind Produkte', 'novemberkind-produkte'),
             'short_name'       => __('Produkte', 'novemberkind-produkte'),
@@ -168,6 +198,9 @@ final class App
         return $redirect_to;
     }
 
+    /**
+     * Gestaltet die WordPress-Login-Seite wie die Produktverwaltung.
+     */
     public function login_style(): void
     {
         wp_enqueue_style('novemberkind-produkte-login', plugin_dir_url(PLUGIN_FILE) . 'assets/css/login.css', [], self::asset_version('assets/css/login.css'));

@@ -18,6 +18,10 @@ final class ProductType
 
     public const TECHNIQUES = ['Aquarell', 'Tusche', 'Bleistift', 'Buntstift', 'Mischtechnik'];
 
+    // Im Shop genau genug für mm und Zoll, im Formular auf Millimeter gerundet
+    private const SHOP_UNIT_DECIMALS = 4;
+    private const FORM_DECIMALS = 2;
+
     /** @var array<string, self>|null */
     private static ?array $types = null;
 
@@ -44,6 +48,9 @@ final class ProductType
         return self::$types;
     }
 
+    /**
+     * Produktart zu einem Schlüssel wie „button“.
+     */
     public static function get(string $key): ?self
     {
         return self::all()[$key] ?? null;
@@ -78,26 +85,41 @@ final class ProductType
         return null;
     }
 
+    /**
+     * Schlüssel der Produktart, z. B. „button“.
+     */
     public function key(): string
     {
         return $this->key;
     }
 
+    /**
+     * Name der Produktart für die Oberfläche.
+     */
     public function label(): string
     {
         return $this->config['label'];
     }
 
+    /**
+     * Kurze Erklärung für die Auswahl der Produktart.
+     */
     public function hint(): string
     {
         return $this->config['hint'];
     }
 
+    /**
+     * Ob die Produktart feste Varianten hat (Buttons mit Rückseiten).
+     */
     public function is_variable(): bool
     {
         return $this->config['product_type'] === 'variable';
     }
 
+    /**
+     * Ob jedes Produkt ein Unikat ist (Originalzeichnungen).
+     */
     public function is_unique(): bool
     {
         return !empty($this->config['unique']);
@@ -111,6 +133,9 @@ final class ProductType
         return $this->config['fields'];
     }
 
+    /**
+     * Ob das Formular dieser Produktart ein bestimmtes Eingabefeld hat.
+     */
     public function has_field(string $field): bool
     {
         return in_array($field, $this->config['fields'], true);
@@ -124,21 +149,33 @@ final class ProductType
         return $this->config[$key] ?? null;
     }
 
+    /**
+     * Produktname aus dem Motiv, z. B. „Button: Otter“.
+     */
     public function product_name(string $motif): string
     {
         return sprintf($this->config['name'], $motif);
     }
 
+    /**
+     * Kurzbeschreibung aus dem Motiv.
+     */
     public function short_description(string $motif): string
     {
         return sprintf($this->config['short_description'], $motif);
     }
 
+    /**
+     * Warenkorbtext (Germanized) aus dem Motiv, als HTML-Absatz.
+     */
     public function cart_description(string $motif): string
     {
         return '<p>' . esc_html(sprintf($this->config['cart_description'], $motif)) . '</p>';
     }
 
+    /**
+     * Motiv aus einem Produktnamen, z. B. „Otter“ aus „Button: Otter“.
+     */
     public function motif_from_name(string $name): string
     {
         [$prefix, $suffix] = explode('%s', $this->config['name'], 2) + ['', ''];
@@ -399,7 +436,7 @@ final class ProductType
      */
     public static function to_shop_unit(string $cm): string
     {
-        return $cm === '' ? '' : wc_format_decimal(wc_get_dimension((float) $cm, (string) get_option('woocommerce_dimension_unit'), 'cm'), 4, true);
+        return $cm === '' ? '' : wc_format_decimal(wc_get_dimension((float) $cm, (string) get_option('woocommerce_dimension_unit'), 'cm'), self::SHOP_UNIT_DECIMALS, true);
     }
 
     /**
@@ -407,9 +444,12 @@ final class ProductType
      */
     public static function from_shop_unit(string $value): string
     {
-        return $value === '' ? '' : wc_format_decimal(wc_get_dimension((float) $value, 'cm'), 2, true);
+        return $value === '' ? '' : wc_format_decimal(wc_get_dimension((float) $value, 'cm'), self::FORM_DECIMALS, true);
     }
 
+    /**
+     * Zahl für die Anzeige mit Komma, z. B. „10,5“.
+     */
     public static function format_number(string $value): string
     {
         return $value === '' ? '' : str_replace('.', ',', (string) (float) $value);

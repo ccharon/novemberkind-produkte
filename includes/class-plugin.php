@@ -6,10 +6,16 @@ namespace NovemberkindProdukte;
 
 defined('ABSPATH') || exit;
 
+/**
+ * Einstieg des Plugins: startet die Teile, prüft WebP und zeigt Hinweise im Backend.
+ */
 final class Plugin
 {
     public const CAPABILITY = 'edit_products';
 
+    /**
+     * Startet alle Teile des Plugins; ohne WooCommerce nur den Updater.
+     */
     public static function init(): void
     {
         // Updates auch ohne aktives WooCommerce, damit sich ein fehlerhaftes Release beheben lässt
@@ -47,11 +53,17 @@ final class Plugin
         );
     }
 
+    /**
+     * Merkt sich bei der Aktivierung, ob der Server WebP schreiben kann.
+     */
     public static function activate(): void
     {
         update_option('novemberkind_produkte_webp_supported', self::webp_supported() ? 'yes' : 'no');
     }
 
+    /**
+     * Ob der Bildeditor des Servers WebP erzeugen kann.
+     */
     public static function webp_supported(): bool
     {
         return wp_image_editor_supports(['mime_type' => 'image/webp']);

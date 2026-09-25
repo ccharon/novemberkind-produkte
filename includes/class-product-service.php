@@ -13,6 +13,13 @@ final class ProductService
 {
     private const STATUSES = ['draft', 'publish', 'future'];
 
+    // Artikelnummern wie A000123: Muster mit der Zahl als Gruppe und Format für die nächste freie Nummer
+    public const SKU_PATTERN = '/^A(\d{6})$/';
+    public const SKU_FORMAT = 'A%06d';
+    // Preise mit Cent, Gewicht auf Gramm genau
+    private const PRICE_DECIMALS = 2;
+    private const WEIGHT_DECIMALS = 3;
+
     // Seitenlayout des Themes Divi wie bei allen bestehenden Produkten: ohne Seitenleiste
     private const DIVI_LAYOUT = '_et_pb_page_layout';
     private const DIVI_DEFAULTS = [
@@ -45,7 +52,7 @@ final class ProductService
         }
 
         $sku = strtoupper(trim(sanitize_text_field((string) ($data['sku'] ?? ''))));
-        if (!preg_match('/^A\d{6}$/', $sku)) {
+        if (!preg_match(self::SKU_PATTERN, $sku)) {
             $errors['sku'] = __('Bitte gib die Artikelnummer im Format A000123 ein.', 'novemberkind-produkte');
         } else {
             $owner = wc_get_product_id_by_sku($sku);
@@ -162,7 +169,7 @@ final class ProductService
             // WordPress veröffentlicht zum Beitragsdatum, WooCommerce führt es als Erstelldatum
             $product->set_date_created($publish_at);
         } elseif (!$is_new && $product->get_date_created('edit')?->getTimestamp() > time()) {
-            // Ohne Planung darf kein Datum in der Zukunft stehen bleiben, sonst plant WordPress beim Veröffentlichen erneut
+            // Ein Datum in der Zukunft würde WordPress beim Veröffentlichen erneut planen, deshalb zurück auf jetzt
             $product->set_date_created(time());
         }
         foreach (self::DIVI_DEFAULTS as $key => $value) {
@@ -180,7 +187,7 @@ final class ProductService
         if ($is_new) {
             $product->set_shipping_class_id(ShopData::shipping_class_id($type->config('shipping_class')));
             $weight = (string) $type->config('weight');
-            $product->set_weight($weight === '' ? '' : wc_format_decimal(wc_get_weight((float) $weight, (string) get_option('woocommerce_weight_unit'), 'kg'), 3, true));
+            $product->set_weight($weight === '' ? '' : wc_format_decimal(wc_get_weight((float) $weight, (string) get_option('woocommerce_weight_unit'), 'kg'), self::WEIGHT_DECIMALS, true));
             $product->set_reviews_allowed(true);
             $product->set_backorders('no');
             if ($type->is_unique()) {
@@ -228,7 +235,7 @@ final class ProductService
     }
 
     /**
-     * Zeitpunkt aus einem Datums- und einem Uhrzeitfeld in der Zeitzone des Shops. Ohne Uhrzeit gilt `$default_time`.
+     * Zeitpunkt aus einem Datums- und einem Uhrzeitfeld in der Zeitzone des Shops. Fehlt die Uhrzeit, gilt `$default_time`.
      */
     public static function parse_local_datetime(string $date, string $time, string $default_time = '00:00'): ?int
     {
@@ -301,7 +308,7 @@ final class ProductService
             return null;
         }
 
-        return number_format((float) $value, 2, '.', '');
+        return number_format((float) $value, self::PRICE_DECIMALS, '.', '');
     }
 
     /**

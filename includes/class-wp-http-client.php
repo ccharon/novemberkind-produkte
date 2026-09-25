@@ -20,6 +20,9 @@ final class WpHttpClient implements ClientInterface
 {
     public const TIMEOUT = 60;
 
+    /**
+     * Schickt eine PSR-7-Anfrage über `wp_remote_request()` und liefert die Antwort als PSR-7.
+     */
     public function sendRequest(RequestInterface $request): ResponseInterface
     {
         $headers = [];
