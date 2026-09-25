@@ -24,6 +24,8 @@ final class Subscribers
     public const RESEND_SECONDS = 600;
     public const CSV_ACTION = 'novemberkind_produkte_subscribers_csv';
     private const TOKEN_LENGTH = 32;
+    // Längste zulässige Adresse nach RFC 5321
+    private const EMAIL_MAX_LENGTH = 254;
 
     /**
      * Meldet den Inhaltstyp und den CSV-Export an.
@@ -154,7 +156,7 @@ final class Subscribers
     public function subscribe(string $email, string $source): bool|\WP_Error
     {
         $email = strtolower(trim(sanitize_email($email)));
-        if (!is_email($email)) {
+        if (strlen($email) > self::EMAIL_MAX_LENGTH || !is_email($email)) {
             return new \WP_Error('email', __('Bitte gib eine gültige E-Mail-Adresse ein.', 'novemberkind-produkte'));
         }
         if (!in_array($source, self::SOURCES, true)) {
@@ -217,8 +219,17 @@ final class Subscribers
     public function unsubscribe(string $token): bool
     {
         $subscriber = self::by_token($token);
+        if ($subscriber === null) {
+            return false;
+        }
+        // Zwei gleichzeitige Anmeldungen können dieselbe Adresse doppelt anlegen, abgemeldet werden alle
+        foreach (self::all() as $other) {
+            if ($other['email'] === $subscriber['email']) {
+                $this->remove($other['id']);
+            }
+        }
 
-        return $subscriber !== null && $this->remove($subscriber['id']);
+        return true;
     }
 
     /**

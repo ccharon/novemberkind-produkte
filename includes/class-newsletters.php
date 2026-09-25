@@ -235,7 +235,8 @@ final class Newsletters
             return;
         }
 
-        $queue = array_map(static fn(array $subscriber): int => $subscriber['id'], Subscribers::confirmed());
+        // Je Adresse nur ein Empfänger, falls eine Adresse doppelt angelegt wurde
+        $queue = array_values(array_column(array_column(Subscribers::confirmed(), null, 'email'), 'id'));
         update_post_meta($id, self::META_QUEUE, $queue);
         $this->store($id, ['status' => 'sending', 'scheduled' => $issue['scheduled'] ?: time(), 'recipients' => count($queue), 'sent' => 0, 'failed' => 0] + $issue);
         as_enqueue_async_action(self::HOOK_BATCH, ['id' => $id], self::GROUP);

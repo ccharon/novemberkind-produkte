@@ -259,7 +259,7 @@ final class NewsletterMail
     private static function card(mixed $product_id): ?array
     {
         $product = wc_get_product((int) $product_id);
-        if (!$product || $product->get_status() !== 'publish' || !$product->is_visible()) {
+        if (!$product || $product->get_status() !== 'publish' || !$product->is_visible() || $product->get_post_password() !== '') {
             return null;
         }
 

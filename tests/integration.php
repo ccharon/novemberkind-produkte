@@ -814,6 +814,21 @@ check('Produktfotos in der Mail als JPEG', str_contains(NewsletterMail::render($
 wp_delete_attachment($photo_id, true);
 check('beim Löschen des Fotos verschwindet die JPEG-Fassung', !file_exists($mail_file));
 
+check('zu lange Adresse wird abgelehnt', is_wp_error($subscribers->subscribe(str_repeat('a', 250) . '@example.org', 'form')));
+$twin = $confirm_new('test-doppelt@example.org');
+$twin_id = wp_insert_post(['post_type' => Subscribers::POST_TYPE, 'post_status' => 'private', 'post_title' => 'test-doppelt@example.org']);
+$test_subscribers[] = $twin_id;
+update_post_meta($twin_id, Subscribers::META_EMAIL, 'test-doppelt@example.org');
+update_post_meta($twin_id, Subscribers::META_TOKEN, wp_generate_password(32, false));
+update_post_meta($twin_id, Subscribers::META, ['status' => 'confirmed', 'created' => time(), 'confirmed' => time(), 'source' => 'form']);
+$twin_issue = $newsletters->save(wp_slash(['send' => 'now'] + $issue_data));
+$issue_ids[] = $twin_issue['id'];
+check('doppelt angelegte Adresse bekommt den Newsletter nur einmal', $twin_issue['recipients'] === count(Subscribers::confirmed()) - 1);
+check('Abmelden entfernt auch die doppelte Adresse', $subscribers->unsubscribe($twin['token']) && Subscribers::get($twin_id) === null);
+$letter_product->set_post_password('geheim');
+$letter_product->save();
+check('passwortgeschützte Produkte erscheinen nicht in der Mail', !str_contains(NewsletterMail::render($draft)['html'], 'Sticker: Newslettertest'));
+
 $form = do_shortcode('[novemberkind_newsletter]');
 check('Anmeldeformular per Shortcode mit verstecktem Feld', str_contains($form, 'admin-post.php') && str_contains($form, 'name="nkp_website"') && str_contains($form, 'type="email"'));
 ob_start();
