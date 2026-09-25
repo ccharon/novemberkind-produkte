@@ -21,7 +21,7 @@ final class Subscribers
     public const SOURCES = ['form', 'checkout'];
     public const PENDING_DAYS = 7;
     // Schützt Postfächer davor, über das öffentliche Formular mit Bestätigungsmails überhäuft zu werden
-    public const RESEND_SECONDS = 600;
+    public const RESEND_SECONDS = 10 * MINUTE_IN_SECONDS;
     public const CSV_ACTION = 'novemberkind_produkte_subscribers_csv';
     public const CLEANUP_HOOK = 'novemberkind_produkte_subscribers_cleanup';
     private const TOKEN_LENGTH = 32;
@@ -160,6 +160,8 @@ final class Subscribers
     /**
      * Nimmt eine Anmeldung an und schickt die Bestätigungsmail. Bekannte Adressen bekommen keine weitere Mail,
      * damit das öffentliche Formular nicht verrät, wer angemeldet ist.
+     *
+     * @return true|\WP_Error
      */
     public function subscribe(string $email, string $source): bool|\WP_Error
     {

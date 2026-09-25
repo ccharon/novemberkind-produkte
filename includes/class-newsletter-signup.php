@@ -20,7 +20,7 @@ final class NewsletterSignup
     // Grenzen für das öffentliche Formular pro Stunde, gegen Bots, die fremde Adressen eintragen
     public const IP_LIMIT = 5;
     public const HOURLY_LIMIT = 30;
-    private const LIMIT_WINDOW = 3600;
+    private const LIMIT_WINDOW = HOUR_IN_SECONDS;
     private const LIMIT_PREFIX = 'novemberkind_produkte_signup_';
     // Unsichtbares Feld: Wer es ausfüllt, ist ein Bot
     private const HONEYPOT = 'nkp_website';

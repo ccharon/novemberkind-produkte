@@ -207,6 +207,7 @@ final class Newsletters
      * Schickt den aktuellen Stand des Formulars an eine Adresse, ohne zu speichern.
      *
      * @param array<string, mixed> $data
+     * @return true|\WP_Error
      */
     public function send_test(array $data, string $email): bool|\WP_Error
     {

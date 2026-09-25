@@ -25,7 +25,7 @@ final class NewsletterMail
         'page'   => '#feffff',
         'footer' => '#3e464a',
     ];
-    public const FONT = "Helvetica,Arial,sans-serif";
+    public const FONT = 'Helvetica,Arial,sans-serif';
     private const LOGO_WIDTH = 200;
     // Breite des Textbereichs: 600 px Mail abzüglich Innenabstand
     private const CONTENT_WIDTH = 544;
@@ -219,11 +219,11 @@ final class NewsletterMail
      */
     private static function style_content(string $html): string
     {
-        $c      = self::COLORS;
+        $colors = self::COLORS;
         $styles = [
-            'p'      => "margin:0 0 16px;font-size:16px;line-height:1.7;color:{$c['text']};",
-            'h2'     => "margin:28px 0 12px;font-size:24px;line-height:1.3;font-weight:normal;color:{$c['text']};",
-            'a'      => "color:{$c['link']};font-weight:bold;font-style:italic;text-decoration:none;",
+            'p'      => "margin:0 0 16px;font-size:16px;line-height:1.7;color:{$colors['text']};",
+            'h2'     => "margin:28px 0 12px;font-size:24px;line-height:1.3;font-weight:normal;color:{$colors['text']};",
+            'a'      => "color:{$colors['link']};font-weight:bold;font-style:italic;text-decoration:none;",
             'strong' => 'font-weight:bold;',
         ];
         foreach ($styles as $tag => $style) {
@@ -236,15 +236,15 @@ final class NewsletterMail
     /**
      * Foto aus dem Text in voller Breite, als JPEG-Fassung aus der Mediathek. Fremde Adressen fallen weg.
      *
-     * @param array<int, string> $match
+     * @param array<int, string> $found Treffer von preg_replace_callback, [0] ist das ganze img-Element
      */
-    private static function content_image(array $match): string
+    private static function content_image(array $found): string
     {
-        if (!preg_match('/class="[^"]*\bwp-image-(\d+)\b/', $match[0], $id) || !wp_attachment_is_image((int) $id[1])) {
+        if (!preg_match('/class="[^"]*\bwp-image-(\d+)\b/', $found[0], $id) || !wp_attachment_is_image((int) $id[1])) {
             return '';
         }
         $url = ImageProcessor::mail_url((int) $id[1], 'full');
-        preg_match('/alt="([^"]*)"/', $match[0], $alt);
+        preg_match('/alt="([^"]*)"/', $found[0], $alt);
 
         return '<img src="' . esc_url($url) . '" alt="' . esc_attr(html_entity_decode($alt[1] ?? '', ENT_QUOTES, 'UTF-8')) . '" width="' . self::CONTENT_WIDTH . '"'
             . ' style="display:block;width:100%;max-width:' . self::CONTENT_WIDTH . 'px;height:auto;border:0;margin:8px 0 16px;">';
@@ -317,17 +317,17 @@ final class NewsletterMail
         }
 
         $cells = array_map(static function (array $card): string {
-            $c     = self::COLORS;
+            $colors = self::COLORS;
             $price = $card['regular'] !== ''
-                ? '<del style="color:' . $c['muted'] . ';">' . esc_html($card['regular']) . '</del> <strong style="color:' . $c['text'] . ';">' . esc_html($card['price']) . '</strong>'
+                ? '<del style="color:' . $colors['muted'] . ';">' . esc_html($card['regular']) . '</del> <strong style="color:' . $colors['text'] . ';">' . esc_html($card['price']) . '</strong>'
                 : esc_html($card['price']);
 
             return '<td class="nkp-mail-card" width="50%" valign="top" align="center" style="padding:10px;">'
-                . '<a href="' . esc_url($card['url']) . '" style="text-decoration:none;color:' . $c['text'] . ';">'
+                . '<a href="' . esc_url($card['url']) . '" style="text-decoration:none;color:' . $colors['text'] . ';">'
                 . '<img src="' . esc_url($card['image']) . '" alt="' . esc_attr($card['name']) . '" width="250" style="display:block;width:100%;max-width:250px;height:auto;border:0;margin:0 auto;">'
                 . '<span style="display:block;margin-top:10px;font-size:15px;line-height:1.4;">' . esc_html($card['name']) . '</span>'
                 . '</a>'
-                . '<span style="display:block;margin-top:4px;font-size:14px;color:' . $c['muted'] . ';">' . $price . '</span>'
+                . '<span style="display:block;margin-top:4px;font-size:14px;color:' . $colors['muted'] . ';">' . $price . '</span>'
                 . '</td>';
         }, array_values($cards));
 
@@ -357,9 +357,9 @@ final class NewsletterMail
     {
         $html = (string) preg_replace('#<(head|style|script)\b.*?</\1>#is', '', $html);
         $html = (string) preg_replace('#<span[^>]*class="nkp-mail-preheader"[^>]*>.*?</span>#is', '', $html);
-        $html = (string) preg_replace_callback('#<a\s[^>]*href="([^"]+)"[^>]*>(.*?)</a>#is', static function (array $match): string {
-            $label = trim(wp_strip_all_tags($match[2]));
-            $url   = html_entity_decode($match[1], ENT_QUOTES, 'UTF-8');
+        $html = (string) preg_replace_callback('#<a\s[^>]*href="([^"]+)"[^>]*>(.*?)</a>#is', static function (array $link): string {
+            $label = trim(wp_strip_all_tags($link[2]));
+            $url   = html_entity_decode($link[1], ENT_QUOTES, 'UTF-8');
 
             return $label === '' || $label === $url ? $url : "{$label} ({$url})";
         }, $html);
