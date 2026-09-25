@@ -47,12 +47,20 @@ defined('ABSPATH') || exit;
             <span class="nkp-group__count"><?php echo esc_html((string) count($group['products'])); ?></span>
         </summary>
     <ul class="nkp-grid">
-        <li class="nkp-list-head" aria-hidden="true">
-            <span class="nkp-list-head__name"><?php esc_html_e('Produkt', 'novemberkind-produkte'); ?></span>
-            <span class="nkp-list-head__sku"><?php esc_html_e('Artikelnummer', 'novemberkind-produkte'); ?></span>
-            <span class="nkp-list-head__price"><?php esc_html_e('Preis', 'novemberkind-produkte'); ?></span>
-            <span class="nkp-list-head__status"><?php esc_html_e('Status', 'novemberkind-produkte'); ?></span>
-            <span class="nkp-list-head__stock"><?php esc_html_e('Bestand', 'novemberkind-produkte'); ?></span>
+        <li class="nkp-list-head">
+            <?php
+            $columns = [
+                'name'     => __('Produkt', 'novemberkind-produkte'),
+                'sku'      => __('Artikelnummer', 'novemberkind-produkte'),
+                'price'    => __('Preis', 'novemberkind-produkte'),
+                'status'   => __('Status', 'novemberkind-produkte'),
+                'stock'    => __('Bestand', 'novemberkind-produkte'),
+                'modified' => __('Geändert', 'novemberkind-produkte'),
+            ];
+            foreach ($columns as $key => $label) :
+                ?>
+                <button type="button" class="nkp-list-head__<?php echo esc_attr($key); ?>" data-nkp-sort="<?php echo esc_attr($key); ?>"><?php echo esc_html($label); ?></button>
+            <?php endforeach; ?>
         </li>
         <?php foreach ($group['products'] as $product) : ?>
             <?php
@@ -60,8 +68,16 @@ defined('ABSPATH') || exit;
             $type      = ProductType::detect($product);
             $is_sold   = Originals::is_sold($product);
             $url       = $type ? App::edit_url($product->get_id()) : (string) get_edit_post_link($product->get_id(), 'raw');
+            $modified  = $product->get_date_modified() ?? $product->get_date_created();
+            $status    = $is_sold ? 3 : ($is_online ? 1 : 2);
             ?>
-            <li class="nkp-card<?php echo $is_sold ? ' nkp-card--sold' : ''; ?>">
+            <li class="nkp-card<?php echo $is_sold ? ' nkp-card--sold' : ''; ?>"
+                data-name="<?php echo esc_attr($product->get_name()); ?>"
+                data-sku="<?php echo esc_attr($product->get_sku()); ?>"
+                data-price="<?php echo esc_attr((string) (float) $product->get_price()); ?>"
+                data-status="<?php echo esc_attr((string) $status); ?>"
+                data-stock="<?php echo esc_attr($product->managing_stock() ? (string) (int) $product->get_stock_quantity() : ''); ?>"
+                data-modified="<?php echo esc_attr($modified ? (string) $modified->getTimestamp() : '0'); ?>">
                 <a class="nkp-card__link" href="<?php echo esc_url($url); ?>">
                     <?php if ($product->get_image_id()) : ?>
                         <?php echo wp_get_attachment_image((int) $product->get_image_id(), 'woocommerce_thumbnail', false, ['class' => 'nkp-card__image']); ?>
@@ -93,6 +109,9 @@ defined('ABSPATH') || exit;
                                 </span>
                             <?php endif; ?>
                         </p>
+                        <?php if ($modified) : ?>
+                            <p class="nkp-card__date"><?php echo esc_html(wp_date('j. n. Y', $modified->getTimestamp())); ?></p>
+                        <?php endif; ?>
                     </div>
                 </a>
             </li>

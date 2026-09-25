@@ -244,7 +244,7 @@ final class App
         $products = wc_get_products([
             'status'  => ['publish', 'draft', 'pending', 'private'],
             'limit'   => -1,
-            'orderby' => 'date',
+            'orderby' => 'modified',
             'order'   => 'DESC',
         ]);
 

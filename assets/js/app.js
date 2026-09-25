@@ -42,6 +42,58 @@
 		}));
 	}
 
+	// Sortierung der Liste, gilt für alle Kategorien gleichzeitig und wird pro Gerät gemerkt
+	const sortButtons = document.querySelectorAll('[data-nkp-sort]');
+	const collator = new Intl.Collator('de', { numeric: true, sensitivity: 'base' });
+	const numeric = ['price', 'status', 'stock', 'modified'];
+	function sortProducts(key, direction) {
+		const factor = direction === 'ascending' ? 1 : -1;
+		const value = (item) => item.dataset[key];
+		document.querySelectorAll('.nkp-grid').forEach((list) => {
+			const items = [...list.querySelectorAll('.nkp-card')];
+			items.sort((a, b) => {
+				const x = value(a);
+				const y = value(b);
+				// Produkte ohne Wert (z. B. ohne gezählten Bestand) stehen immer am Ende
+				if ((x === '') !== (y === '')) {
+					return x === '' ? 1 : -1;
+				}
+				const order = numeric.includes(key) ? Number(x) - Number(y) : collator.compare(x, y);
+				return order * factor || collator.compare(a.dataset.name, b.dataset.name);
+			});
+			list.append(...items);
+		});
+		sortButtons.forEach((button) => {
+			if (button.dataset.nkpSort === key) {
+				button.setAttribute('aria-sort', direction);
+			} else {
+				button.removeAttribute('aria-sort');
+			}
+		});
+	}
+	if (sortButtons.length) {
+		let sort = { key: 'modified', direction: 'descending' };
+		try {
+			sort = JSON.parse(window.localStorage.getItem('nkpOverviewSort')) || sort;
+		} catch {
+			// Speicher gesperrt, Standard gilt
+		}
+		sortProducts(sort.key, sort.direction);
+		sortButtons.forEach((button) => button.addEventListener('click', () => {
+			const key = button.dataset.nkpSort;
+			const current = button.getAttribute('aria-sort');
+			// Datum, Preis und Bestand zuerst absteigend, Texte zuerst aufsteigend
+			const first = ['modified', 'price', 'stock'].includes(key) ? 'descending' : 'ascending';
+			const direction = current ? (current === 'ascending' ? 'descending' : 'ascending') : first;
+			sortProducts(key, direction);
+			try {
+				window.localStorage.setItem('nkpOverviewSort', JSON.stringify({ key, direction }));
+			} catch {
+				// siehe oben
+			}
+		}));
+	}
+
 	const config = window.novemberkindProdukte;
 	const form = document.querySelector('[data-nkp-form]');
 	if (!config || !form) {
