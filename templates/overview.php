@@ -110,7 +110,7 @@ defined('ABSPATH') || exit;
                             <?php endif; ?>
                         </p>
                         <?php if ($modified) : ?>
-                            <p class="nkp-card__date"><?php echo esc_html(wp_date('j. n. Y', $modified->getTimestamp())); ?></p>
+                            <p class="nkp-card__date"><?php echo esc_html(wp_date('d.m.Y', $modified->getTimestamp())); ?></p>
                         <?php endif; ?>
                     </div>
                 </a>
