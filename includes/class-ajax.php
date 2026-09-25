@@ -19,6 +19,53 @@ final class Ajax
         add_action('wp_ajax_novemberkind_produkte_upload', [$this, 'upload']);
         add_action('wp_ajax_novemberkind_produkte_preview', [$this, 'preview']);
         add_action('wp_ajax_novemberkind_produkte_suggest', [$this, 'suggest']);
+        add_action('wp_ajax_novemberkind_produkte_save_campaign', [$this, 'save_campaign']);
+        add_action('wp_ajax_novemberkind_produkte_end_campaign', [$this, 'end_campaign']);
+    }
+
+    public function save_campaign(): void
+    {
+        $this->authorize();
+
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
+        $result = (new Campaigns())->save($_POST, absint($_POST['campaign_id'] ?? 0));
+        if (is_wp_error($result)) {
+            wp_send_json_error([
+                'message' => $result->get_error_message(),
+                'fields'  => $result->get_error_data() ?: new \stdClass(),
+            ], 422);
+        }
+
+        wp_send_json_success([
+            'id'      => $result['id'],
+            'url'     => App::campaigns_url($result['id']),
+            'message' => match (Campaigns::status($result)) {
+                'running' => __('Gespeichert. Die Aktion läuft, die Preise im Shop sind gesenkt.', 'novemberkind-produkte'),
+                default   => sprintf(
+                    /* translators: 1: Datum, 2: Uhrzeit */
+                    __('Gespeichert. Die Aktion beginnt am %1$s um %2$s Uhr.', 'novemberkind-produkte'),
+                    wp_date('d.m.Y', $result['start']),
+                    wp_date('H:i', $result['start'])
+                ),
+            },
+        ]);
+    }
+
+    public function end_campaign(): void
+    {
+        $this->authorize();
+
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
+        $result = (new Campaigns())->end(absint($_POST['campaign_id'] ?? 0));
+        if (is_wp_error($result)) {
+            wp_send_json_error(['message' => $result->get_error_message()], 422);
+        }
+
+        wp_send_json_success([
+            'id'      => $result['id'],
+            'url'     => App::campaigns_url($result['id']),
+            'message' => __('Die Aktion ist beendet. Im Shop gelten wieder die normalen Preise.', 'novemberkind-produkte'),
+        ]);
     }
 
     public function save(): void

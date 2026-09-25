@@ -111,6 +111,20 @@ check 'Sicherung ohne Anmeldung nicht erreichbar' "$(curl -s -o /dev/null -w '%{
 bin/wp post list --post_type=novemberkind_backup --post_status=private --post_parent="$product_id" --format=ids | xargs -r bin/wp post delete --force >/dev/null
 for id in $product_id $image_id; do bin/wp post delete "$id" --force >/dev/null; done
 
+# Rabattaktionen
+check 'Aktionen: Liste lädt' "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$APP/aktionen/")" 200
+check 'Aktionen: Formular lädt mit Nonce' "$(curl -s -b "$JAR" "$APP/aktionen/neu/" | grep -c 'var novemberkindAktionen = .*"nonce":"[a-f0-9]')" 1
+check 'Aktionen: unbekannte Aktion liefert 404' "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$APP/aktionen/999999/")" 404
+check 'Aktionen: ohne Nonce abgelehnt' "$(ajax -d action=novemberkind_produkte_save_campaign -d nonce=falsch -d name=x)" 403
+check 'Aktionen: Pflichtfehler liefert 422' "$(ajax -d action=novemberkind_produkte_save_campaign -d "nonce=$nonce" -d name=)" 422
+start=$(bin/wp eval "echo wp_date('Y-m-d\\TH:i');")
+end=$(bin/wp eval "echo wp_date('Y-m-d\\TH:i', time() + 3600);")
+check 'Aktionen: Speichern erfolgreich' "$(ajax -d action=novemberkind_produkte_save_campaign -d "nonce=$nonce" -d name=HTTP-Aktion -d percent=10 -d "start=$start" -d "end=$end" -d scope=all)" 200
+campaign_id=$(grep -oP '"id":\K\d+' "$TMP/body")
+check 'Aktionen: Beenden erfolgreich' "$(ajax -d action=novemberkind_produkte_end_campaign -d "nonce=$nonce" -d "campaign_id=$campaign_id")" 200
+check 'Aktionen: beendete Aktion lässt sich nicht ändern' "$(ajax -d action=novemberkind_produkte_save_campaign -d "nonce=$nonce" -d "campaign_id=$campaign_id" -d name=x -d percent=5 -d "start=$start" -d "end=$end" -d scope=all)" 422
+[ -n "$campaign_id" ] && bin/wp post delete "$campaign_id" --force >/dev/null
+
 echo
 if [ "$failures" -eq 0 ]; then echo 'Alle HTTP-Tests bestanden.'; else echo "$failures HTTP-Test(s) fehlgeschlagen."; fi
 exit $((failures > 0))

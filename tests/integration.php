@@ -5,6 +5,7 @@
  * Aufruf über bin/test (führt `wp eval-file` aus). Räumt alle angelegten Daten wieder auf.
  */
 
+use NovemberkindProdukte\Campaigns;
 use NovemberkindProdukte\ImageProcessor;
 use NovemberkindProdukte\Originals;
 use NovemberkindProdukte\ProductService;
@@ -504,6 +505,63 @@ $now_online = $service->save(ProductType::get('button'), ['status' => 'publish']
 check('sofort online statt geplant', get_post_status($planned->get_id()) === 'publish' && $now_online->get_date_created()->getTimestamp() <= time());
 check('keine Veröffentlichung mehr eingeplant', wp_next_scheduled('publish_future_post', [$planned->get_id()]) === false);
 update_option('timezone_string', $old_timezone);
+
+section('Rabattaktionen');
+$campaigns = new Campaigns();
+$local = static fn(int $timestamp): string => wp_date('Y-m-d\TH:i', $timestamp);
+$campaign_ids = [];
+$sticker_a = $service->save(ProductType::get('sticker'), ['sku' => ShopData::next_sku(), 'motif' => 'Aktionstest', 'price' => '2,5', 'width' => '5', 'height' => '5', 'finish' => 'matt', 'status' => 'publish']);
+$sticker_b = $service->save(ProductType::get('sticker'), ['sku' => ShopData::next_sku(), 'motif' => 'Aktionstest mit Angebot', 'price' => '2,5', 'width' => '5', 'height' => '5', 'finish' => 'matt', 'status' => 'publish']);
+$aktion_button = $service->save(ProductType::get('button'), ['sku' => ShopData::next_sku(), 'motif' => 'Aktionstest', 'price' => '4,5', 'status' => 'publish']);
+$aktion_card = $service->save(ProductType::get('card'), ['sku' => ShopData::next_sku(), 'motif' => 'Aktionstest', 'price' => '2,5', 'format' => 'quer', 'status' => 'publish']);
+array_push($cleanup['products'], $sticker_a->get_id(), $sticker_b->get_id(), $aktion_button->get_id(), $aktion_card->get_id());
+$sticker_b->set_sale_price('1.99');
+$sticker_b->save();
+$fresh = static fn(WC_Product $product): WC_Product => wc_get_product($product->get_id());
+
+$invalid = $campaigns->save(['name' => '', 'percent' => '95', 'start' => $local(time()), 'end' => $local(time() - 3600), 'scope' => 'categories']);
+check('Aktion: Pflichtfelder und Grenzen werden geprüft', is_wp_error($invalid) && array_keys($invalid->get_error_data()) === ['name', 'percent', 'end', 'categories']);
+
+$sticker_term = ShopData::category_ids(['Physische Produkte', 'Sticker'])[1];
+$sticker_campaign = $campaigns->save(['name' => 'Stickerwoche', 'percent' => '20', 'start' => $local(time() - 120), 'end' => $local(time() + 3600), 'scope' => 'categories', 'categories' => [$sticker_term]]);
+$campaign_ids[] = $sticker_campaign['id'];
+check('Aktion läuft', Campaigns::status($sticker_campaign) === 'running');
+check('Sticker kostet 20 % weniger und gilt als Angebot', $fresh($sticker_a)->get_price() === '2.00' && $fresh($sticker_a)->is_on_sale());
+check('Normalpreis und gespeicherte Werte bleiben unverändert', $fresh($sticker_a)->get_regular_price() === '2.50' && $fresh($sticker_a)->get_sale_price('edit') === '' && get_post_meta($sticker_a->get_id(), '_price', true) === '2.50');
+check('Produkt mit eigenem Angebotspreis ist ausgenommen', $fresh($sticker_b)->get_price() === '1.99');
+check('Karte außerhalb der Kategorie bleibt beim Normalpreis', $fresh($aktion_card)->get_price() === '2.50');
+
+$parent_campaign = $campaigns->save(['name' => 'Physisch', 'percent' => '10', 'start' => $local(time() - 120), 'end' => $local(time() + 3600), 'scope' => 'categories', 'categories' => [ShopData::category_ids(['Physische Produkte'])[0]]]);
+$campaign_ids[] = $parent_campaign['id'];
+check('übergeordnete Kategorie erfasst die Unterkategorien', $fresh($aktion_card)->get_price() === '2.25');
+check('bei zwei Aktionen gilt der höhere Rabatt', $fresh($sticker_a)->get_price() === '2.00');
+$variation = wc_get_product($aktion_button->get_children()[0]);
+$prices = $fresh($aktion_button)->get_variation_prices();
+check('Varianten eines Buttons sind reduziert, auch in der Preisspanne', $variation->get_price() === '4.05' && (string) min($prices['price']) === '4.05' && (string) max($prices['regular_price']) === '4.50');
+check('beide Aktionen melden die Überschneidung', Campaigns::conflicts($sticker_campaign)['overlaps'] === ['Physisch']);
+
+$single = $campaigns->save(['name' => 'Einzeln', 'percent' => '50', 'start' => $local(time() + 3600), 'end' => $local(time() + 7200), 'scope' => 'products', 'products' => [$sticker_a->get_id()]]);
+$campaign_ids[] = $single['id'];
+check('geplante Aktion wirkt noch nicht', Campaigns::status($single) === 'planned' && $fresh($sticker_a)->get_price() === '2.00');
+
+$ended = $campaigns->end($sticker_campaign['id']);
+check('beendete Aktion wirkt nicht mehr', Campaigns::status($ended) === 'ended' && $fresh($sticker_a)->get_price() === '2.25');
+check('beendete Aktion lässt sich nicht mehr ändern', is_wp_error($campaigns->save(['name' => 'Neu', 'percent' => '5', 'start' => $local(time()), 'end' => $local(time() + 60), 'scope' => 'all'], $ended['id'])));
+$cancelled = $campaigns->end($single['id']);
+check('abgesagte geplante Aktion startet nie', Campaigns::status($cancelled) === 'ended' && $cancelled['end'] <= $cancelled['start']);
+
+$follow_up = $campaigns->save(['name' => 'Nachfolger', 'percent' => '15', 'start' => $local(time() + 120), 'end' => $local(time() + 3600), 'scope' => 'products', 'products' => [$sticker_a->get_id()]]);
+$campaign_ids[] = $follow_up['id'];
+check('Warnung, wenn dieselben Produkte in den 30 Tagen davor reduziert waren', Campaigns::conflicts($follow_up)['reference'] === ['Stickerwoche']);
+check('abgesagte Aktion zählt nicht als Reduzierung', !in_array('Einzeln', Campaigns::conflicts($follow_up)['reference'], true));
+$type_object = get_post_type_object(Campaigns::POST_TYPE);
+check('Aktionen sind nicht öffentlich', !$type_object->public && !$type_object->publicly_queryable && !$type_object->show_ui && !$type_object->show_in_rest);
+
+foreach ($campaign_ids as $campaign_id) {
+    wp_delete_post($campaign_id, true);
+}
+Campaigns::flush();
+check('ohne Aktionen wieder Normalpreis', $fresh($sticker_a)->get_price() === '2.50' && !$fresh($sticker_a)->is_on_sale());
 
 section('Updates aus GitHub-Releases (ohne echte Anfrage)');
 $github = null;

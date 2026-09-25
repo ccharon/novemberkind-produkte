@@ -75,7 +75,7 @@ final class ProductService
         }
         $publish_at = null;
         if ($status === 'future') {
-            $publish_at = self::parse_publish_at((string) ($data['publish_at'] ?? ''));
+            $publish_at = self::parse_local_datetime((string) ($data['publish_at'] ?? ''));
             if ($publish_at === null) {
                 $errors['publish_at'] = __('Bitte wähle Datum und Uhrzeit für die Veröffentlichung.', 'novemberkind-produkte');
             } elseif ($publish_at <= time()) {
@@ -221,7 +221,7 @@ final class ProductService
     /**
      * Zeitpunkt aus dem Feld `datetime-local` in der Zeitzone des Shops.
      */
-    public static function parse_publish_at(string $value): ?int
+    public static function parse_local_datetime(string $value): ?int
     {
         $value = trim($value);
         $date  = \DateTimeImmutable::createFromFormat('!Y-m-d\TH:i', $value, wp_timezone());

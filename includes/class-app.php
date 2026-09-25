@@ -33,6 +33,11 @@ final class App
         return self::url() . 'neu/' . ($type !== '' ? $type . '/' : '');
     }
 
+    public static function campaigns_url(int|string $campaign = ''): string
+    {
+        return self::url() . 'aktionen/' . ($campaign !== '' ? $campaign . '/' : '');
+    }
+
     public function register(): void
     {
         add_action('init', [$this, 'add_rewrite_rules']);
@@ -53,9 +58,11 @@ final class App
         add_rewrite_rule("^{$path}/(neu|\\d+)/?$", 'index.php?' . self::QUERY_VAR . '=$matches[1]', 'top');
         add_rewrite_rule("^{$path}/neu/([a-z]+)/?$", 'index.php?' . self::QUERY_VAR . '=neu-$matches[1]', 'top');
         add_rewrite_rule("^{$path}/manifest\\.webmanifest$", 'index.php?' . self::QUERY_VAR . '=manifest', 'top');
+        add_rewrite_rule("^{$path}/aktionen/?$", 'index.php?' . self::QUERY_VAR . '=aktionen', 'top');
+        add_rewrite_rule("^{$path}/aktionen/(neu|\\d+)/?$", 'index.php?' . self::QUERY_VAR . '=aktion-$matches[1]', 'top');
 
         // Regeln neu schreiben, sobald sich Pfad oder Regeln ändern
-        $signature = 'v3|' . self::path();
+        $signature = 'v4|' . self::path();
         if (get_option('novemberkind_produkte_rewrite') !== $signature) {
             flush_rewrite_rules(false);
             update_option('novemberkind_produkte_rewrite', $signature);
@@ -163,6 +170,9 @@ final class App
     {
         return match (true) {
             $route === 'overview'           => self::url(),
+            $route === 'aktionen'           => self::campaigns_url(),
+            $route === 'aktion-neu'         => self::campaigns_url('neu'),
+            str_starts_with($route, 'aktion-') => self::campaigns_url((int) substr($route, 7)),
             $route === 'neu'                => self::new_url(),
             str_starts_with($route, 'neu-') => self::new_url(substr($route, 4)),
             default                         => self::edit_url((int) $route),
@@ -175,6 +185,7 @@ final class App
         wp_register_style('novemberkind-produkte-app', $base . 'assets/css/app.css', [], self::asset_version('assets/css/app.css'));
         wp_register_script('novemberkind-produkte-app', $base . 'assets/js/app.js', [], self::asset_version('assets/js/app.js'), true);
         wp_register_script('novemberkind-produkte-vine', $base . 'assets/js/vine.js', [], self::asset_version('assets/js/vine.js'), true);
+        wp_register_script('novemberkind-produkte-campaigns', $base . 'assets/js/campaigns.js', [], self::asset_version('assets/js/campaigns.js'), true);
         wp_localize_script('novemberkind-produkte-app', 'novemberkindProdukte', [
             'ajaxUrl'        => admin_url('admin-ajax.php'),
             'nonce'          => wp_create_nonce(Ajax::NONCE),
@@ -200,9 +211,31 @@ final class App
             ],
         ]);
 
+        wp_localize_script('novemberkind-produkte-campaigns', 'novemberkindAktionen', [
+            'ajaxUrl' => admin_url('admin-ajax.php'),
+            'nonce'   => wp_create_nonce(Ajax::NONCE),
+            'i18n'    => [
+                'saving'       => __('Wird gespeichert …', 'novemberkind-produkte'),
+                'save'         => __('Speichern', 'novemberkind-produkte'),
+                'networkError' => __('Keine Verbindung zum Shop. Bitte prüfe die Internetverbindung und versuche es noch einmal.', 'novemberkind-produkte'),
+                'loggedOut'    => __('Du bist inzwischen abgemeldet. Bitte lade die Seite neu und melde dich wieder an.', 'novemberkind-produkte'),
+                'unsaved'      => __('Es gibt ungespeicherte Änderungen.', 'novemberkind-produkte'),
+                'confirmEnd'   => __('Die Aktion endet sofort, die Preise im Shop sind dann wieder normal. Beenden?', 'novemberkind-produkte'),
+            ],
+        ]);
+
         $title = __('Meine Produkte', 'novemberkind-produkte');
         $view  = 'product-form';
-        if ($route === 'overview') {
+        if ($route === 'aktionen') {
+            $view  = 'campaigns';
+            $title = __('Aktionen', 'novemberkind-produkte');
+            $data  = ['campaigns' => Campaigns::all()];
+        } elseif (str_starts_with($route, 'aktion-')) {
+            $view     = 'campaign-form';
+            $campaign = $route === 'aktion-neu' ? null : Campaigns::get((int) substr($route, 7));
+            $data     = $route === 'aktion-neu' || $campaign ? $this->campaign_form_data($campaign) : null;
+            $title    = $campaign ? $campaign['name'] : __('Neue Aktion', 'novemberkind-produkte');
+        } elseif ($route === 'overview') {
             $view = 'overview';
             $data = $this->overview_data();
         } elseif ($route === 'neu') {
@@ -228,8 +261,8 @@ final class App
 
         if ($data === null) {
             status_header(404);
+            $data = ['missing' => $view === 'campaign-form' ? __('Diese Aktion gibt es nicht mehr.', 'novemberkind-produkte') : __('Dieses Produkt gibt es nicht mehr.', 'novemberkind-produkte')];
             $view = 'not-found';
-            $data = [];
         }
 
         extract($data, EXTR_SKIP); // phpcs:ignore WordPress.PHP.DontExtract -- Variablen für das Template
@@ -340,6 +373,47 @@ final class App
         }
 
         return $context;
+    }
+
+    /**
+     * Daten für das Formular einer Aktion: Kategorien als eingerückte Liste, Produkte nach Name.
+     *
+     * @param array<string, mixed>|null $campaign
+     * @return array<string, mixed>
+     */
+    private function campaign_form_data(?array $campaign): array
+    {
+        $terms = get_terms(['taxonomy' => 'product_cat', 'hide_empty' => false, 'orderby' => 'name']);
+        $terms = is_array($terms) ? $terms : [];
+        $categories = [];
+        $add = static function (int $parent, int $depth) use (&$add, &$categories, $terms): void {
+            foreach ($terms as $term) {
+                if ($term instanceof \WP_Term && $term->parent === $parent) {
+                    $categories[] = ['id' => $term->term_id, 'name' => $term->name, 'depth' => $depth, 'count' => (int) $term->count];
+                    $add($term->term_id, $depth + 1);
+                }
+            }
+        };
+        $add(0, 0);
+
+        $products = array_map(static fn(\WC_Product $product): array => [
+            'id'      => $product->get_id(),
+            'name'    => $product->get_name(),
+            'sku'     => $product->get_sku(),
+            'own_sale' => !$product instanceof \WC_Product_Variable && $product->is_on_sale('edit'),
+        ], wc_get_products([
+            'status'  => ['publish', 'future', 'draft', 'pending', 'private'],
+            'limit'   => -1,
+            'orderby' => 'title',
+            'order'   => 'ASC',
+        ]));
+
+        return [
+            'campaign'   => $campaign,
+            'categories' => $categories,
+            'products'   => $products,
+            'conflicts'  => $campaign ? Campaigns::conflicts($campaign) : ['overlaps' => [], 'reference' => []],
+        ];
     }
 
     private static function current_price(\WC_Product $product): string

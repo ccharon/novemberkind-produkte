@@ -1,0 +1,91 @@
+<?php
+
+/**
+ * Liste der Rabattaktionen: laufende, geplante, beendete.
+ *
+ * @var array<int, array{id: int, name: string, percent: int, start: int, end: int, scope: string, categories: int[], products: int[]}> $campaigns
+ */
+
+declare(strict_types=1);
+
+namespace NovemberkindProdukte;
+
+defined('ABSPATH') || exit;
+
+$sections = [
+    'running' => __('Laufen gerade', 'novemberkind-produkte'),
+    'planned' => __('Geplant', 'novemberkind-produkte'),
+    'ended'   => __('Beendet', 'novemberkind-produkte'),
+];
+$by_status = array_fill_keys(array_keys($sections), []);
+foreach ($campaigns as $campaign) {
+    $by_status[Campaigns::status($campaign)][] = $campaign;
+}
+// Geplante in der Reihenfolge ihres Starts
+$by_status['planned'] = array_reverse($by_status['planned']);
+?>
+<header class="nkp-header">
+    <h1><?php esc_html_e('Aktionen', 'novemberkind-produkte'); ?></h1>
+    <div class="nkp-header__actions">
+        <a class="nkp-button nkp-button--primary" href="<?php echo esc_url(App::campaigns_url('neu')); ?>">
+            <?php esc_html_e('+ Neue Aktion', 'novemberkind-produkte'); ?>
+        </a>
+    </div>
+</header>
+
+<p class="nkp-note nkp-note--intro">
+    <?php esc_html_e('Eine Aktion senkt die Preise während ihrer Laufzeit um einen festen Prozentsatz. Die Produkte selbst bleiben unverändert. Produkte mit eigenem Angebotspreis sind ausgenommen, und laufen mehrere Aktionen gleichzeitig, gilt der höchste Rabatt.', 'novemberkind-produkte'); ?>
+</p>
+
+<?php if ($campaigns === []) : ?>
+    <p class="nkp-empty"><?php esc_html_e('Noch keine Aktionen angelegt.', 'novemberkind-produkte'); ?></p>
+<?php endif; ?>
+
+<?php foreach ($sections as $status => $heading) : ?>
+    <?php if ($by_status[$status] === []) {
+        continue;
+    } ?>
+    <section class="nkp-campaign-group">
+        <h2 class="nkp-group__title"><?php echo esc_html($heading); ?></h2>
+        <ul class="nkp-campaigns">
+            <?php foreach ($by_status[$status] as $campaign) : ?>
+                <?php $conflicts = $status === 'ended' ? ['overlaps' => [], 'reference' => []] : Campaigns::conflicts($campaign); ?>
+                <li class="nkp-campaign nkp-campaign--<?php echo esc_attr($status); ?>">
+                    <a class="nkp-campaign__link" href="<?php echo esc_url(App::campaigns_url($campaign['id'])); ?>">
+                        <span class="nkp-campaign__percent">−<?php echo esc_html((string) $campaign['percent']); ?> %</span>
+                        <span class="nkp-campaign__main">
+                            <strong class="nkp-campaign__name"><?php echo esc_html($campaign['name']); ?></strong>
+                            <span class="nkp-campaign__meta">
+                                <?php
+                                echo esc_html(sprintf(
+                                    /* translators: 1: Beginn, 2: Ende */
+                                    __('%1$s bis %2$s', 'novemberkind-produkte'),
+                                    wp_date('d.m.Y H:i', $campaign['start']),
+                                    wp_date('d.m.Y H:i', $campaign['end'])
+                                ));
+                                ?>
+                                · <?php echo esc_html(Campaigns::scope_label($campaign)); ?>
+                            </span>
+                            <?php foreach ($conflicts['overlaps'] as $other) : ?>
+                                <span class="nkp-campaign__note">
+                                    <?php
+                                    /* translators: %s: Name der anderen Aktion */
+                                    echo esc_html(sprintf(__('Läuft zeitgleich mit „%s“ für teils dieselben Produkte. Es gilt jeweils der höhere Rabatt.', 'novemberkind-produkte'), $other));
+                                    ?>
+                                </span>
+                            <?php endforeach; ?>
+                            <?php foreach ($conflicts['reference'] as $other) : ?>
+                                <span class="nkp-campaign__note nkp-campaign__note--warning">
+                                    <?php
+                                    /* translators: %s: Name der anderen Aktion */
+                                    echo esc_html(sprintf(__('„%s“ hat dieselben Produkte in den 30 Tagen davor reduziert. Der durchgestrichene Normalpreis ist dann als Vergleichspreis rechtlich heikel.', 'novemberkind-produkte'), $other));
+                                    ?>
+                                </span>
+                            <?php endforeach; ?>
+                        </span>
+                    </a>
+                </li>
+            <?php endforeach; ?>
+        </ul>
+    </section>
+<?php endforeach; ?>

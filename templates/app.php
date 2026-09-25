@@ -41,6 +41,7 @@ $shop_name = get_bloginfo('name');
                 <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 19c8 0 13-5 14-14-9 1-14 6-14 14Zm0 0 7-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 <span class="screen-reader-text"><?php esc_html_e('Ranke', 'novemberkind-produkte'); ?></span>
             </button>
+            <a href="<?php echo esc_url(App::campaigns_url()); ?>" <?php echo str_starts_with($view, 'campaign') ? 'aria-current="page"' : ''; ?>><?php esc_html_e('Aktionen', 'novemberkind-produkte'); ?></a>
             <a href="<?php echo esc_url(home_url('/')); ?>" target="_blank" rel="noopener"><?php esc_html_e('Zum Shop', 'novemberkind-produkte'); ?></a>
             <a href="<?php echo esc_url(wp_logout_url(App::url())); ?>"><?php esc_html_e('Abmelden', 'novemberkind-produkte'); ?></a>
         </nav>
@@ -49,12 +50,12 @@ $shop_name = get_bloginfo('name');
     <main class="nkp-wrap">
         <?php if ($view === 'not-found') : ?>
             <a class="nkp-back" href="<?php echo esc_url(App::url()); ?>"><?php esc_html_e('← Alle Produkte', 'novemberkind-produkte'); ?></a>
-            <p class="nkp-empty"><?php esc_html_e('Dieses Produkt gibt es nicht mehr.', 'novemberkind-produkte'); ?></p>
+            <p class="nkp-empty"><?php echo esc_html($missing); ?></p>
         <?php else : ?>
             <?php include __DIR__ . "/{$view}.php"; ?>
         <?php endif; ?>
     </main>
 
-    <?php wp_print_scripts(['novemberkind-produkte-app', 'novemberkind-produkte-vine']); ?>
+    <?php wp_print_scripts(str_starts_with($view, 'campaign') ? ['novemberkind-produkte-campaigns', 'novemberkind-produkte-vine'] : ['novemberkind-produkte-app', 'novemberkind-produkte-vine']); ?>
 </body>
 </html>

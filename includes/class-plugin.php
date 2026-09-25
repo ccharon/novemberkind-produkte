@@ -20,6 +20,7 @@ final class Plugin
         }
 
         (new Backups())->register();
+        (new Campaigns())->register();
         (new App())->register();
         (new AdminPage())->register();
         (new Ajax())->register();
