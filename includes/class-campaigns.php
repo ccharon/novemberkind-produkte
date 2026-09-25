@@ -26,7 +26,7 @@ final class Campaigns
     /** @var array<int, int> Rabatt in Prozent je Produkt-ID in dieser Anfrage */
     private static array $discounts = [];
 
-    /** @var array<int, int[]> Kategorien samt übergeordneten je Produkt-ID */
+    /** @var array<int, int[]> genaueste Kategorien je Produkt-ID */
     private static array $categories = [];
 
     public function register(): void
@@ -260,7 +260,10 @@ final class Campaigns
 
         return match ($campaign['scope']) {
             'products'   => $campaign['products'],
-            'categories' => array_map('intval', wc_get_products($args + ['category' => self::category_slugs($campaign['categories'])])),
+            'categories' => array_values(array_filter(
+                array_map('intval', wc_get_products($args + ['category' => self::category_slugs($campaign['categories'])])),
+                static fn(int $product_id): bool => self::covers($campaign, $product_id)
+            )),
             default      => array_map('intval', wc_get_products($args)),
         };
     }
@@ -339,7 +342,7 @@ final class Campaigns
         if ($product instanceof \WC_Product_Variable || !$product->is_on_sale('edit')) {
             $parent_id = $product->get_parent_id() ?: $id;
             foreach (self::running() as $campaign) {
-                if ($campaign['percent'] > $percent && $this->covers($campaign, $parent_id)) {
+                if ($campaign['percent'] > $percent && self::covers($campaign, $parent_id)) {
                     $percent = $campaign['percent'];
                 }
             }
@@ -385,26 +388,30 @@ final class Campaigns
      * @phpstan-param Campaign $campaign
      * @param array<string, mixed> $campaign
      */
-    private function covers(array $campaign, int $product_id): bool
+    private static function covers(array $campaign, int $product_id): bool
     {
         return match ($campaign['scope']) {
             'products'   => in_array($product_id, $campaign['products'], true),
-            'categories' => array_intersect($campaign['categories'], $this->category_ids($product_id)) !== [],
+            'categories' => array_intersect($campaign['categories'], self::leaf_categories($product_id)) !== [],
             default      => true,
         };
     }
 
     /**
-     * @return int[] Kategorien eines Produkts mit allen übergeordneten, damit eine Aktion auf „Physische Produkte“ auch Sticker erfasst
+     * Die genauesten Kategorien eines Produkts: Ein Button in „Physische Produkte“ und „Buttons“ zählt zu „Buttons“,
+     * ein Produkt nur in „Physische Produkte“ zu dieser Oberkategorie.
+     *
+     * @return int[]
      */
-    private function category_ids(int $product_id): array
+    private static function leaf_categories(int $product_id): array
     {
         if (!isset(self::$categories[$product_id])) {
-            $ids = [];
-            foreach (wc_get_product_term_ids($product_id, 'product_cat') as $term_id) {
-                $ids = [...$ids, $term_id, ...array_map('intval', get_ancestors($term_id, 'product_cat', 'taxonomy'))];
+            $assigned  = array_map('intval', wc_get_product_term_ids($product_id, 'product_cat'));
+            $ancestors = [];
+            foreach ($assigned as $term_id) {
+                $ancestors = [...$ancestors, ...array_map('intval', get_ancestors($term_id, 'product_cat', 'taxonomy'))];
             }
-            self::$categories[$product_id] = array_values(array_unique($ids));
+            self::$categories[$product_id] = array_values(array_diff($assigned, $ancestors));
         }
 
         return self::$categories[$product_id];

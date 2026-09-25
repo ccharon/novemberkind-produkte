@@ -542,14 +542,31 @@ check('Normalpreis und gespeicherte Werte bleiben unverändert', $fresh($sticker
 check('Produkt mit eigenem Angebotspreis ist ausgenommen', $fresh($sticker_b)->get_price() === '1.99');
 check('Karte außerhalb der Kategorie bleibt beim Normalpreis', $fresh($aktion_card)->get_price() === '2.50');
 
-$parent_campaign = $campaigns->save(['name' => 'Physisch', 'percent' => '10', ...$when('start', time() - 120), ...$when('end', time() + 3600), 'scope' => 'categories', 'categories' => [ShopData::category_ids(['Physische Produkte'])[0]]]);
+$top_term = ShopData::category_ids(['Physische Produkte'])[0];
+$card_term = ShopData::category_ids(['Physische Produkte', 'Karten'])[1];
+$only_top = $campaigns->save(['name' => 'Nur Oberkategorie', 'percent' => '30', ...$when('start', time() - 120), ...$when('end', time() + 3600), 'scope' => 'categories', 'categories' => [$top_term]]);
+$campaign_ids[] = $only_top['id'];
+$direct = new WC_Product_Simple();
+$direct->set_name('Direkt in der Oberkategorie');
+$direct->set_regular_price('10.00');
+$direct->set_category_ids([$top_term]);
+$direct->save();
+$cleanup['products'][] = $direct->get_id();
+check('Oberkategorie allein gilt für Produkte direkt darin, nicht für Unterkategorien', $fresh($direct)->get_price() === '7.00' && $fresh($aktion_card)->get_price() === '2.50');
+$campaigns->end($only_top['id']);
+$all_terms = array_map(static fn(WP_Term $term): int => $term->term_id, get_terms(['taxonomy' => 'product_cat', 'hide_empty' => false]));
+$parent_campaign = $campaigns->save(['name' => 'Physisch', 'percent' => '10', ...$when('start', time() - 120), ...$when('end', time() + 3600), 'scope' => 'categories', 'categories' => array_values(array_diff($all_terms, [$card_term]))]);
 $campaign_ids[] = $parent_campaign['id'];
-check('übergeordnete Kategorie erfasst die Unterkategorien', $fresh($aktion_card)->get_price() === '2.25');
+check('abgewählte Unterkategorie ist ausgenommen', $fresh($aktion_card)->get_price() === '2.50' && $fresh($direct)->get_price() === '9.00');
+$campaigns->end($parent_campaign['id']);
+$parent_campaign = $campaigns->save(['name' => 'Physisch', 'percent' => '10', ...$when('start', time() - 120), ...$when('end', time() + 3600), 'scope' => 'categories', 'categories' => $all_terms]);
+$campaign_ids[] = $parent_campaign['id'];
+check('Oberkategorie mit allen Unterkategorien erfasst alles', $fresh($aktion_card)->get_price() === '2.25');
 check('bei zwei Aktionen gilt der höhere Rabatt', $fresh($sticker_a)->get_price() === '2.00');
 $variation = wc_get_product($aktion_button->get_children()[0]);
 $prices = $fresh($aktion_button)->get_variation_prices();
 check('Varianten eines Buttons sind reduziert, auch in der Preisspanne', $variation->get_price() === '4.05' && (string) min($prices['price']) === '4.05' && (string) max($prices['regular_price']) === '4.50');
-check('beide Aktionen melden die Überschneidung', Campaigns::conflicts($sticker_campaign)['overlaps'] === ['Physisch']);
+check('beide Aktionen melden die Überschneidung', in_array('Physisch', Campaigns::conflicts($sticker_campaign)['overlaps'], true));
 
 $single = $campaigns->save(['name' => 'Einzeln', 'percent' => '50', ...$when('start', time() + 3600), ...$when('end', time() + 7200), 'scope' => 'products', 'products' => [$sticker_a->get_id()]]);
 $campaign_ids[] = $single['id'];
@@ -563,7 +580,7 @@ check('abgesagte geplante Aktion startet nie', Campaigns::status($cancelled) ===
 
 $follow_up = $campaigns->save(['name' => 'Nachfolger', 'percent' => '15', ...$when('start', time() + 120), ...$when('end', time() + 3600), 'scope' => 'products', 'products' => [$sticker_a->get_id()]]);
 $campaign_ids[] = $follow_up['id'];
-check('Warnung, wenn dieselben Produkte in den 30 Tagen davor reduziert waren', Campaigns::conflicts($follow_up)['reference'] === ['Stickerwoche']);
+check('Warnung, wenn dieselben Produkte in den 30 Tagen davor reduziert waren', in_array('Stickerwoche', Campaigns::conflicts($follow_up)['reference'], true));
 check('abgesagte Aktion zählt nicht als Reduzierung', !in_array('Einzeln', Campaigns::conflicts($follow_up)['reference'], true));
 $type_object = get_post_type_object(Campaigns::POST_TYPE);
 check('Aktionen sind nicht öffentlich', !$type_object->public && !$type_object->publicly_queryable && !$type_object->show_ui && !$type_object->show_in_rest);

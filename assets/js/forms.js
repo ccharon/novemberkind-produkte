@@ -124,6 +124,23 @@
 		dirty = true;
 	});
 
+	// Eine Oberkategorie hakt ihre Unterkategorien mit an oder ab; teilweise gewählte zeigen einen Strich
+	const categoryBoxes = [...form.querySelectorAll('input[name="categories[]"]')];
+	const childrenOf = (box) => categoryBoxes.filter((other) => other.dataset.nkpParent === box.value);
+	const descendantsOf = (box) => childrenOf(box).flatMap((child) => [child, ...descendantsOf(child)]);
+	function updateIndeterminate() {
+		categoryBoxes.forEach((box) => {
+			const descendants = descendantsOf(box);
+			const checked = descendants.filter((child) => child.checked).length;
+			box.indeterminate = checked > 0 && checked < descendants.length;
+		});
+	}
+	categoryBoxes.forEach((box) => box.addEventListener('change', () => {
+		descendantsOf(box).forEach((child) => { child.checked = box.checked; });
+		updateIndeterminate();
+	}));
+	updateIndeterminate();
+
 	const filter = form.querySelector('[data-nkp-product-filter]');
 	filter?.addEventListener('input', () => {
 		const needle = filter.value.trim().toLowerCase();

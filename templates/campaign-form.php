@@ -4,7 +4,7 @@
  * Formular einer Rabattaktion.
  *
  * @var array{id: int, name: string, percent: int, start: int, end: int, scope: string, categories: int[], products: int[]}|null $campaign
- * @var array<int, array{id: int, name: string, depth: int, count: int}>                                                         $categories
+ * @var array<int, array{id: int, parent: int, name: string, depth: int, count: int}>                                            $categories
  * @var array<int, array{id: int, name: string, sku: string, own_sale: bool}>                                                   $products
  * @var array{overlaps: string[], reference: string[]}                                                                          $conflicts
  */
@@ -113,7 +113,7 @@ $status_labels = [
                 <label class="nkp-choice">
                     <input type="radio" name="scope" value="categories" <?php checked($scope, 'categories'); ?>>
                     <span><strong><?php esc_html_e('Kategorien', 'novemberkind-produkte'); ?></strong>
-                    <?php esc_html_e('Eine Kategorie gilt samt ihren Unterkategorien', 'novemberkind-produkte'); ?></span>
+                    <?php esc_html_e('Eine Oberkategorie wählt ihre Unterkategorien mit aus', 'novemberkind-produkte'); ?></span>
                 </label>
                 <label class="nkp-choice">
                     <input type="radio" name="scope" value="products" <?php checked($scope, 'products'); ?>>
@@ -125,7 +125,7 @@ $status_labels = [
             <div class="nkp-picker" data-nkp-show-for="scope:categories" <?php echo $scope === 'categories' ? '' : 'hidden'; ?>>
                 <?php foreach ($categories as $category) : ?>
                     <label class="nkp-check" style="--depth: <?php echo esc_attr((string) $category['depth']); ?>">
-                        <input type="checkbox" name="categories[]" value="<?php echo esc_attr((string) $category['id']); ?>"
+                        <input type="checkbox" name="categories[]" value="<?php echo esc_attr((string) $category['id']); ?>" data-nkp-parent="<?php echo esc_attr((string) $category['parent']); ?>"
                             <?php checked(in_array($category['id'], $campaign['categories'] ?? [], true)); ?>>
                         <?php echo esc_html($category['name']); ?>
                         <span class="nkp-picker__count"><?php echo esc_html((string) $category['count']); ?></span>

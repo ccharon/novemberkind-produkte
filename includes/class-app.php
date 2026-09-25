@@ -429,7 +429,7 @@ final class App
         $add = static function (int $parent, int $depth) use (&$add, &$categories, $terms): void {
             foreach ($terms as $term) {
                 if ($term instanceof \WP_Term && $term->parent === $parent) {
-                    $categories[] = ['id' => $term->term_id, 'name' => $term->name, 'depth' => $depth, 'count' => (int) $term->count];
+                    $categories[] = ['id' => $term->term_id, 'parent' => $term->parent, 'name' => $term->name, 'depth' => $depth, 'count' => (int) $term->count];
                     $add($term->term_id, $depth + 1);
                 }
             }
