@@ -7,6 +7,8 @@ parameters:
     - ../includes
   scanFiles:
     - vendor/php-stubs/woocommerce-stubs/woocommerce-stubs.php
+    # Action Scheduler für den Newsletter-Versand
+    - vendor/php-stubs/woocommerce-stubs/woocommerce-packages-stubs.php
   scanDirectories:
     - ../vendor
   treatPhpDocTypesAsCertain: false

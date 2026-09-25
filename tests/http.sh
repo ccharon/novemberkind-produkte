@@ -150,6 +150,78 @@ check 'Gutscheine: Deaktivieren erfolgreich' "$(ajax -d action=novemberkind_prod
 check 'Gutscheine: Status Entwurf' "$(bin/wp post get "$coupon_id" --field=post_status)" draft
 [ -n "$coupon_id" ] && bin/wp post delete "$coupon_id" --force >/dev/null
 
+# Newsletter, Mails landen in Mailpit
+MAILPIT=${MAILPIT:-http://localhost:8025}
+curl -s -X DELETE "$MAILPIT/api/v1/messages" >/dev/null
+# Text der neuesten Mail an eine Adresse, wartet kurz auf die Zustellung
+mail_text() {
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    id=$(curl -s "$MAILPIT/api/v1/search?query=to:$1" | python3 -c "import json,sys; m=json.load(sys.stdin)['messages']; print(m[0]['ID'] if m else '')")
+    if [ -n "$id" ]; then curl -s "$MAILPIT/api/v1/message/$id" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['Text'])"; return; fi
+    sleep 1
+  done
+}
+subscriber_status() {
+  bin/wp eval "\$s = NovemberkindProdukte\Subscribers::find('$1'); echo \$s ? \$s['status'] : 'weg';"
+}
+# Reste eines abgebrochenen Laufs
+bin/wp eval 'foreach (["http-abo", "http-bot", "http-csv", "http-kasse", "http-voll"] as $n) { $s = NovemberkindProdukte\Subscribers::find("$n@example.org"); $s && (new NovemberkindProdukte\Subscribers())->remove($s["id"]); }' >/dev/null
+reset_signup_limits() {
+  bin/wp transient list --search='novemberkind_produkte_signup_*' --fields=name --format=csv | tail -n +2 | xargs -r bin/wp transient delete >/dev/null
+}
+reset_signup_limits
+check 'Newsletter: Liste lädt' "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$APP/newsletter/")" 200
+check 'Newsletter: Formular lädt' "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$APP/newsletter/neu/")" 200
+check 'Newsletter: unbekannte Ausgabe liefert 404' "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$APP/newsletter/999999/")" 404
+check 'Newsletter: ohne Nonce abgelehnt' "$(ajax -d action=novemberkind_produkte_save_newsletter -d nonce=falsch -d subject=x)" 403
+check 'Newsletter: Pflichtfehler liefert 422' "$(ajax -d action=novemberkind_produkte_save_newsletter -d "nonce=$nonce" -d subject=)" 422
+
+signup=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' -e "$BASE/kontakt/" -d action=novemberkind_produkte_newsletter_signup -d email=http-abo@example.org "$BASE/wp-admin/admin-post.php")
+check 'Anmeldung leitet mit Rückmeldung zurück' "$signup" "302 $BASE/kontakt/?nkp-newsletter-status=ok#nkp-newsletter"
+bin/wp eval 'set_transient("novemberkind_produkte_signup_all", ["start" => time(), "count" => 999], 60);'
+check 'Obergrenze erreicht: Anmeldung pausiert' "$(location -e "$BASE/kontakt/" -d action=novemberkind_produkte_newsletter_signup -d email=http-voll@example.org "$BASE/wp-admin/admin-post.php" | grep -o 'status=[a-z]*')/$(subscriber_status http-voll@example.org)" status=busy/weg
+reset_signup_limits
+curl -s -o /dev/null -d action=novemberkind_produkte_newsletter_signup -d email=http-bot@example.org -d nkp_website=spam "$BASE/wp-admin/admin-post.php"
+check 'Bot mit ausgefülltem Feld wird nicht angemeldet' "$(subscriber_status http-bot@example.org)" weg
+confirm_url=$(mail_text http-abo@example.org | grep -oE 'http[^ )]*nkp-newsletter=bestaetigen&t=[A-Za-z0-9]+' | head -1)
+check 'Bestätigungsmail mit Link angekommen' "$([ -n "$confirm_url" ] && echo ja)" ja
+check 'Aufruf des Links zeigt nur den Knopf' "$(curl -s "$confirm_url" | grep -c 'type="submit"')/$(subscriber_status http-abo@example.org)" 1/pending
+check 'Knopf bestätigt die Anmeldung' "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$confirm_url")/$(subscriber_status http-abo@example.org)" 200/confirmed
+
+check 'Testmail erfolgreich' "$(ajax -d action=novemberkind_produkte_test_newsletter -d "nonce=$nonce" -d subject=HTTP-Test --data-urlencode 'content=<p>Hallo</p>')" 200
+check 'Testmail angekommen' "$(mail_text shop@example.org | grep -c 'Hallo')" 1
+check 'Verschicken erfolgreich' "$(ajax -d action=novemberkind_produkte_save_newsletter -d "nonce=$nonce" -d subject=HTTP-Newsletter --data-urlencode 'content=<p>Neuigkeiten</p>' -d send=now)" 200
+issue_id=$(grep -oP '"id":\K\d+' "$TMP/body")
+bin/wp action-scheduler run --hooks=novemberkind_produkte_newsletter_batch --quiet >/dev/null 2>&1
+check 'Newsletter angekommen' "$(mail_text http-abo@example.org | grep -c 'Neuigkeiten')" 1
+message_id=$(curl -s "$MAILPIT/api/v1/search?query=to:http-abo@example.org%20subject:HTTP-Newsletter" | python3 -c "import json,sys; print(json.load(sys.stdin)['messages'][0]['ID'])")
+unsubscribe_url=$(curl -s "$MAILPIT/api/v1/message/$message_id/headers" | python3 -c "import json,sys; print(json.load(sys.stdin)['List-Unsubscribe'][0].strip('<>'))")
+check 'Ein-Klick-Abmeldung per Kopfzeile' "$(curl -s "$MAILPIT/api/v1/message/$message_id/headers" | python3 -c "import json,sys; print(json.load(sys.stdin)['List-Unsubscribe-Post'][0])")" 'List-Unsubscribe=One-Click'
+check 'Newsletter als verschickt markiert' "$(bin/wp eval "echo NovemberkindProdukte\Newsletters::get($issue_id)['status'];")" sent
+check 'Mailprogramm meldet per POST ab' "$(curl -s -o /dev/null -w '%{http_code}' -d 'List-Unsubscribe=One-Click' "$unsubscribe_url")/$(subscriber_status http-abo@example.org)" 200/weg
+check 'Austragen einer unbekannten Adresse liefert 422' "$(ajax -d action=novemberkind_produkte_remove_subscriber -d "nonce=$nonce" -d id=999999)" 422
+bin/wp eval '(new NovemberkindProdukte\Subscribers())->subscribe("http-csv@example.org", "form");' >/dev/null
+bin/wp eval '$s = NovemberkindProdukte\Subscribers::find("http-csv@example.org"); (new NovemberkindProdukte\Subscribers())->confirm($s["token"]);' >/dev/null
+csv_url=$(curl -s -b "$JAR" "$APP/newsletter/abonnenten/" | grep -oP 'href="\K[^"]*novemberkind_produkte_subscribers_csv[^"]*' | sed 's/&#038;/\&/g; s/&amp;/\&/g')
+check 'CSV herunterladen' "$(curl -s -b "$JAR" "$csv_url" | grep -c 'http-csv@example.org')" 1
+check 'CSV ohne Anmeldung nicht erreichbar' "$(curl -s -o /dev/null -w '%{http_code}' "$csv_url" | grep -c '^[45]')" 1
+bin/wp eval '$s = NovemberkindProdukte\Subscribers::find("http-csv@example.org"); $s && (new NovemberkindProdukte\Subscribers())->remove($s["id"]);' >/dev/null
+
+# Block-Kasse über die Store API, mit einem Produkt ohne Bestandsführung
+STORE=$BASE/wp-json/wc/store/v1
+STORE_JAR=$TMP/store-cookies
+item=$(bin/wp eval 'foreach (wc_get_products(["limit" => -1, "status" => "publish", "type" => "simple"]) as $p) { if (!$p->managing_stock() && $p->is_purchasable()) { echo $p->get_id(); break; } }')
+store_nonce=$(curl -s -c "$STORE_JAR" -b "$STORE_JAR" -D - -o /dev/null "$STORE/cart" | grep -i '^nonce:' | tr -d '\r' | cut -d' ' -f2)
+curl -s -c "$STORE_JAR" -b "$STORE_JAR" -o /dev/null -H "Nonce: $store_nonce" -H 'Content-Type: application/json' -d "{\"id\":$item,\"quantity\":1}" "$STORE/cart/add-item"
+address='{"first_name":"Test","last_name":"Kasse","address_1":"Weg 1","city":"Berlin","postcode":"10115","country":"DE","email":"http-kasse@example.org","phone":""}'
+curl -s -c "$STORE_JAR" -b "$STORE_JAR" -o "$TMP/body" -H "Nonce: $store_nonce" -H 'Content-Type: application/json' \
+  -d "{\"billing_address\":$address,\"shipping_address\":$address,\"payment_method\":\"bacs\",\"additional_fields\":{\"novemberkind-produkte/newsletter\":true}}" "$STORE/checkout"
+order_id=$(json "d.get('order_id', '')")
+check 'Haken an der Block-Kasse startet die Anmeldung' "$(subscriber_status http-kasse@example.org)" pending
+bin/wp eval '$s = NovemberkindProdukte\Subscribers::find("http-kasse@example.org"); $s && (new NovemberkindProdukte\Subscribers())->remove($s["id"]);' >/dev/null
+[ -n "$order_id" ] && bin/wp eval "wc_get_order($order_id)?->delete(true);" >/dev/null
+[ -n "$issue_id" ] && bin/wp post delete "$issue_id" --force >/dev/null
+
 echo
 if [ "$failures" -eq 0 ]; then echo 'Alle HTTP-Tests bestanden.'; else echo "$failures HTTP-Test(s) fehlgeschlagen."; fi
 exit $((failures > 0))

@@ -16,6 +16,18 @@ docker compose --progress quiet up -d
 echo "Warte auf WordPress …"
 until docker compose exec -T wordpress test -f /var/www/html/wp-config.php 2>/dev/null; do sleep 2; done
 
+# Mails gehen an Mailpit statt ins Internet
+docker compose exec -T wordpress sh -c 'mkdir -p wp-content/mu-plugins && cat > wp-content/mu-plugins/mailpit.php' <<'PHP'
+<?php
+add_action('phpmailer_init', static function ($mailer): void {
+    $mailer->isSMTP();
+    $mailer->Host = 'mailpit';
+    $mailer->Port = 1025;
+    $mailer->SMTPAuth = false;
+    $mailer->SMTPAutoTLS = false;
+});
+PHP
+
 if ! wp core is-installed 2>/dev/null; then
   wp core install --url=http://localhost:8888 --title="Testshop" \
     --admin_user=admin --admin_password=password --admin_email=admin@example.org --skip-email
@@ -37,6 +49,8 @@ wp option update woocommerce_currency_pos right_space
 wp option update woocommerce_dimension_unit cm
 wp option update woocommerce_weight_unit kg
 wp option update woocommerce_coming_soon no
+# Überweisung als Zahlungsart, damit Bestellungen über die Kasse möglich sind
+wp option update woocommerce_bacs_settings '{"enabled":"yes","title":"Überweisung"}' --format=json
 
 wp user get shop >/dev/null 2>&1 \
   || wp user create shop shop@example.org --role=shop_manager --user_pass=password --first_name=Shop && wp user meta update shop locale de_DE
@@ -74,3 +88,4 @@ echo
 echo "Fertig: http://localhost:8888/wp-admin"
 echo "  Admin:        admin / password"
 echo "  Shop-Manager: shop  / password"
+echo "  Mails:        http://localhost:8025"

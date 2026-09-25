@@ -1758,3 +1758,61 @@ body.nkp-page {
 	font-weight: 600;
 	text-decoration: none;
 }
+
+/* Newsletter */
+
+.nkp-newsletter__link {
+	grid-template-columns: minmax(0, 1fr);
+}
+
+.nkp-subscriber {
+	align-items: center;
+	display: flex;
+	gap: 16px;
+	justify-content: space-between;
+	padding: 12px 18px;
+}
+
+.nkp-subscriber .nkp-campaign__main {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.nkp-button--small {
+	font-size: 14px;
+	padding: 8px 16px;
+}
+
+.nkp-editor__button--wide {
+	font-size: 14px;
+	padding: 0 10px;
+	width: auto;
+}
+
+.nkp-editor__content--mail {
+	font-size: 16px;
+	min-height: 260px;
+}
+
+.nkp-editor__content--mail h2 {
+	font-family: var(--nkp-font-heading);
+	font-size: 20px;
+	font-weight: 600;
+	margin: 18px 0 8px;
+}
+
+.nkp-editor__content--mail a {
+	color: var(--nkp-accent-dark);
+}
+
+.nkp-public {
+	max-width: 560px;
+	padding-top: 48px;
+}
+
+.nkp-public h1 {
+	font-family: var(--nkp-font-heading);
+	font-size: 26px;
+	font-weight: 600;
+	margin: 0 0 12px;
+}

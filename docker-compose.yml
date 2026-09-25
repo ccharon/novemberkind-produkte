@@ -47,6 +47,12 @@ services:
     environment: *wordpress-env
     volumes: *wordpress-volumes
 
+  mailpit:
+    # Fängt alle Mails der Testumgebung ab, Ansicht unter http://localhost:8025
+    image: axllent/mailpit
+    ports:
+      - "8025:8025"
+
   cli:
     image: wordpress:cli-php8.3
     user: "33:33"

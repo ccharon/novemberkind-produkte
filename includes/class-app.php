@@ -62,6 +62,14 @@ final class App
     }
 
     /**
+     * Adresse der Newsletter-Liste oder, mit ID, „neu“ oder „abonnenten“, einer Unterseite.
+     */
+    public static function newsletter_url(int|string $page = ''): string
+    {
+        return self::url() . 'newsletter/' . ($page !== '' ? $page . '/' : '');
+    }
+
+    /**
      * Meldet Adressen, Seitenaufbau und Anpassungen der Login-Seite an.
      */
     public function register(): void
@@ -91,9 +99,11 @@ final class App
         add_rewrite_rule("^{$path}/aktionen/(neu|\\d+)/?$", 'index.php?' . self::QUERY_VAR . '=aktion-$matches[1]', 'top');
         add_rewrite_rule("^{$path}/gutscheine/?$", 'index.php?' . self::QUERY_VAR . '=gutscheine', 'top');
         add_rewrite_rule("^{$path}/gutscheine/(neu|\\d+)/?$", 'index.php?' . self::QUERY_VAR . '=gutschein-$matches[1]', 'top');
+        add_rewrite_rule("^{$path}/newsletter/?$", 'index.php?' . self::QUERY_VAR . '=newsletter', 'top');
+        add_rewrite_rule("^{$path}/newsletter/(neu|abonnenten|\\d+)/?$", 'index.php?' . self::QUERY_VAR . '=newsletter-$matches[1]', 'top');
 
         // Regeln neu schreiben, sobald sich Pfad oder Regeln ändern
-        $signature = 'v5|' . self::path();
+        $signature = 'v6|' . self::path();
         if (get_option('novemberkind_produkte_rewrite') !== $signature) {
             flush_rewrite_rules(false);
             update_option('novemberkind_produkte_rewrite', $signature);
@@ -216,6 +226,8 @@ final class App
             $route === 'gutscheine'         => self::coupons_url(),
             $route === 'gutschein-neu'      => self::coupons_url('neu'),
             str_starts_with($route, 'gutschein-') => self::coupons_url((int) substr($route, 10)),
+            $route === 'newsletter'         => self::newsletter_url(),
+            str_starts_with($route, 'newsletter-') => self::newsletter_url(substr($route, 11)),
             $route === 'neu'                => self::new_url(),
             str_starts_with($route, 'neu-') => self::new_url(substr($route, 4)),
             default                         => self::edit_url((int) $route),
@@ -263,6 +275,8 @@ final class App
                 'networkError' => __('Keine Verbindung zum Shop. Bitte prüfe die Internetverbindung und versuche es noch einmal.', 'novemberkind-produkte'),
                 'loggedOut'    => __('Du bist inzwischen abgemeldet. Bitte lade die Seite neu und melde dich wieder an.', 'novemberkind-produkte'),
                 'unsaved'      => __('Es gibt ungespeicherte Änderungen.', 'novemberkind-produkte'),
+                'testSending'  => __('Wird verschickt …', 'novemberkind-produkte'),
+                'linkPrompt'   => __('Adresse des Links, z. B. https://novemberkind.art/shop/', 'novemberkind-produkte'),
             ],
         ]);
 
@@ -293,6 +307,24 @@ final class App
             }
             $data  = $route === 'gutschein-neu' || $coupon ? ['coupon' => $coupon] : null;
             $title = $coupon ? $coupon['code'] : __('Neuer Gutschein', 'novemberkind-produkte');
+        } elseif ($route === 'newsletter') {
+            $this->require_newsletter_rights();
+            (new Newsletters())->resume_stalled();
+            $view  = 'newsletters';
+            $title = __('Newsletter', 'novemberkind-produkte');
+            $data  = ['issues' => Newsletters::all(), 'counts' => Subscribers::counts()];
+        } elseif ($route === 'newsletter-abonnenten') {
+            $this->require_newsletter_rights();
+            (new Subscribers())->cleanup();
+            $view  = 'subscribers';
+            $title = __('Abonnenten', 'novemberkind-produkte');
+            $data  = ['subscribers' => Subscribers::all()];
+        } elseif (str_starts_with($route, 'newsletter-')) {
+            $this->require_newsletter_rights();
+            $view  = 'newsletter-form';
+            $issue = $route === 'newsletter-neu' ? null : Newsletters::get((int) substr($route, 11));
+            $data  = $route === 'newsletter-neu' || $issue ? $this->newsletter_form_data($issue) : null;
+            $title = $issue ? $issue['subject'] : __('Neuer Newsletter', 'novemberkind-produkte');
         } elseif ($route === 'overview') {
             $view = 'overview';
             $data = $this->overview_data();
@@ -322,6 +354,7 @@ final class App
             $data = ['missing' => match ($view) {
                 'campaign-form' => __('Diese Aktion gibt es nicht mehr.', 'novemberkind-produkte'),
                 'coupon-form'   => __('Diesen Gutschein gibt es nicht mehr.', 'novemberkind-produkte'),
+                'newsletter-form' => __('Diesen Newsletter gibt es nicht mehr.', 'novemberkind-produkte'),
                 default         => __('Dieses Produkt gibt es nicht mehr.', 'novemberkind-produkte'),
             }];
             $view = 'not-found';
@@ -436,6 +469,45 @@ final class App
         }
 
         return $context;
+    }
+
+    private function require_newsletter_rights(): void
+    {
+        if (!current_user_can(Newsletters::CAPABILITY)) {
+            wp_die(
+                esc_html__('Für den Newsletter fehlen dir die Berechtigungen.', 'novemberkind-produkte'),
+                esc_html__('Keine Berechtigung', 'novemberkind-produkte'),
+                ['response' => 403, 'back_link' => true]
+            );
+        }
+    }
+
+    /**
+     * Daten für das Formular einer Ausgabe: Produkte aus dem Shop und die Zahl der Empfänger.
+     *
+     * @param array<string, mixed>|null $issue
+     * @return array<string, mixed>
+     */
+    private function newsletter_form_data(?array $issue): array
+    {
+        $products = array_map(static fn(\WC_Product $product): array => [
+            'id'   => $product->get_id(),
+            'name' => $product->get_name(),
+            'sku'  => $product->get_sku(),
+        ], wc_get_products([
+            'status'  => 'publish',
+            'limit'   => -1,
+            'orderby' => 'title',
+            'order'   => 'ASC',
+        ]));
+
+        return [
+            'issue'      => $issue,
+            'products'   => $products,
+            'recipients' => Subscribers::counts()['confirmed'],
+            'remaining'  => $issue ? Newsletters::remaining($issue['id']) : 0,
+            'from'       => NewsletterMail::from_label(),
+        ];
     }
 
     private function require_coupon_rights(): void

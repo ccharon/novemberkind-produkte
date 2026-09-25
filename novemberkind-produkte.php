@@ -39,10 +39,14 @@ require_once __DIR__ . '/includes/class-campaigns.php';
 require_once __DIR__ . '/includes/class-coupons.php';
 require_once __DIR__ . '/includes/class-card-sizes.php';
 require_once __DIR__ . '/includes/class-image-processor.php';
+require_once __DIR__ . '/includes/class-newsletter-mail.php';
+require_once __DIR__ . '/includes/class-newsletter-signup.php';
+require_once __DIR__ . '/includes/class-newsletters.php';
 require_once __DIR__ . '/includes/class-product-service.php';
 require_once __DIR__ . '/includes/class-product-type.php';
 require_once __DIR__ . '/includes/class-shop-data.php';
 require_once __DIR__ . '/includes/class-originals.php';
+require_once __DIR__ . '/includes/class-subscribers.php';
 require_once __DIR__ . '/includes/class-suggestions.php';
 require_once __DIR__ . '/includes/class-updater.php';
 if (interface_exists(\Psr\Http\Client\ClientInterface::class)) {

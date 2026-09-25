@@ -8,10 +8,14 @@
 use NovemberkindProdukte\Campaigns;
 use NovemberkindProdukte\Coupons;
 use NovemberkindProdukte\ImageProcessor;
+use NovemberkindProdukte\NewsletterMail;
+use NovemberkindProdukte\Newsletters;
+use NovemberkindProdukte\NewsletterSignup;
 use NovemberkindProdukte\Originals;
 use NovemberkindProdukte\ProductService;
 use NovemberkindProdukte\ProductType;
 use NovemberkindProdukte\ShopData;
+use NovemberkindProdukte\Subscribers;
 
 defined('ABSPATH') || exit(1);
 
@@ -685,6 +689,140 @@ foreach ($coupon_ids as $coupon_id) {
 }
 remove_filter('novemberkind_produkte_campaigns', $only_test_campaigns);
 Campaigns::flush();
+
+section('Newsletter');
+$mails = [];
+$catch_mail = static function ($pre, array $atts) use (&$mails) {
+    $mails[] = $atts;
+    return true;
+};
+add_filter('pre_wp_mail', $catch_mail, 10, 2);
+$subscribers = new Subscribers();
+$newsletters = new Newsletters();
+$test_subscribers = [];
+$confirm_new = static function (string $email) use ($subscribers, &$test_subscribers): array {
+    $subscribers->subscribe($email, 'form');
+    $subscriber = Subscribers::find($email);
+    $test_subscribers[] = $subscriber['id'];
+    return $subscribers->confirm($subscriber['token']);
+};
+
+check('ungültige Adresse wird abgelehnt', is_wp_error($invalid_mail = $subscribers->subscribe('keine-adresse', 'form')) && $invalid_mail->get_error_code() === 'email');
+$subscribers->subscribe(' Test-Abo@Example.org ', 'checkout');
+$pending = Subscribers::find('test-abo@example.org');
+$test_subscribers[] = $pending['id'] ?? 0;
+check('Anmeldung wartet auf Bestätigung, Adresse kleingeschrieben', $pending !== null && $pending['status'] === 'pending' && $pending['source'] === 'checkout' && $pending['email'] === 'test-abo@example.org');
+check('Bestätigungsmail mit Link und Token', count($mails) === 1 && $mails[0]['to'] === 'test-abo@example.org' && str_contains($mails[0]['message'], 'nkp-newsletter=bestaetigen&#038;t=' . $pending['token']));
+$subscribers->subscribe('test-abo@example.org', 'form');
+check('keine zweite Mail innerhalb von 10 Minuten', count($mails) === 1);
+check('falsches Token wird abgelehnt', Subscribers::by_token(str_repeat('a', 32)) === null && Subscribers::by_token('kurz') === null);
+$confirmed = $subscribers->confirm($pending['token']);
+check('Bestätigung über das Token', $confirmed !== null && $confirmed['status'] === 'confirmed' && $confirmed['confirmed'] > 0);
+$subscribers->subscribe('test-abo@example.org', 'form');
+check('bestätigte Adresse bekommt keine weitere Mail', count($mails) === 1 && Subscribers::find('test-abo@example.org')['status'] === 'confirmed');
+$subscribers->subscribe('test-alt@example.org', 'form');
+$old = Subscribers::find('test-alt@example.org');
+update_post_meta($old['id'], Subscribers::META, ['status' => 'pending', 'created' => time() - 8 * DAY_IN_SECONDS, 'confirmed' => 0, 'source' => 'form']);
+$subscribers->cleanup();
+check('unbestätigte Anmeldung verfällt nach 7 Tagen', Subscribers::get($old['id']) === null);
+check('CSV mit bestätigter Adresse', str_contains(Subscribers::csv(), '"test-abo@example.org";') && !str_contains(Subscribers::csv(), 'test-alt@'));
+
+$from = NewsletterMail::from();
+check('Absender aus den WooCommerce-Einstellungen', $from['email'] === get_option('woocommerce_email_from_address'));
+
+$letter_product = $service->save(ProductType::get('sticker'), ['sku' => ShopData::next_sku(), 'motif' => 'Newslettertest', 'price' => '2,5', 'width' => '5', 'height' => '5', 'finish' => 'matt', 'status' => 'publish']);
+$cleanup['products'][] = $letter_product->get_id();
+$empty_issue = $newsletters->save(['subject' => '', 'content' => '<p> </p>']);
+check('Newsletter: Betreff und Inhalt werden geprüft', is_wp_error($empty_issue) && array_keys($empty_issue->get_error_data()) === ['subject', 'content']);
+$issue_data = [
+    'subject'   => 'Tee & Kekse \\o/',
+    'preheader' => 'Neue Sticker',
+    'content'   => '<p>Hallo <strong>du</strong>, <a href="https://example.org/neu/">hier entlang</a>.</p><script>alert(1)</script>',
+    'products'  => [$letter_product->get_id()],
+    'send'      => 'draft',
+];
+$draft = $newsletters->save(wp_slash($issue_data));
+$issue_ids = [$draft['id']];
+check('Entwurf gespeichert, Betreff unverändert', $draft['status'] === 'draft' && $draft['subject'] === 'Tee & Kekse \\o/');
+check('Inhalt ohne Skript', !str_contains($draft['content'], 'script') && str_contains($draft['content'], '<strong>du</strong>'));
+$rendered = NewsletterMail::render($draft);
+check('Mail mit Vorschauzeile, Produkt und Abmeldelink', str_contains($rendered['html'], 'Neue Sticker') && str_contains($rendered['html'], 'Sticker: Newslettertest') && str_contains($rendered['html'], 'nkp-newsletter=abmelden&#038;t=' . NewsletterMail::TOKEN_PLACEHOLDER));
+check('Textfassung mit Link und Preis', str_contains($rendered['text'], 'hier entlang (https://example.org/neu/)') && str_contains($rendered['text'], '2,50'));
+
+$mails = [];
+check('Testmail an eine Adresse', $newsletters->send_test(wp_slash($issue_data), 'shop@example.org') === true && count($mails) === 1 && $mails[0]['subject'] === '[Test] Tee & Kekse \\o/');
+
+$past = $newsletters->save(wp_slash(['send' => 'scheduled', 'send_date' => wp_date('Y-m-d', time() - DAY_IN_SECONDS), 'send_time' => '10:00'] + $issue_data), $draft['id']);
+check('geplanter Versand in der Vergangenheit wird abgelehnt', is_wp_error($past) && array_keys($past->get_error_data()) === ['send']);
+$later = time() + DAY_IN_SECONDS;
+$planned = $newsletters->save(wp_slash(['send' => 'scheduled', 'send_date' => wp_date('Y-m-d', $later), 'send_time' => wp_date('H:i', $later)] + $issue_data), $draft['id']);
+check('geplant mit Aufgabe im Action Scheduler', $planned['status'] === 'scheduled' && as_next_scheduled_action(Newsletters::HOOK_START, ['id' => $draft['id']], 'novemberkind-produkte') !== false);
+$newsletters->save(wp_slash($issue_data), $draft['id']);
+check('zurück zum Entwurf ohne Aufgabe', Newsletters::get($draft['id'])['status'] === 'draft' && as_next_scheduled_action(Newsletters::HOOK_START, ['id' => $draft['id']], 'novemberkind-produkte') === false);
+
+// 30 bestätigte Empfänger für zwei Päckchen
+for ($i = 1; $i <= 30; $i++) {
+    $confirm_new("test-abo-{$i}@example.org");
+}
+$mails = [];
+$sending = $newsletters->save(wp_slash(['send' => 'now'] + $issue_data));
+$issue_ids[] = $sending['id'];
+$recipients = count(Subscribers::confirmed());
+check('„Jetzt verschicken“ legt die Empfänger fest', $sending['status'] === 'sending' && $sending['recipients'] === $recipients && Newsletters::remaining($sending['id']) === $recipients);
+check('laufender Newsletter lässt sich nicht ändern', is_wp_error($newsletters->save(wp_slash($issue_data), $sending['id'])));
+$newsletters->send_batch($sending['id']);
+$after_first = Newsletters::get($sending['id']);
+check('erstes Päckchen mit 25 Mails, Rest geplant', count($mails) === Newsletters::BATCH_SIZE && $after_first['sent'] === Newsletters::BATCH_SIZE && $after_first['status'] === 'sending' && as_next_scheduled_action(Newsletters::HOOK_BATCH, ['id' => $sending['id']], 'novemberkind-produkte') !== false);
+// Eine Testadresse aus dem zweiten Päckchen meldet sich zwischendurch ab
+$queued = array_values(array_intersect((array) get_post_meta($sending['id'], Newsletters::META_QUEUE, true), $test_subscribers));
+$leaving = Subscribers::get((int) ($queued[0] ?? 0));
+$first_mail = $mails[0];
+$first_token = Subscribers::find($first_mail['to'])['token'];
+check('Mail mit persönlichem Abmeldelink und Ein-Klick-Kopfzeilen', str_contains($first_mail['message'], 't=' . $first_token) && !str_contains($first_mail['message'], NewsletterMail::TOKEN_PLACEHOLDER)
+    && in_array('List-Unsubscribe-Post: List-Unsubscribe=One-Click', $first_mail['headers'], true) && in_array('List-Unsubscribe: <' . NewsletterSignup::url('abmelden', $first_token) . '>', $first_mail['headers'], true));
+check('Absender und Antwortadresse gesetzt', (bool) preg_grep('/^From: .*<' . preg_quote($from['email'], '/') . '>$/', $first_mail['headers']) && in_array('Reply-To: ' . $from['email'], $first_mail['headers'], true));
+check('Abmelden über das Token löscht die Adresse', $leaving !== null && $subscribers->unsubscribe($leaving['token']) && Subscribers::get($leaving['id']) === null);
+$newsletters->send_batch($sending['id']);
+$sent_issue = Newsletters::get($sending['id']);
+check('zweites Päckchen ohne die abgemeldete Adresse, dann verschickt', $sent_issue['status'] === 'sent' && $sent_issue['sent'] === $recipients - 1 && count($mails) === $recipients - 1 && !in_array($leaving['email'], array_column($mails, 'to'), true));
+check('verschickter Newsletter bleibt unverändert', is_wp_error($newsletters->save(wp_slash($issue_data), $sending['id'])) && Newsletters::remaining($sending['id']) === 0);
+
+$limit_keys = ['novemberkind_produkte_signup_all', 'novemberkind_produkte_signup_ip_' . substr(wp_hash('198.51.100.7'), 0, 32), 'novemberkind_produkte_signup_ip_' . substr(wp_hash('198.51.100.8'), 0, 32)];
+array_map('delete_transient', $limit_keys);
+$allowed = array_map(static fn(): bool => NewsletterSignup::within_limits('198.51.100.7'), range(1, NewsletterSignup::IP_LIMIT));
+check('höchstens 5 Anmeldungen pro IP-Adresse und Stunde', !in_array(false, $allowed, true) && !NewsletterSignup::within_limits('198.51.100.7') && NewsletterSignup::within_limits('198.51.100.8'));
+set_transient($limit_keys[0], ['start' => time(), 'count' => NewsletterSignup::HOURLY_LIMIT], 60);
+check('Obergrenze für alle Anmeldungen pro Stunde', !NewsletterSignup::within_limits('198.51.100.8'));
+set_transient($limit_keys[0], ['start' => time() - 3601, 'count' => NewsletterSignup::HOURLY_LIMIT], 60);
+check('nach einer Stunde wieder frei', NewsletterSignup::within_limits('198.51.100.8'));
+array_map('delete_transient', $limit_keys);
+
+$form = do_shortcode('[novemberkind_newsletter]');
+check('Anmeldeformular per Shortcode mit verstecktem Feld', str_contains($form, 'admin-post.php') && str_contains($form, 'name="nkp_website"') && str_contains($form, 'type="email"'));
+ob_start();
+(new NewsletterSignup())->checkout_checkbox();
+$checkbox = (string) ob_get_clean();
+check('Haken an der klassischen Kasse, nicht vorausgewählt', str_contains($checkbox, 'name="nkp_newsletter"') && !str_contains($checkbox, 'checked'));
+$order = wc_create_order();
+$order->set_billing_email('test-kasse@example.org');
+$order->save();
+$_POST['nkp_newsletter'] = '1';
+(new NewsletterSignup())->classic_checkout_processed($order->get_id(), [], $order);
+unset($_POST['nkp_newsletter']);
+$from_checkout = Subscribers::find('test-kasse@example.org');
+$test_subscribers[] = $from_checkout['id'] ?? 0;
+check('Haken an der Kasse startet die Anmeldung', $from_checkout !== null && $from_checkout['status'] === 'pending' && $from_checkout['source'] === 'checkout');
+$order->delete(true);
+
+remove_filter('pre_wp_mail', $catch_mail, 10);
+foreach ($issue_ids as $issue_id) {
+    as_unschedule_all_actions(Newsletters::HOOK_BATCH, ['id' => $issue_id], 'novemberkind-produkte');
+    as_unschedule_all_actions(Newsletters::HOOK_START, ['id' => $issue_id], 'novemberkind-produkte');
+    wp_delete_post($issue_id, true);
+}
+foreach (array_filter($test_subscribers) as $subscriber_id) {
+    $subscribers->remove($subscriber_id);
+}
 
 section('Updates aus GitHub-Releases (ohne echte Anfrage)');
 $github = null;

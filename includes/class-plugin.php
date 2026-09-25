@@ -28,6 +28,9 @@ final class Plugin
         (new Backups())->register();
         (new Campaigns())->register();
         (new Coupons())->register();
+        (new Subscribers())->register();
+        (new Newsletters())->register();
+        (new NewsletterSignup())->register();
         (new App())->register();
         (new AdminPage())->register();
         (new Ajax())->register();

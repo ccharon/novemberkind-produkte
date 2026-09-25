@@ -40,6 +40,18 @@ foreach (ProductType::get('button')->config('variations')['options'] as $i => $o
     }
 }
 
+// Seite mit dem Anmeldeformular für den Newsletter unter /newsletter/
+if (!get_page_by_path('newsletter')) {
+    wp_insert_post([
+        'post_type'    => 'page',
+        'post_status'  => 'publish',
+        'post_title'   => 'Newsletter',
+        'post_name'    => 'newsletter',
+        'post_content' => "<!-- wp:paragraph -->\n<p>Neuigkeiten aus dem Shop, ein paar Mal im Jahr.</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:shortcode -->\n[novemberkind_newsletter]\n<!-- /wp:shortcode -->",
+    ]);
+    echo "Angelegt: Seite Newsletter\n";
+}
+
 if (wc_get_products(['limit' => 1, 'status' => 'any', 'return' => 'ids']) !== []) {
     echo "Produkte vorhanden, keine Beispielprodukte angelegt.\n";
     return;
