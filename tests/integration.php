@@ -511,6 +511,11 @@ section('Rabattaktionen');
 $campaigns = new Campaigns();
 $local = static fn(int $timestamp): string => wp_date('Y-m-d\TH:i', $timestamp);
 $campaign_ids = [];
+// Aktionen, die in der Testumgebung von Hand angelegt wurden, dürfen die Preise hier nicht beeinflussen
+Campaigns::flush();
+$manual_campaigns = array_keys(Campaigns::all());
+add_filter('novemberkind_produkte_campaigns', $only_test_campaigns = static fn(array $all): array => array_diff_key($all, array_flip($manual_campaigns)));
+Campaigns::flush();
 $sticker_a = $service->save(ProductType::get('sticker'), ['sku' => ShopData::next_sku(), 'motif' => 'Aktionstest', 'price' => '2,5', 'width' => '5', 'height' => '5', 'finish' => 'matt', 'status' => 'publish']);
 $sticker_b = $service->save(ProductType::get('sticker'), ['sku' => ShopData::next_sku(), 'motif' => 'Aktionstest mit Angebot', 'price' => '2,5', 'width' => '5', 'height' => '5', 'finish' => 'matt', 'status' => 'publish']);
 $aktion_button = $service->save(ProductType::get('button'), ['sku' => ShopData::next_sku(), 'motif' => 'Aktionstest', 'price' => '4,5', 'status' => 'publish']);
@@ -620,6 +625,8 @@ check('Gutscheine aus WooCommerce bleiben unberührt', is_wp_error($coupons->set
 foreach ($coupon_ids as $coupon_id) {
     wp_delete_post($coupon_id, true);
 }
+remove_filter('novemberkind_produkte_campaigns', $only_test_campaigns);
+Campaigns::flush();
 
 section('Updates aus GitHub-Releases (ohne echte Anfrage)');
 $github = null;

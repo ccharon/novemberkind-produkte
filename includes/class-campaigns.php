@@ -92,6 +92,8 @@ final class Campaigns
                 }
             }
             uasort(self::$cache, static fn(array $a, array $b): int => $b['start'] <=> $a['start'] ?: $b['id'] <=> $a['id']);
+            // Erlaubt Tests, nur ihre eigenen Aktionen zu berücksichtigen
+            self::$cache = (array) apply_filters('novemberkind_produkte_campaigns', self::$cache);
         }
 
         return self::$cache;
