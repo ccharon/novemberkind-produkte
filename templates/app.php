@@ -41,6 +41,7 @@ $shop_name = get_bloginfo('name');
                 <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 19c8 0 13-5 14-14-9 1-14 6-14 14Zm0 0 7-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 <span class="screen-reader-text"><?php esc_html_e('Ranke', 'novemberkind-produkte'); ?></span>
             </button>
+            <a href="<?php echo esc_url(App::url()); ?>" <?php echo in_array($view, ['overview', 'type-picker', 'product-form'], true) ? 'aria-current="page"' : ''; ?>><?php esc_html_e('Produkte', 'novemberkind-produkte'); ?></a>
             <a href="<?php echo esc_url(App::campaigns_url()); ?>" <?php echo str_starts_with($view, 'campaign') ? 'aria-current="page"' : ''; ?>><?php esc_html_e('Aktionen', 'novemberkind-produkte'); ?></a>
             <?php if (current_user_can('edit_shop_coupons')) : ?>
                 <a href="<?php echo esc_url(App::coupons_url()); ?>" <?php echo str_starts_with($view, 'coupon') ? 'aria-current="page"' : ''; ?>><?php esc_html_e('Gutscheine', 'novemberkind-produkte'); ?></a>
