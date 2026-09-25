@@ -32,6 +32,21 @@ Diese Teile übernimmst du wörtlich aus der bisherigen Beschreibung, oder aus d
 - Emojis nur dort, wo sie schon in der Vorlage stehen.
 - Wo die Vorlage mit „Heike“ grüßt, grüßt auch die Beschreibung mit „Heike“.
 
+## Sprache
+
+Die Texte sollen klingen, als hätte Heike sie selbst geschrieben, nicht wie ein KI-Text.
+
+- Verwende weder den Geviertstrich (Unicode U+2014) noch den Halbgeviertstrich (Unicode U+2013). Trenne Gedanken mit Punkt, Komma oder Doppelpunkt, oder bilde zwei Sätze. Der normale Bindestrich in zusammengesetzten Wörtern wie „Ansteck-Button“ ist in Ordnung.
+- Stehen in der bisherigen Beschreibung solche Striche, ersetze sie auf dieselbe Weise.
+- Vermeide typische KI-Formulierungen, zum Beispiel:
+  - „Tauche ein in …“, „Entdecke …“, „Lass dich verzaubern“
+  - „nicht nur …, sondern auch …“, „Egal ob … oder …“
+  - „ein wahres Highlight“, „ein echter Hingucker“, „ein Must-have“, „unverzichtbar“
+  - „verleiht … einen Hauch von …“, „zaubert ein Lächeln ins Gesicht“
+  - „In einer Welt, in der …“, „Mehr als nur …“
+  - Dreierreihen von Adjektiven wie „liebevoll, verspielt und einzigartig“
+- Schreib konkret: lieber benennen, was auf dem Foto zu sehen ist, als Stimmungswörter aneinanderzureihen.
+
 ## Format der Beschreibung
 
 - HTML mit ausschließlich diesen Elementen: `p`, `br`, `strong`, `em`, `h3`, `a`. Attribute gibt es nur am Link: `href`, `target` und `rel`.
