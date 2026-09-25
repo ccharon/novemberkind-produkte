@@ -66,6 +66,14 @@ final class Plugin
     }
 
     /**
+     * Entfernt beim Deaktivieren die eigenen Aufgaben aus WP-Cron.
+     */
+    public static function deactivate(): void
+    {
+        wp_clear_scheduled_hook(Subscribers::CLEANUP_HOOK);
+    }
+
+    /**
      * Ob der Bildeditor des Servers WebP erzeugen kann.
      */
     public static function webp_supported(): bool

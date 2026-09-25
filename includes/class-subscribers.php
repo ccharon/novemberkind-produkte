@@ -23,6 +23,7 @@ final class Subscribers
     // Schützt Postfächer davor, über das öffentliche Formular mit Bestätigungsmails überhäuft zu werden
     public const RESEND_SECONDS = 600;
     public const CSV_ACTION = 'novemberkind_produkte_subscribers_csv';
+    public const CLEANUP_HOOK = 'novemberkind_produkte_subscribers_cleanup';
     private const TOKEN_LENGTH = 32;
     // Längste zulässige Adresse nach RFC 5321
     private const EMAIL_MAX_LENGTH = 254;
@@ -34,6 +35,13 @@ final class Subscribers
     {
         add_action('init', [$this, 'register_post_type']);
         add_action('admin_post_' . self::CSV_ACTION, [$this, 'download_csv']);
+        // Täglich, damit unbestätigte Adressen auch ohne neue Anmeldungen nach der Frist verschwinden
+        add_action(self::CLEANUP_HOOK, [$this, 'cleanup']);
+        add_action('init', static function (): void {
+            if (!wp_next_scheduled(self::CLEANUP_HOOK)) {
+                wp_schedule_event(time() + HOUR_IN_SECONDS, 'daily', self::CLEANUP_HOOK);
+            }
+        });
     }
 
     /**

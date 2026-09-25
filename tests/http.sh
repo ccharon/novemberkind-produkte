@@ -188,6 +188,8 @@ curl -s -o /dev/null -d action=novemberkind_produkte_newsletter_signup -d email=
 check 'Bot mit ausgefülltem Feld wird nicht angemeldet' "$(subscriber_status http-bot@example.org)" weg
 confirm_url=$(mail_text http-abo@example.org | grep -oE 'http[^ )]*nkp-newsletter=bestaetigen&t=[A-Za-z0-9]+' | head -1)
 check 'Bestätigungsmail mit Link angekommen' "$([ -n "$confirm_url" ] && echo ja)" ja
+headers=$(curl -s -D - -o /dev/null "$confirm_url")
+check 'Bestätigungsseite ohne Skripte, Referer und Einbetten' "$(grep -ciE "^content-security-policy: default-src 'none'|^referrer-policy: no-referrer|^x-frame-options: sameorigin|^x-content-type-options: nosniff" <<<"$headers")" 4
 check 'Aufruf des Links zeigt nur den Knopf' "$(curl -s "$confirm_url" | grep -c 'type="submit"')/$(subscriber_status http-abo@example.org)" 1/pending
 check 'Knopf bestätigt die Anmeldung' "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$confirm_url")/$(subscriber_status http-abo@example.org)" 200/confirmed
 

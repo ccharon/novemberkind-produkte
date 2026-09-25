@@ -238,10 +238,14 @@ final class NewsletterSignup
 
         nocache_headers();
         status_header(200);
+        // Vor der eigenen Content-Security-Policy, weil WordPress hier ebenfalls eine setzt
+        send_frame_options_header();
         header('X-Robots-Tag: noindex, nofollow');
         // Die Adresse enthält das Token, es soll nicht über Links weitergegeben werden
         header('Referrer-Policy: no-referrer');
-        send_frame_options_header();
+        // Die Seite braucht nur eigenes CSS und Bilder, kein Skript
+        header("Content-Security-Policy: default-src 'none'; style-src 'self'; img-src 'self' data:; form-action 'self'; frame-ancestors 'self'; base-uri 'none'");
+        header('X-Content-Type-Options: nosniff');
         $this->render_page($action, $state);
         exit;
     }

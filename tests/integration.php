@@ -725,6 +725,7 @@ $old = Subscribers::find('test-alt@example.org');
 update_post_meta($old['id'], Subscribers::META, ['status' => 'pending', 'created' => time() - 8 * DAY_IN_SECONDS, 'confirmed' => 0, 'source' => 'form']);
 $subscribers->cleanup();
 check('unbestätigte Anmeldung verfällt nach 7 Tagen', Subscribers::get($old['id']) === null);
+check('Aufräumen läuft täglich über WP-Cron', wp_get_schedule(Subscribers::CLEANUP_HOOK) === 'daily');
 check('CSV mit bestätigter Adresse', str_contains(Subscribers::csv(), '"test-abo@example.org";') && !str_contains(Subscribers::csv(), 'test-alt@'));
 $formula = $confirm_new('=1+1@example.org');
 check('CSV entschärft Werte, die wie Formeln aussehen', str_contains(Subscribers::csv(), '"\'=1+1@example.org";'));
