@@ -29,6 +29,7 @@ final class Plugin
         (new Campaigns())->register();
         (new Coupons())->register();
         (new Subscribers())->register();
+        (new ImageProcessor())->register();
         (new Newsletters())->register();
         (new NewsletterSignup())->register();
         (new App())->register();

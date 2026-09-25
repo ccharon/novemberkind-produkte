@@ -115,6 +115,10 @@ $badge = ['draft' => 'draft', 'scheduled' => 'campaign-planned', 'sending' => 'c
                     <button type="button" class="nkp-editor__button" data-nkp-command="italic" title="<?php esc_attr_e('Kursiv', 'novemberkind-produkte'); ?>"><em>K</em></button>
                     <button type="button" class="nkp-editor__button nkp-editor__button--wide" data-nkp-command="heading" title="<?php esc_attr_e('Zwischenüberschrift', 'novemberkind-produkte'); ?>"><?php esc_html_e('Überschrift', 'novemberkind-produkte'); ?></button>
                     <button type="button" class="nkp-editor__button nkp-editor__button--wide" data-nkp-command="link" title="<?php esc_attr_e('Markierten Text verlinken', 'novemberkind-produkte'); ?>"><?php esc_html_e('Link', 'novemberkind-produkte'); ?></button>
+                    <?php if (current_user_can('upload_files')) : ?>
+                        <button type="button" class="nkp-editor__button nkp-editor__button--wide" data-nkp-command="image" title="<?php esc_attr_e('Foto an der Cursorposition einfügen', 'novemberkind-produkte'); ?>"><?php esc_html_e('Foto', 'novemberkind-produkte'); ?></button>
+                        <input type="file" accept="image/*" hidden data-nkp-image-file>
+                    <?php endif; ?>
                 </div>
                 <div class="nkp-editor__content nkp-editor__content--mail" contenteditable="<?php echo $is_locked ? 'false' : 'true'; ?>" role="textbox" aria-multiline="true"
                      aria-labelledby="nkp-newsletter-content-label" data-nkp-editor><?php echo wp_kses_post($issue['content'] ?? ''); ?></div>

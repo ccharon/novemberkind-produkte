@@ -238,9 +238,10 @@ final class App
     {
         $base = plugin_dir_url(PLUGIN_FILE);
         wp_register_style('novemberkind-produkte-app', $base . 'assets/css/app.css', [], self::asset_version('assets/css/app.css'));
-        wp_register_script('novemberkind-produkte-app', $base . 'assets/js/app.js', [], self::asset_version('assets/js/app.js'), true);
+        wp_register_script('novemberkind-produkte-images', $base . 'assets/js/images.js', [], self::asset_version('assets/js/images.js'), true);
+        wp_register_script('novemberkind-produkte-app', $base . 'assets/js/app.js', ['novemberkind-produkte-images'], self::asset_version('assets/js/app.js'), true);
         wp_register_script('novemberkind-produkte-vine', $base . 'assets/js/vine.js', [], self::asset_version('assets/js/vine.js'), true);
-        wp_register_script('novemberkind-produkte-forms', $base . 'assets/js/forms.js', [], self::asset_version('assets/js/forms.js'), true);
+        wp_register_script('novemberkind-produkte-forms', $base . 'assets/js/forms.js', ['novemberkind-produkte-images'], self::asset_version('assets/js/forms.js'), true);
         wp_localize_script('novemberkind-produkte-app', 'novemberkindProdukte', [
             'ajaxUrl'        => admin_url('admin-ajax.php'),
             'nonce'          => wp_create_nonce(Ajax::NONCE),
@@ -267,9 +268,11 @@ final class App
         ]);
 
         wp_localize_script('novemberkind-produkte-forms', 'novemberkindFormulare', [
-            'ajaxUrl' => admin_url('admin-ajax.php'),
-            'nonce'   => wp_create_nonce(Ajax::NONCE),
-            'i18n'    => [
+            'ajaxUrl'        => admin_url('admin-ajax.php'),
+            'nonce'          => wp_create_nonce(Ajax::NONCE),
+            'maxUploadBytes' => wp_max_upload_size(),
+            'maxWidth'       => ImageProcessor::MAX_WIDTH,
+            'i18n'           => [
                 'saving'       => __('Wird gespeichert …', 'novemberkind-produkte'),
                 'save'         => __('Speichern', 'novemberkind-produkte'),
                 'networkError' => __('Keine Verbindung zum Shop. Bitte prüfe die Internetverbindung und versuche es noch einmal.', 'novemberkind-produkte'),
@@ -277,6 +280,8 @@ final class App
                 'unsaved'      => __('Es gibt ungespeicherte Änderungen.', 'novemberkind-produkte'),
                 'testSending'  => __('Wird verschickt …', 'novemberkind-produkte'),
                 'linkPrompt'   => __('Adresse des Links, z. B. https://novemberkind.art/shop/', 'novemberkind-produkte'),
+                'unreadable'   => __('Dieses Foto kann der Browser nicht öffnen. Bitte als JPEG oder PNG versuchen.', 'novemberkind-produkte'),
+                'waitForUpload' => __('Einen Moment noch, die Fotos werden gerade hochgeladen.', 'novemberkind-produkte'),
             ],
         ]);
 

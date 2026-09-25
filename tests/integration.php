@@ -797,6 +797,21 @@ set_transient($limit_keys[0], ['start' => time() - 3601, 'count' => NewsletterSi
 check('nach einer Stunde wieder frei', NewsletterSignup::within_limits('198.51.100.8'));
 array_map('delete_transient', $limit_keys);
 
+$photo_id = (new ImageProcessor())->import(make_png(800, 600), 'Newsletterfoto');
+$cleanup['attachments'][] = $photo_id;
+$photo_file = get_attached_file($photo_id);
+$mail_url = ImageProcessor::mail_url($photo_id, 'full');
+$mail_file = dirname($photo_file) . '/' . pathinfo($photo_file, PATHINFO_FILENAME) . '-mail.jpg';
+check('WebP-Foto bekommt für Mails eine JPEG-Fassung', str_ends_with($mail_url, '-mail.jpg') && file_exists($mail_file) && wp_getimagesize($mail_file)['mime'] === 'image/jpeg');
+check('JPEG-Fassung wird wiederverwendet', ImageProcessor::mail_url($photo_id, 'full') === $mail_url);
+$with_photo = NewsletterMail::render(['subject' => 'Foto', 'preheader' => '', 'products' => [], 'content' => '<p>Vorher</p><p><img src="x.webp" class="wp-image-' . $photo_id . '" alt="Herbst &amp; Laub"></p><p><img src="https://fremd.example/bild.jpg" alt="fremd"></p>']);
+check('Foto im Text als JPEG in voller Breite, fremde Bilder fallen weg', str_contains($with_photo['html'], 'src="' . $mail_url . '"') && str_contains($with_photo['html'], 'alt="Herbst &amp; Laub"') && !str_contains($with_photo['html'], 'fremd.example'));
+$letter_product->set_image_id($photo_id);
+$letter_product->save();
+check('Produktfotos in der Mail als JPEG', str_contains(NewsletterMail::render($draft)['html'], '-mail.jpg'));
+wp_delete_attachment($photo_id, true);
+check('beim Löschen des Fotos verschwindet die JPEG-Fassung', !file_exists($mail_file));
+
 $form = do_shortcode('[novemberkind_newsletter]');
 check('Anmeldeformular per Shortcode mit verstecktem Feld', str_contains($form, 'admin-post.php') && str_contains($form, 'name="nkp_website"') && str_contains($form, 'type="email"'));
 ob_start();

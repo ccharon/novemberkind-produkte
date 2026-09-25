@@ -27,6 +27,8 @@ final class NewsletterMail
     ];
     public const FONT = "Helvetica,Arial,sans-serif";
     private const LOGO_WIDTH = 200;
+    // Breite des Textbereichs: 600 px Mail abzüglich Innenabstand
+    private const CONTENT_WIDTH = 544;
 
     private static string $alt_body = '';
     private static string $sender = '';
@@ -228,7 +230,24 @@ final class NewsletterMail
             $html = (string) preg_replace('/<' . $tag . '(\s[^>]*)?>/i', '<' . $tag . '$1 style="' . $style . '">', $html);
         }
 
-        return $html;
+        return (string) preg_replace_callback('/<img\s[^>]*>/i', [self::class, 'content_image'], $html);
+    }
+
+    /**
+     * Foto aus dem Text in voller Breite, als JPEG-Fassung aus der Mediathek. Fremde Adressen fallen weg.
+     *
+     * @param array<int, string> $match
+     */
+    private static function content_image(array $match): string
+    {
+        if (!preg_match('/class="[^"]*\bwp-image-(\d+)\b/', $match[0], $id) || !wp_attachment_is_image((int) $id[1])) {
+            return '';
+        }
+        $url = ImageProcessor::mail_url((int) $id[1], 'full');
+        preg_match('/alt="([^"]*)"/', $match[0], $alt);
+
+        return '<img src="' . esc_url($url) . '" alt="' . esc_attr(html_entity_decode($alt[1] ?? '', ENT_QUOTES, 'UTF-8')) . '" width="' . self::CONTENT_WIDTH . '"'
+            . ' style="display:block;width:100%;max-width:' . self::CONTENT_WIDTH . 'px;height:auto;border:0;margin:8px 0 16px;">';
     }
 
     /**
@@ -244,7 +263,7 @@ final class NewsletterMail
             return null;
         }
 
-        $image = $product->get_image_id() ? wp_get_attachment_image_url((int) $product->get_image_id(), self::IMAGE_SIZE) : false;
+        $image = $product->get_image_id() ? ImageProcessor::mail_url((int) $product->get_image_id(), self::IMAGE_SIZE) : '';
         [$price, $regular] = self::prices($product);
 
         return [

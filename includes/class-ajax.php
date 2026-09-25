@@ -336,8 +336,9 @@ final class Ajax
         }
 
         wp_send_json_success([
-            'id'  => $result,
-            'url' => wp_get_attachment_image_url($result, 'woocommerce_thumbnail'),
+            'id'   => $result,
+            'url'  => wp_get_attachment_image_url($result, 'woocommerce_thumbnail'),
+            'full' => wp_get_attachment_image_url($result, 'full'),
         ]);
     }
 

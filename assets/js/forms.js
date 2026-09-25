@@ -210,12 +210,19 @@
 			}
 			span.replaceWith(...inner);
 		});
+		const keep = { A: ['href'], IMG: ['src', 'alt', 'class'] };
 		copy.querySelectorAll('*').forEach((element) => {
 			[...element.attributes].forEach((attribute) => {
-				if (!(element.tagName === 'A' && attribute.name === 'href')) {
+				if (!keep[element.tagName]?.includes(attribute.name)) {
 					element.removeAttribute(attribute.name);
 				}
 			});
+		});
+		// Nur Fotos aus der Mediathek, an der Klasse wp-image-<ID> erkennt der Server die JPEG-Fassung für die Mail
+		copy.querySelectorAll('img').forEach((img) => {
+			if (!/^wp-image-\d+$/.test(img.className)) {
+				img.remove();
+			}
 		});
 		copy.querySelectorAll('strong, em, a').forEach((element) => {
 			if (!element.textContent.trim()) {
@@ -236,7 +243,7 @@
 			}
 		});
 		copy.querySelectorAll('p, h2').forEach((block) => {
-			if (!block.textContent.trim()) {
+			if (!block.textContent.trim() && !block.querySelector('img')) {
 				block.remove();
 			}
 		});
@@ -253,6 +260,8 @@
 			form.elements.content.value = cleanHTML();
 		}
 	}
+
+	let pendingUploads = 0;
 
 	// Ohne Absatz tippt der Browser die erste Zeile als losen Text
 	function ensureParagraph() {
@@ -289,14 +298,61 @@
 			}
 		};
 
+		// Foto an der Cursorposition: erst die Vorschau, nach dem Upload die Adresse aus der Mediathek
+		async function insertImage(file) {
+			const preview = URL.createObjectURL(file);
+			const img = document.createElement('img');
+			img.src = preview;
+			img.alt = '';
+			img.dataset.nkpUploading = '1';
+			restoreSelection();
+			const range = window.getSelection().rangeCount ? window.getSelection().getRangeAt(0) : null;
+			if (range && editor.contains(range.commonAncestorContainer)) {
+				range.deleteContents();
+				range.insertNode(img);
+				range.setStartAfter(img);
+				range.collapse(true);
+			} else {
+				const paragraph = document.createElement('p');
+				paragraph.append(img);
+				editor.append(paragraph);
+			}
+			editor.dispatchEvent(new Event('input', { bubbles: true }));
+			pendingUploads++;
+			try {
+				const { blob, name } = await window.novemberkindBilder.resize(file, { maxWidth: config.maxWidth, maxBytes: config.maxUploadBytes, unreadable: i18n.unreadable });
+				const body = new FormData();
+				body.append('file', blob, name);
+				const data = await post('novemberkind_produkte_upload', body);
+				img.src = data.full;
+				img.className = `wp-image-${data.id}`;
+				delete img.dataset.nkpUploading;
+				dirty = true;
+			} catch (error) {
+				img.remove();
+				showToast(error.message, 'error');
+			} finally {
+				URL.revokeObjectURL(preview);
+				pendingUploads--;
+			}
+		}
+
+		const imageInput = form.querySelector('[data-nkp-image-file]');
+		imageInput?.addEventListener('change', () => {
+			[...imageInput.files].filter(window.novemberkindBilder.isImage).forEach(insertImage);
+			imageInput.value = '';
+		});
+		// click statt mousedown, weil iOS die Fotoauswahl nur direkt nach einem Tipp öffnet
+		form.querySelector('[data-nkp-command="image"]')?.addEventListener('click', () => imageInput?.click());
+
 		form.querySelectorAll('[data-nkp-command]').forEach((button) => {
 			// mousedown statt click, damit der Fokus im Text bleibt
 			button.addEventListener('mousedown', (event) => {
 				event.preventDefault();
-				if (editor.isContentEditable === false) {
+				const command = button.dataset.nkpCommand;
+				if (editor.isContentEditable === false || command === 'image') {
 					return;
 				}
-				const command = button.dataset.nkpCommand;
 				if (command === 'link') {
 					const range = editorRange;
 					const current = range?.commonAncestorContainer.parentElement?.closest('a')?.getAttribute('href') ?? 'https://';
@@ -330,6 +386,10 @@
 	form.querySelector('[data-nkp-test]')?.addEventListener('click', async (event) => {
 		const button = event.currentTarget;
 		const label = button.textContent;
+		if (pendingUploads > 0) {
+			showToast(i18n.waitForUpload, 'info');
+			return;
+		}
 		clearFieldErrors();
 		syncEditor();
 		button.disabled = true;
@@ -355,6 +415,10 @@
 
 	async function save() {
 		if (saving || !submitButton) {
+			return;
+		}
+		if (pendingUploads > 0) {
+			showToast(i18n.waitForUpload, 'info');
 			return;
 		}
 		if (form.dataset.nkpConfirmNow && form.elements.send?.value === 'now' && !window.confirm(form.dataset.nkpConfirmNow)) {
