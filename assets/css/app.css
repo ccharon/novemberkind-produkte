@@ -1216,3 +1216,10 @@ body.nkp-page {
 .nkp-row--optional.is-off input {
 	cursor: not-allowed;
 }
+
+.nkp-header__actions {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px 20px;
+}

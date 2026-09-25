@@ -57,10 +57,16 @@ $choice = static function (string $name, string $value, string $label, string $c
             <?php echo $is_new ? esc_html__('Neues Produkt', 'novemberkind-produkte') : esc_html($product->get_name()); ?>
         </h1>
     </div>
-    <a class="nkp-link" data-nkp-view-link target="_blank" rel="noopener"
-       href="<?php echo esc_url($is_new ? '' : (string) get_permalink($product->get_id())); ?>" <?php echo $is_new ? 'hidden' : ''; ?>>
-        <?php esc_html_e('Im Shop ansehen ↗', 'novemberkind-produkte'); ?>
-    </a>
+    <div class="nkp-header__actions">
+        <a class="nkp-link" data-nkp-view-link target="_blank" rel="noopener"
+           href="<?php echo esc_url($is_new ? '' : (string) get_permalink($product->get_id())); ?>" <?php echo $is_new ? 'hidden' : ''; ?>>
+            <?php esc_html_e('Im Shop ansehen ↗', 'novemberkind-produkte'); ?>
+        </a>
+        <?php // Nach dem Speichern gleich das nächste Produkt derselben Art anlegen ?>
+        <a class="nkp-button nkp-button--secondary" data-nkp-another href="<?php echo esc_url(App::new_url($type->key())); ?>" <?php echo $is_new ? 'hidden' : ''; ?>>
+            + <?php echo esc_html((string) $type->config('new_label')); ?>
+        </a>
+    </div>
 </header>
 
 <form class="nkp-form" data-nkp-form novalidate>

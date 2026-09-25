@@ -12,6 +12,7 @@ defined('ABSPATH') || exit;
 return [
     'button' => [
         'label'             => 'Button',
+        'new_label'         => 'Neuer Button',
         'hint'              => 'Ansteck-Button mit 8 Rückseiten zur Auswahl',
         'product_type'      => 'variable',
         'category'          => ['Physische Produkte', 'Buttons'],
@@ -48,6 +49,7 @@ return [
 
     'card' => [
         'label'             => 'Karte',
+        'new_label'         => 'Neue Karte',
         'hint'              => 'Postkarte mit Umschlag, hoch oder quer',
         'product_type'      => 'simple',
         'category'          => ['Physische Produkte', 'Karten'],
@@ -67,6 +69,7 @@ return [
 
     'sticker' => [
         'label'             => 'Sticker',
+        'new_label'         => 'Neuer Sticker',
         'hint'              => 'Vinyl-Sticker, matt oder glänzend',
         'product_type'      => 'simple',
         'category'          => ['Physische Produkte', 'Sticker'],
@@ -85,6 +88,7 @@ return [
 
     'bookmark' => [
         'label'             => 'Lesezeichen',
+        'new_label'         => 'Neues Lesezeichen',
         'hint'              => 'Magnetisches Lesezeichen, 5 oder 7 cm breit',
         'product_type'      => 'simple',
         'category'          => ['Physische Produkte', 'magnetische Lesezeichen'],
@@ -103,6 +107,7 @@ return [
 
     'original' => [
         'label'             => 'Originalzeichnung',
+        'new_label'         => 'Neue Originalzeichnung',
         'hint'              => 'Unikat, das es genau einmal gibt',
         'product_type'      => 'simple',
         'category'          => ['Physische Produkte', 'Originalzeichnungen'],

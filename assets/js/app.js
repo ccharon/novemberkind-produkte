@@ -311,6 +311,7 @@
 			viewLink.href = data.viewUrl;
 			viewLink.hidden = false;
 		}
+		document.querySelector('[data-nkp-another]').hidden = false;
 
 		window.history.replaceState(null, '', `${config.appUrl}${data.id}/`);
 	}
