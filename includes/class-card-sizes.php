@@ -103,7 +103,7 @@ final class CardSizes
     /**
      * Legt Attribut und Varianten an oder aktualisiert sie. Das Produkt muss schon gespeichert sein.
      *
-     * @param array{price: string, stock: ?int, price_a4: ?string, stock_a4: ?int} $values
+     * @param array{price: string, stock: ?int, price_a4: ?string, stock_a4: ?int, sale: ?string, sale_a4: ?string} $values
      */
     public function apply(\WC_Product_Variable $product, string $format, bool $with_a4, array $values, bool $sku_changed): void
     {
@@ -146,8 +146,12 @@ final class CardSizes
             [$width, $height] = self::dimensions($size, $format);
             $price = $size === self::A6 ? $values['price'] : (string) $values['price_a4'];
             $stock = $size === self::A6 ? $values['stock'] : $values['stock_a4'];
+            $sale  = $size === self::A6 ? $values['sale'] : $values['sale_a4'];
             $variation->set_status('publish');
             $variation->set_regular_price($price);
+            if ($sale !== null) {
+                $variation->set_sale_price($sale);
+            }
             $variation->set_width(ProductType::to_shop_unit($width));
             $variation->set_height(ProductType::to_shop_unit($height));
             $variation->set_manage_stock($stock !== null);

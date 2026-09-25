@@ -13,6 +13,9 @@
  * @var string                   $stock
  * @var string                   $price_a4
  * @var string                   $stock_a4
+ * @var string                   $sale
+ * @var string                   $sale_a4
+ * @var bool                     $sale_locked
  * @var int[]                    $gallery_ids
  * @var int[]                    $back_images
  * @var array<int, array{date: string, view: string, download: string}> $backups
@@ -38,6 +41,26 @@ $size_label = static function (string $plain, string $a6) use ($type): void {
 
 $field_error = static function (string $field): void {
     printf('<span class="nkp-field__error" data-error-for="%s" hidden></span>', esc_attr($field));
+};
+$size_label_text = static fn(string $plain, string $a6): string => $type->has_field('a4') ? $a6 : $plain;
+// Gesperrt bei Angeboten mit Zeitraum oder je Variante verschiedenen Preisen aus der WooCommerce-Maske
+$sale_field = static function (string $name, string $label, string $value, bool $disabled) use ($field_error, $sale_locked): void {
+    ?>
+    <label class="nkp-field">
+        <span class="nkp-field__label"><?php echo esc_html($label); ?></span>
+        <span class="nkp-input-unit">
+            <input type="text" name="<?php echo esc_attr($name); ?>" inputmode="decimal" autocomplete="off" <?php disabled($disabled); ?> <?php echo $sale_locked ? 'data-nkp-locked' : ''; ?>
+                   value="<?php echo esc_attr($value === '' ? '' : wc_format_localized_price($value)); ?>" placeholder="<?php esc_attr_e('kein Angebot', 'novemberkind-produkte'); ?>">
+            <span aria-hidden="true">€</span>
+        </span>
+        <?php if ($sale_locked && $name === 'sale') : ?>
+            <span class="nkp-field__hint"><?php esc_html_e('Dieses Angebot hat einen Zeitraum oder unterschiedliche Preise je Variante. Ändern in WooCommerce.', 'novemberkind-produkte'); ?></span>
+        <?php elseif ($name === 'sale') : ?>
+            <span class="nkp-field__hint"><?php esc_html_e('Mit Angebotspreis gelten keine Aktionen und keine Prozent-Gutscheine.', 'novemberkind-produkte'); ?></span>
+        <?php endif; ?>
+        <?php $field_error($name); ?>
+    </label>
+    <?php
 };
 $choice = static function (string $name, string $value, string $label, string $current): void {
     printf(
@@ -212,6 +235,7 @@ $choice = static function (string $name, string $value, string $label, string $c
                     <?php endif; ?>
                     <?php $field_error('price'); ?>
                 </label>
+                <?php $sale_field('sale', $size_label_text(__('Angebotspreis', 'novemberkind-produkte'), __('Angebotspreis A6', 'novemberkind-produkte')), $sale, $sale_locked); ?>
                 <?php if (!$type->is_unique()) : ?>
                     <label class="nkp-field">
                         <span class="nkp-field__label"><?php $size_label(__('Lagerbestand', 'novemberkind-produkte'), __('Lagerbestand A6', 'novemberkind-produkte')); ?></span>
@@ -233,6 +257,7 @@ $choice = static function (string $name, string $value, string $label, string $c
                         </span>
                         <?php $field_error('price_a4'); ?>
                     </label>
+                    <?php $sale_field('sale_a4', __('Angebotspreis A4', 'novemberkind-produkte'), $sale_a4, $sale_locked || !$with_a4); ?>
                     <label class="nkp-field">
                         <span class="nkp-field__label"><?php esc_html_e('Lagerbestand A4', 'novemberkind-produkte'); ?></span>
                         <input type="number" name="stock_a4" min="0" step="1" inputmode="numeric" value="<?php echo esc_attr($stock_a4); ?>" <?php disabled(!$with_a4); ?>

@@ -97,6 +97,10 @@ final class ProductService
             $stock_a4 = $stock_a4_raw === '' ? null : (int) $stock_a4_raw;
         }
 
+        // null heißt: Feld nicht gesendet, der bisherige Angebotspreis bleibt (z. B. mit Zeitraum aus WooCommerce)
+        $sale    = self::parse_sale($data, 'sale', $price, $errors);
+        $sale_a4 = $with_a4 ? self::parse_sale($data, 'sale_a4', $price_a4, $errors) : null;
+
         if ($errors !== []) {
             return new \WP_Error('invalid', __('Bitte prüfe die markierten Felder.', 'novemberkind-produkte'), $errors);
         }
@@ -196,6 +200,9 @@ final class ProductService
 
         if (!$product instanceof \WC_Product_Variable) {
             $product->set_regular_price($price);
+            if ($sale !== null) {
+                $product->set_sale_price($sale);
+            }
         }
 
         $product->save();
@@ -203,7 +210,7 @@ final class ProductService
         $this->save_germanized($product, $type, $context['motif'], $is_new);
 
         if ($type->is_variable()) {
-            $is_new ? $this->create_variations($product, $type, $price) : $this->update_variations($product, $price, $sku_changed);
+            $is_new ? $this->create_variations($product, $type, $price, $sale) : $this->update_variations($product, $price, $sale, $sku_changed);
             \WC_Product_Variable::sync($product->get_id());
         }
         if ($sized && $product instanceof \WC_Product_Variable) {
@@ -212,6 +219,8 @@ final class ProductService
                 'stock'    => $stock,
                 'price_a4' => $price_a4,
                 'stock_a4' => $stock_a4,
+                'sale'     => $sale,
+                'sale_a4'  => $sale_a4,
             ], $sku_changed);
         }
 
@@ -228,6 +237,55 @@ final class ProductService
 
         // Der Vergleich verwirft Werte, die PHP stillschweigend umrechnet, z. B. den 31.02.
         return $parsed !== false && $parsed->format('Y-m-d\TH:i') === $value ? $parsed->getTimestamp() : null;
+    }
+
+    /**
+     * Angebotspreis aus dem Formular: '' für keinen, null wenn das Feld fehlt (gesperrt), sonst der Preis.
+     *
+     * @param array<string, mixed>  $data
+     * @param array<string, string> $errors
+     */
+    private static function parse_sale(array $data, string $field, ?string $regular, array &$errors): ?string
+    {
+        if (!array_key_exists($field, $data)) {
+            return null;
+        }
+        $raw = trim((string) $data[$field]);
+        if ($raw === '') {
+            return '';
+        }
+        $sale = self::parse_price($raw);
+        if ($sale === null || (float) $sale <= 0) {
+            $errors[$field] = __('Bitte gib den Angebotspreis wie einen Preis ein, z. B. 1,99, oder lass das Feld leer.', 'novemberkind-produkte');
+        } elseif ($regular !== null && (float) $sale >= (float) $regular) {
+            $errors[$field] = __('Der Angebotspreis muss niedriger sein als der normale Preis.', 'novemberkind-produkte');
+        }
+
+        return $sale;
+    }
+
+    /**
+     * Angebotspreise für das Formular. Gesperrt, wenn ein Angebot einen Zeitraum hat oder je Variante verschieden ist;
+     * das bleibt in der WooCommerce-Maske, damit das Formular nichts davon überschreibt.
+     *
+     * @return array{sale: string, sale_a4: string, sale_locked: bool}
+     */
+    public static function sale_state(\WC_Product $product): array
+    {
+        $items = $product instanceof \WC_Product_Variable
+            ? array_filter(array_map('wc_get_product', $product->get_children()))
+            : [$product];
+        $a4    = CardSizes::has_sizes($product) ? CardSizes::variation($product, CardSizes::A4) : null;
+        $main  = array_filter($items, static fn(\WC_Product $item): bool => $a4 === null || $item->get_id() !== $a4->get_id());
+
+        $dated  = array_filter($items, static fn(\WC_Product $item): bool => $item->get_date_on_sale_from('edit') !== null || $item->get_date_on_sale_to('edit') !== null);
+        $prices = array_unique(array_map(static fn(\WC_Product $item): string => (string) $item->get_sale_price('edit'), $main));
+
+        return [
+            'sale'        => count($prices) === 1 ? (string) reset($prices) : '',
+            'sale_a4'     => $a4 ? (string) $a4->get_sale_price('edit') : '',
+            'sale_locked' => $dated !== [] || count($prices) > 1,
+        ];
     }
 
     /**
@@ -361,7 +419,7 @@ final class ProductService
         $product->save();
     }
 
-    private function create_variations(\WC_Product $product, ProductType $type, string $price): void
+    private function create_variations(\WC_Product $product, ProductType $type, string $price, ?string $sale): void
     {
         $config    = $type->config('variations');
         $attribute = new \WC_Product_Attribute();
@@ -380,6 +438,7 @@ final class ProductService
             $variation->set_parent_id($product->get_id());
             $variation->set_attributes([$key => $option['name']]);
             $variation->set_regular_price($price);
+            $variation->set_sale_price((string) $sale);
             $variation->set_sku($product->get_sku() . '-' . ($position + 1));
             $variation->set_menu_order($position + 1);
             $variation->set_tax_class('parent');
@@ -393,9 +452,9 @@ final class ProductService
     }
 
     /**
-     * Preis für alle Varianten; bei neuer Artikelnummer auch deren Nummern (A000123-1, -2, …).
+     * Preis und Angebotspreis für alle Varianten; bei neuer Artikelnummer auch deren Nummern (A000123-1, -2, …).
      */
-    private function update_variations(\WC_Product $product, string $price, bool $sku_changed): void
+    private function update_variations(\WC_Product $product, string $price, ?string $sale, bool $sku_changed): void
     {
         foreach ($product->get_children() as $position => $child_id) {
             $variation = wc_get_product($child_id);
@@ -403,6 +462,9 @@ final class ProductService
                 continue;
             }
             $variation->set_regular_price($price);
+            if ($sale !== null) {
+                $variation->set_sale_price($sale);
+            }
             if ($sku_changed) {
                 $variation->set_sku($product->get_sku() . '-' . ($position + 1));
             }

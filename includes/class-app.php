@@ -381,6 +381,7 @@ final class App
         if ($product && $type->has_field('a4')) {
             $data = array_merge($data, CardSizes::values($product, (string) $type->config('price_a4')));
         }
+        $data += $product ? ProductService::sale_state($product) : ['sale' => '', 'sale_a4' => '', 'sale_locked' => false];
 
         return $data;
     }

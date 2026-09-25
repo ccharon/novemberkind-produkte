@@ -486,6 +486,37 @@ foreach ($backups->for_product($backup_button->get_id()) as $leftover) {
     wp_delete_post($leftover->ID, true);
 }
 
+section('Angebotspreis im Formular');
+$offer = $service->save(ProductType::get('sticker'), ['sku' => ShopData::next_sku(), 'motif' => 'Angebotstest', 'price' => '2,5', 'sale' => '1,99', 'width' => '5', 'height' => '5', 'finish' => 'matt']);
+$cleanup['products'][] = $offer->get_id();
+check('Sticker mit Angebotspreis', $offer->get_sale_price() === '1.99' && $offer->get_price() === '1.99' && $offer->is_on_sale());
+$offer_data = ['sku' => $offer->get_sku(), 'motif' => 'Angebotstest', 'price' => '2,5', 'width' => '5', 'height' => '5', 'finish' => 'matt'];
+$too_high = $service->save(ProductType::get('sticker'), ['sale' => '2,50'] + $offer_data, $offer->get_id());
+check('Angebotspreis muss unter dem Preis liegen', is_wp_error($too_high) && isset($too_high->get_error_data()['sale']));
+check('ohne Feld bleibt der Angebotspreis', $service->save(ProductType::get('sticker'), $offer_data, $offer->get_id())->get_sale_price() === '1.99');
+$cleared = $service->save(ProductType::get('sticker'), ['sale' => ''] + $offer_data, $offer->get_id());
+check('leeres Feld entfernt das Angebot', $cleared->get_sale_price() === '' && $cleared->get_price() === '2.50');
+
+$offer_button = $service->save(ProductType::get('button'), ['sku' => ShopData::next_sku(), 'motif' => 'Angebotstest', 'price' => '4,5', 'sale' => '3,90']);
+$cleanup['products'][] = $offer_button->get_id();
+$button_sales = array_unique(array_map(static fn(int $id): string => wc_get_product($id)->get_sale_price(), $offer_button->get_children()));
+check('Button: Angebotspreis für alle Rückseiten', $button_sales === ['3.90'] && ProductService::sale_state($offer_button)['sale'] === '3.90');
+
+$offer_card = $service->save(ProductType::get('card'), ['sku' => ShopData::next_sku(), 'motif' => 'Angebotstest', 'price' => '2,5', 'sale' => '2', 'format' => 'quer', 'a4' => '1', 'price_a4' => '5', 'sale_a4' => '4']);
+$cleanup['products'][] = $offer_card->get_id();
+$offer_state = ProductService::sale_state($offer_card);
+check('Karte: Angebotspreise für A6 und A4 getrennt', $offer_state['sale'] === '2.00' && $offer_state['sale_a4'] === '4.00' && !$offer_state['sale_locked']);
+
+$dated = wc_get_product($offer->get_id());
+$dated->set_sale_price('1.50');
+$dated->set_date_on_sale_to(time() + WEEK_IN_SECONDS);
+$dated->save();
+check('Angebot mit Zeitraum aus WooCommerce ist im Formular gesperrt', ProductService::sale_state($dated)['sale_locked']);
+$first_child = wc_get_product($offer_button->get_children()[0]);
+$first_child->set_sale_price('2.99');
+$first_child->save();
+check('unterschiedliche Angebote je Variante sind gesperrt', ProductService::sale_state(wc_get_product($offer_button->get_id()))['sale_locked']);
+
 section('Geplant online stellen');
 $old_timezone = get_option('timezone_string');
 update_option('timezone_string', 'Europe/Berlin');

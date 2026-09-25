@@ -573,7 +573,8 @@
 	a4Toggle?.addEventListener('change', () => {
 		const fields = form.querySelector('[data-nkp-a4-fields]');
 		fields.classList.toggle('is-off', !a4Toggle.checked);
-		fields.querySelectorAll('input').forEach((input) => { input.disabled = !a4Toggle.checked; });
+		// Gesperrte Angebotspreise aus der WooCommerce-Maske bleiben gesperrt
+		fields.querySelectorAll('input:not([data-nkp-locked])').forEach((input) => { input.disabled = !a4Toggle.checked; });
 	});
 
 	// ---------------------------------------------------------------- Vorschlag von Claude
