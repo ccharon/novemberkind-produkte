@@ -40,7 +40,7 @@ final class Ajax
 
         wp_send_json_success([
             'id'      => $result['id'],
-            'url'     => App::coupons_url($result['id']),
+            'url'     => App::coupons_url(),
             'message' => $result['active']
                 /* translators: %s: Gutscheincode */
                 ? sprintf(__('Gespeichert. Der Code %s ist im Shop einlösbar.', 'novemberkind-produkte'), $result['code'])
@@ -62,7 +62,7 @@ final class Ajax
 
         wp_send_json_success([
             'id'      => $result['id'],
-            'url'     => App::coupons_url($result['id']),
+            'url'     => App::coupons_url(),
             'message' => $active
                 ? __('Der Gutschein ist wieder einlösbar.', 'novemberkind-produkte')
                 : __('Der Gutschein ist deaktiviert und im Shop nicht mehr einlösbar.', 'novemberkind-produkte'),
@@ -84,7 +84,7 @@ final class Ajax
 
         wp_send_json_success([
             'id'      => $result['id'],
-            'url'     => App::campaigns_url($result['id']),
+            'url'     => App::campaigns_url(),
             'message' => match (Campaigns::status($result)) {
                 'running' => __('Gespeichert. Die Aktion läuft, die Preise im Shop sind gesenkt.', 'novemberkind-produkte'),
                 default   => sprintf(
@@ -109,7 +109,7 @@ final class Ajax
 
         wp_send_json_success([
             'id'      => $result['id'],
-            'url'     => App::campaigns_url($result['id']),
+            'url'     => App::campaigns_url(),
             'message' => __('Die Aktion ist beendet. Im Shop gelten wieder die normalen Preise.', 'novemberkind-produkte'),
         ]);
     }

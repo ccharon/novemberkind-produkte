@@ -81,3 +81,5 @@ $describe = static function (array $coupon): string {
         <?php endforeach; ?>
     </ul>
 <?php endif; ?>
+
+<div class="nkp-toast" data-nkp-toast role="status" aria-live="polite" hidden></div>

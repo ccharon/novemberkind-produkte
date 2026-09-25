@@ -89,3 +89,5 @@ $by_status['planned'] = array_reverse($by_status['planned']);
         </ul>
     </section>
 <?php endforeach; ?>
+
+<div class="nkp-toast" data-nkp-toast role="status" aria-live="polite" hidden></div>

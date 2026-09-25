@@ -18,7 +18,7 @@
 		toastTimer = setTimeout(() => { toast.hidden = true; }, type === 'error' ? 8000 : 4000);
 	}
 
-	// Meldung über ein Neuladen hinweg, weil die Seite nach dem Speichern den neuen Stand vom Server zeigt
+	// Meldung über den Seitenwechsel hinweg, weil nach dem Speichern die Liste erscheint
 	try {
 		const flash = window.sessionStorage.getItem(FLASH);
 		if (flash) {
