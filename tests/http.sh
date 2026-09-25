@@ -111,6 +111,9 @@ check 'Sicherung ohne Anmeldung nicht erreichbar' "$(curl -s -o /dev/null -w '%{
 bin/wp post list --post_type=novemberkind_backup --post_status=private --post_parent="$product_id" --format=ids | xargs -r bin/wp post delete --force >/dev/null
 for id in $product_id $image_id; do bin/wp post delete "$id" --force >/dev/null; done
 
+shop_url=$(bin/wp eval 'echo wc_get_page_permalink("shop");')
+check 'Link „Zum Shop“ zeigt auf die Shopseite von WooCommerce' "$(curl -s -b "$JAR" "$APP/" | grep -F -c "href=\"$shop_url\" target=\"_blank\"")" 1
+
 # Rabattaktionen
 check 'Aktionen: Liste lädt' "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$APP/aktionen/")" 200
 check 'Aktionen: Formular lädt mit Nonce' "$(curl -s -b "$JAR" "$APP/aktionen/neu/" | grep -c 'var novemberkindFormulare = .*"nonce":"[a-f0-9]')" 1
