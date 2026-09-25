@@ -13,6 +13,14 @@ final class ProductService
 {
     private const STATUSES = ['draft', 'publish'];
 
+    // Seitenlayout des Themes Divi wie bei allen bestehenden Produkten: ohne Seitenleiste
+    private const DIVI_LAYOUT = '_et_pb_page_layout';
+    private const DIVI_DEFAULTS = [
+        '_et_pb_page_layout'  => 'et_no_sidebar',
+        '_et_pb_side_nav'     => 'off',
+        '_et_pb_post_hide_nav' => 'default',
+    ];
+
     /**
      * @param array<string, mixed> $data Rohdaten aus dem Formular
      * @return \WC_Product|\WP_Error Produkt oder Fehler mit Meldungen je Feld in `get_error_data()`
@@ -137,6 +145,12 @@ final class ProductService
         $product->set_image_id($image_id ?: '');
         $product->set_gallery_image_ids($gallery_ids);
         $product->set_status($status);
+        foreach (self::DIVI_DEFAULTS as $key => $value) {
+            // Das Layout immer setzen, die übrigen Felder nur ergänzen
+            if ($key === self::DIVI_LAYOUT || $product->get_meta($key) === '') {
+                $product->update_meta_data($key, $value);
+            }
+        }
         $product->update_meta_data(ProductType::META_TYPE, $type->key());
         $product->update_meta_data(ProductType::META_CONTEXT, $context);
 

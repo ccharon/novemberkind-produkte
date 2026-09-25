@@ -246,6 +246,20 @@ foreach ([$card_a4->get_id(), $simple_card->get_id()] as $backup_parent) {
     }
 }
 
+section('Seitenlayout im Theme Divi');
+$layout_card = $service->save(ProductType::get('card'), ['sku' => ShopData::next_sku(), 'motif' => 'Layouttest', 'format' => 'quer', 'price' => '2']);
+$cleanup['products'][] = $layout_card->get_id();
+check('neues Produkt ohne Seitenleiste', $layout_card->get_meta('_et_pb_page_layout') === 'et_no_sidebar' && $layout_card->get_meta('_et_pb_side_nav') === 'off' && $layout_card->get_meta('_et_pb_post_hide_nav') === 'default');
+$layout_card->update_meta_data('_et_pb_page_layout', 'et_right_sidebar');
+$layout_card->update_meta_data('_et_pb_side_nav', 'on');
+$layout_card->save();
+$layout_card = $service->save(ProductType::get('card'), ['sku' => $layout_card->get_sku(), 'motif' => 'Layouttest', 'format' => 'quer', 'price' => '2'], $layout_card->get_id());
+check('geändertes Produkt wieder ohne Seitenleiste', $layout_card->get_meta('_et_pb_page_layout') === 'et_no_sidebar');
+check('übrige Divi-Einstellungen bleiben', $layout_card->get_meta('_et_pb_side_nav') === 'on');
+foreach ((new NovemberkindProdukte\Backups())->for_product($layout_card->get_id()) as $leftover) {
+    wp_delete_post($leftover->ID, true);
+}
+
 section('Karte, Sticker, Lesezeichen');
 $next_sku = ShopData::next_sku();
 $card = $service->save(ProductType::get('card'), ['sku' => $next_sku, 'motif' => 'Testkarte', 'format' => 'hoch', 'price' => '2,5', 'stock' => '']);
