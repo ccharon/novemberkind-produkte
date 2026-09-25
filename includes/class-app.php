@@ -38,6 +38,11 @@ final class App
         return self::url() . 'aktionen/' . ($campaign !== '' ? $campaign . '/' : '');
     }
 
+    public static function coupons_url(int|string $coupon = ''): string
+    {
+        return self::url() . 'gutscheine/' . ($coupon !== '' ? $coupon . '/' : '');
+    }
+
     public function register(): void
     {
         add_action('init', [$this, 'add_rewrite_rules']);
@@ -60,9 +65,11 @@ final class App
         add_rewrite_rule("^{$path}/manifest\\.webmanifest$", 'index.php?' . self::QUERY_VAR . '=manifest', 'top');
         add_rewrite_rule("^{$path}/aktionen/?$", 'index.php?' . self::QUERY_VAR . '=aktionen', 'top');
         add_rewrite_rule("^{$path}/aktionen/(neu|\\d+)/?$", 'index.php?' . self::QUERY_VAR . '=aktion-$matches[1]', 'top');
+        add_rewrite_rule("^{$path}/gutscheine/?$", 'index.php?' . self::QUERY_VAR . '=gutscheine', 'top');
+        add_rewrite_rule("^{$path}/gutscheine/(neu|\\d+)/?$", 'index.php?' . self::QUERY_VAR . '=gutschein-$matches[1]', 'top');
 
         // Regeln neu schreiben, sobald sich Pfad oder Regeln ändern
-        $signature = 'v4|' . self::path();
+        $signature = 'v5|' . self::path();
         if (get_option('novemberkind_produkte_rewrite') !== $signature) {
             flush_rewrite_rules(false);
             update_option('novemberkind_produkte_rewrite', $signature);
@@ -173,6 +180,9 @@ final class App
             $route === 'aktionen'           => self::campaigns_url(),
             $route === 'aktion-neu'         => self::campaigns_url('neu'),
             str_starts_with($route, 'aktion-') => self::campaigns_url((int) substr($route, 7)),
+            $route === 'gutscheine'         => self::coupons_url(),
+            $route === 'gutschein-neu'      => self::coupons_url('neu'),
+            str_starts_with($route, 'gutschein-') => self::coupons_url((int) substr($route, 10)),
             $route === 'neu'                => self::new_url(),
             str_starts_with($route, 'neu-') => self::new_url(substr($route, 4)),
             default                         => self::edit_url((int) $route),
@@ -185,7 +195,7 @@ final class App
         wp_register_style('novemberkind-produkte-app', $base . 'assets/css/app.css', [], self::asset_version('assets/css/app.css'));
         wp_register_script('novemberkind-produkte-app', $base . 'assets/js/app.js', [], self::asset_version('assets/js/app.js'), true);
         wp_register_script('novemberkind-produkte-vine', $base . 'assets/js/vine.js', [], self::asset_version('assets/js/vine.js'), true);
-        wp_register_script('novemberkind-produkte-campaigns', $base . 'assets/js/campaigns.js', [], self::asset_version('assets/js/campaigns.js'), true);
+        wp_register_script('novemberkind-produkte-forms', $base . 'assets/js/forms.js', [], self::asset_version('assets/js/forms.js'), true);
         wp_localize_script('novemberkind-produkte-app', 'novemberkindProdukte', [
             'ajaxUrl'        => admin_url('admin-ajax.php'),
             'nonce'          => wp_create_nonce(Ajax::NONCE),
@@ -211,7 +221,7 @@ final class App
             ],
         ]);
 
-        wp_localize_script('novemberkind-produkte-campaigns', 'novemberkindAktionen', [
+        wp_localize_script('novemberkind-produkte-forms', 'novemberkindFormulare', [
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'nonce'   => wp_create_nonce(Ajax::NONCE),
             'i18n'    => [
@@ -220,7 +230,6 @@ final class App
                 'networkError' => __('Keine Verbindung zum Shop. Bitte prüfe die Internetverbindung und versuche es noch einmal.', 'novemberkind-produkte'),
                 'loggedOut'    => __('Du bist inzwischen abgemeldet. Bitte lade die Seite neu und melde dich wieder an.', 'novemberkind-produkte'),
                 'unsaved'      => __('Es gibt ungespeicherte Änderungen.', 'novemberkind-produkte'),
-                'confirmEnd'   => __('Die Aktion endet sofort, die Preise im Shop sind dann wieder normal. Beenden?', 'novemberkind-produkte'),
             ],
         ]);
 
@@ -235,6 +244,20 @@ final class App
             $campaign = $route === 'aktion-neu' ? null : Campaigns::get((int) substr($route, 7));
             $data     = $route === 'aktion-neu' || $campaign ? $this->campaign_form_data($campaign) : null;
             $title    = $campaign ? $campaign['name'] : __('Neue Aktion', 'novemberkind-produkte');
+        } elseif ($route === 'gutscheine') {
+            $view  = 'coupons';
+            $title = __('Gutscheine', 'novemberkind-produkte');
+            $data  = ['coupons' => Coupons::all()];
+        } elseif (str_starts_with($route, 'gutschein-')) {
+            $view   = 'coupon-form';
+            $coupon = $route === 'gutschein-neu' ? null : Coupons::get((int) substr($route, 10));
+            if ($coupon && !$coupon['own']) {
+                // Gutscheine aus WooCommerce mit anderen Einstellungen bleiben in der WooCommerce-Maske
+                wp_safe_redirect($coupon['edit_url']);
+                exit;
+            }
+            $data  = $route === 'gutschein-neu' || $coupon ? ['coupon' => $coupon] : null;
+            $title = $coupon ? $coupon['code'] : __('Neuer Gutschein', 'novemberkind-produkte');
         } elseif ($route === 'overview') {
             $view = 'overview';
             $data = $this->overview_data();
@@ -261,7 +284,11 @@ final class App
 
         if ($data === null) {
             status_header(404);
-            $data = ['missing' => $view === 'campaign-form' ? __('Diese Aktion gibt es nicht mehr.', 'novemberkind-produkte') : __('Dieses Produkt gibt es nicht mehr.', 'novemberkind-produkte')];
+            $data = ['missing' => match ($view) {
+                'campaign-form' => __('Diese Aktion gibt es nicht mehr.', 'novemberkind-produkte'),
+                'coupon-form'   => __('Diesen Gutschein gibt es nicht mehr.', 'novemberkind-produkte'),
+                default         => __('Dieses Produkt gibt es nicht mehr.', 'novemberkind-produkte'),
+            }];
             $view = 'not-found';
         }
 

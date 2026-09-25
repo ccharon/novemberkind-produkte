@@ -42,8 +42,8 @@ $status_labels = [
     <?php endif; ?>
 </header>
 
-<form class="nkp-campaign-form" data-nkp-campaign-form novalidate>
-    <input type="hidden" name="campaign_id" value="<?php echo esc_attr((string) ($campaign['id'] ?? 0)); ?>">
+<form class="nkp-campaign-form" data-nkp-simple-form data-nkp-save="novemberkind_produkte_save_campaign" novalidate>
+    <input type="hidden" name="id" value="<?php echo esc_attr((string) ($campaign['id'] ?? 0)); ?>">
 
     <?php if ($is_ended) : ?>
         <p class="nkp-note"><?php esc_html_e('Diese Aktion ist beendet und bleibt zur Ansicht erhalten. Sie zeigt, welche Preise wann reduziert waren.', 'novemberkind-produkte'); ?></p>
@@ -116,7 +116,7 @@ $status_labels = [
                 </label>
             </div>
 
-            <div class="nkp-picker" data-nkp-scope-part="categories" <?php echo $scope === 'categories' ? '' : 'hidden'; ?>>
+            <div class="nkp-picker" data-nkp-show-for="scope:categories" <?php echo $scope === 'categories' ? '' : 'hidden'; ?>>
                 <?php foreach ($categories as $category) : ?>
                     <label class="nkp-check" style="--depth: <?php echo esc_attr((string) $category['depth']); ?>">
                         <input type="checkbox" name="categories[]" value="<?php echo esc_attr((string) $category['id']); ?>"
@@ -128,7 +128,7 @@ $status_labels = [
                 <?php $field_error('categories'); ?>
             </div>
 
-            <div class="nkp-picker" data-nkp-scope-part="products" <?php echo $scope === 'products' ? '' : 'hidden'; ?>>
+            <div class="nkp-picker" data-nkp-show-for="scope:products" <?php echo $scope === 'products' ? '' : 'hidden'; ?>>
                 <input type="search" class="nkp-picker__filter" data-nkp-product-filter autocomplete="off"
                        placeholder="<?php esc_attr_e('Name oder Artikelnummer suchen', 'novemberkind-produkte'); ?>"
                        aria-label="<?php esc_attr_e('Produkte filtern', 'novemberkind-produkte'); ?>">
@@ -153,7 +153,8 @@ $status_labels = [
     <?php if (!$is_ended) : ?>
         <div class="nkp-campaign-form__actions">
             <?php if (!$is_new) : ?>
-                <button type="button" class="nkp-button nkp-button--secondary" data-nkp-campaign-end>
+                <button type="button" class="nkp-button nkp-button--secondary" data-nkp-action="novemberkind_produkte_end_campaign"
+                        data-nkp-confirm="<?php esc_attr_e('Die Aktion endet sofort, die Preise im Shop sind dann wieder normal. Beenden?', 'novemberkind-produkte'); ?>">
                     <?php echo $status === 'planned' ? esc_html__('Nicht starten', 'novemberkind-produkte') : esc_html__('Jetzt beenden', 'novemberkind-produkte'); ?>
                 </button>
             <?php endif; ?>

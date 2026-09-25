@@ -52,6 +52,22 @@ for name in "1-3 Werktage" "3-5 Werktage"; do
   wp term list product_delivery_time --name="$name" --format=count | grep -qx 0 && wp term create product_delivery_time "$name" >/dev/null
 done
 
+# Versand nur nach Deutschland, Kosten je Versandklasse wie im Shop (Beträge sind Platzhalter)
+wp eval '
+if (WC_Shipping_Zones::get_zones() === []) {
+    $zone = new WC_Shipping_Zone();
+    $zone->set_zone_name("Deutschland");
+    $zone->add_location("DE", "country");
+    $zone->save();
+    $flat = $zone->add_shipping_method("flat_rate");
+    $settings = ["title" => "Versand", "tax_status" => "taxable", "cost" => "", "no_class_cost" => "1.60", "type" => "class"];
+    foreach (["Brief" => "1.60", "Päckchen" => "4.50"] as $name => $cost) {
+        $term = get_term_by("name", $name, "product_shipping_class");
+        $term && $settings["class_cost_" . $term->term_id] = $cost;
+    }
+    update_option("woocommerce_flat_rate_{$flat}_settings", $settings);
+}'
+
 wp eval-file wp-content/plugins/novemberkind-produkte/bin/seed.php
 
 echo

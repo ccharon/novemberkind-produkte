@@ -21,6 +21,52 @@ final class Ajax
         add_action('wp_ajax_novemberkind_produkte_suggest', [$this, 'suggest']);
         add_action('wp_ajax_novemberkind_produkte_save_campaign', [$this, 'save_campaign']);
         add_action('wp_ajax_novemberkind_produkte_end_campaign', [$this, 'end_campaign']);
+        add_action('wp_ajax_novemberkind_produkte_save_coupon', [$this, 'save_coupon']);
+        add_action('wp_ajax_novemberkind_produkte_toggle_coupon', [$this, 'toggle_coupon']);
+    }
+
+    public function save_coupon(): void
+    {
+        $this->authorize('edit_shop_coupons');
+
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
+        $result = (new Coupons())->save($_POST, absint($_POST['id'] ?? 0));
+        if (is_wp_error($result)) {
+            wp_send_json_error([
+                'message' => $result->get_error_message(),
+                'fields'  => $result->get_error_data() ?: new \stdClass(),
+            ], 422);
+        }
+
+        wp_send_json_success([
+            'id'      => $result['id'],
+            'url'     => App::coupons_url($result['id']),
+            'message' => $result['active']
+                /* translators: %s: Gutscheincode */
+                ? sprintf(__('Gespeichert. Der Code %s ist im Shop einlösbar.', 'novemberkind-produkte'), $result['code'])
+                : __('Gespeichert. Der Gutschein bleibt deaktiviert.', 'novemberkind-produkte'),
+        ]);
+    }
+
+    public function toggle_coupon(): void
+    {
+        $this->authorize('edit_shop_coupons');
+
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
+        $active = sanitize_key(wp_unslash($_POST['value'] ?? '')) === 'on';
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
+        $result = (new Coupons())->set_active(absint($_POST['id'] ?? 0), $active);
+        if (is_wp_error($result)) {
+            wp_send_json_error(['message' => $result->get_error_message()], 422);
+        }
+
+        wp_send_json_success([
+            'id'      => $result['id'],
+            'url'     => App::coupons_url($result['id']),
+            'message' => $active
+                ? __('Der Gutschein ist wieder einlösbar.', 'novemberkind-produkte')
+                : __('Der Gutschein ist deaktiviert und im Shop nicht mehr einlösbar.', 'novemberkind-produkte'),
+        ]);
     }
 
     public function save_campaign(): void
@@ -28,7 +74,7 @@ final class Ajax
         $this->authorize();
 
         // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
-        $result = (new Campaigns())->save($_POST, absint($_POST['campaign_id'] ?? 0));
+        $result = (new Campaigns())->save($_POST, absint($_POST['id'] ?? 0));
         if (is_wp_error($result)) {
             wp_send_json_error([
                 'message' => $result->get_error_message(),
@@ -56,7 +102,7 @@ final class Ajax
         $this->authorize();
 
         // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
-        $result = (new Campaigns())->end(absint($_POST['campaign_id'] ?? 0));
+        $result = (new Campaigns())->end(absint($_POST['id'] ?? 0));
         if (is_wp_error($result)) {
             wp_send_json_error(['message' => $result->get_error_message()], 422);
         }

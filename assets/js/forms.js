@@ -1,8 +1,8 @@
-/* Novemberkind Produkte, Rabattaktionen: Formular speichern und Aktionen beenden. */
+/* Novemberkind Produkte, einfache Formulare für Aktionen und Gutscheine: speichern, beenden, ein- und ausschalten. */
 (() => {
 	'use strict';
 
-	const config = window.novemberkindAktionen;
+	const config = window.novemberkindFormulare;
 	const toast = document.querySelector('[data-nkp-toast]');
 	const FLASH = 'nkpFlash';
 
@@ -29,7 +29,7 @@
 		// Speicher gesperrt, die Meldung entfällt
 	}
 
-	const form = document.querySelector('[data-nkp-campaign-form]');
+	const form = document.querySelector('[data-nkp-simple-form]');
 	if (!config || !form) {
 		return;
 	}
@@ -101,12 +101,27 @@
 		}
 	}
 
-	// Kategorien- oder Produktauswahl nur beim passenden Umfang zeigen
-	form.querySelectorAll('input[name="scope"]').forEach((radio) => radio.addEventListener('change', () => {
-		form.querySelectorAll('[data-nkp-scope-part]').forEach((part) => {
-			part.hidden = part.dataset.nkpScopePart !== form.elements.scope.value;
+	// Teile, die nur bei einer bestimmten Auswahl gelten, z. B. data-nkp-show-for="scope:categories"
+	const parts = form.querySelectorAll('[data-nkp-show-for]');
+	function updateParts() {
+		parts.forEach((part) => {
+			const [name, value] = part.dataset.nkpShowFor.split(':');
+			part.hidden = form.elements[name]?.value !== value;
 		});
-	}));
+	}
+	form.addEventListener('change', (event) => {
+		if (event.target.type === 'radio') {
+			updateParts();
+		}
+	});
+
+	// Zufälliger Code ohne leicht verwechselbare Zeichen wie 0 und O; ob er frei ist, prüft der Server beim Speichern
+	form.querySelector('[data-nkp-generate-code]')?.addEventListener('click', () => {
+		const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+		const bytes = crypto.getRandomValues(new Uint8Array(8));
+		form.elements.code.value = [...bytes].map((byte) => alphabet[byte % alphabet.length]).join('');
+		dirty = true;
+	});
 
 	const filter = form.querySelector('[data-nkp-product-filter]');
 	filter?.addEventListener('input', () => {
@@ -138,7 +153,7 @@
 		submitButton.disabled = true;
 		submitButton.textContent = i18n.saving;
 		try {
-			reloadWith(await post('novemberkind_produkte_save_campaign', new FormData(form)));
+			reloadWith(await post(form.dataset.nkpSave, new FormData(form)));
 		} catch (error) {
 			showToast(error.message, 'error');
 			if (error.fields) {
@@ -155,18 +170,20 @@
 		save();
 	});
 
-	form.querySelector('[data-nkp-campaign-end]')?.addEventListener('click', async () => {
-		if (!window.confirm(i18n.confirmEnd)) {
+	// Knöpfe wie „Jetzt beenden“ oder „Deaktivieren“ mit eigener Aktion auf dem Server
+	form.querySelectorAll('[data-nkp-action]').forEach((button) => button.addEventListener('click', async () => {
+		if (button.dataset.nkpConfirm && !window.confirm(button.dataset.nkpConfirm)) {
 			return;
 		}
 		const body = new FormData();
-		body.append('campaign_id', form.elements.campaign_id.value);
+		body.append('id', form.elements.id.value);
+		body.append('value', button.dataset.nkpValue ?? '');
 		try {
-			reloadWith(await post('novemberkind_produkte_end_campaign', body));
+			reloadWith(await post(button.dataset.nkpAction, body));
 		} catch (error) {
 			showToast(error.message, 'error');
 		}
-	});
+	}));
 
 	document.addEventListener('keydown', (event) => {
 		if ((event.metaKey || event.ctrlKey) && event.key === 's') {

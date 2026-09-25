@@ -6,6 +6,7 @@
  */
 
 use NovemberkindProdukte\Campaigns;
+use NovemberkindProdukte\Coupons;
 use NovemberkindProdukte\ImageProcessor;
 use NovemberkindProdukte\Originals;
 use NovemberkindProdukte\ProductService;
@@ -562,6 +563,63 @@ foreach ($campaign_ids as $campaign_id) {
 }
 Campaigns::flush();
 check('ohne Aktionen wieder Normalpreis', $fresh($sticker_a)->get_price() === '2.50' && !$fresh($sticker_a)->is_on_sale());
+
+section('Gutscheine');
+$coupons = new Coupons();
+$coupon_errors = $coupons->save(['code' => 'ÄÖ', 'kind' => 'percent', 'percent' => '0', 'expires' => '2020-01-01']);
+check('Gutschein: Code, Rabatt und Datum werden geprüft', is_wp_error($coupon_errors) && array_keys($coupon_errors->get_error_data()) === ['code', 'percent', 'expires']);
+$percent_coupon = $coupons->save(['code' => 'test-zehn', 'kind' => 'percent', 'percent' => '10', 'expires' => wp_date('Y-m-d', time() + 7 * DAY_IN_SECONDS)]);
+$shipping_coupon = $coupons->save(['code' => 'TEST-VERSAND', 'kind' => 'shipping', 'once' => '1']);
+$coupon_ids = [$percent_coupon['id'], $shipping_coupon['id']];
+check('Code wird groß angezeigt und doppelte Codes abgelehnt', $percent_coupon['code'] === 'TEST-ZEHN' && is_wp_error($coupons->save(['code' => 'Test-Zehn', 'kind' => 'percent', 'percent' => '5'])));
+$wc_percent = new WC_Coupon($percent_coupon['id']);
+check('Prozent-Gutschein gilt nicht für reduzierte Produkte', $wc_percent->get_discount_type() === 'percent' && (int) $wc_percent->get_amount() === 10 && $wc_percent->get_exclude_sale_items());
+check('gültig bis einschließlich: Ende um 0 Uhr am Folgetag', $wc_percent->get_date_expires()->getTimestamp() === (new DateTimeImmutable($percent_coupon['expires'] . ' +1 day', wp_timezone()))->getTimestamp());
+check('Versand-Gutschein einmal pro Kunde', $shipping_coupon['kind'] === 'shipping' && $shipping_coupon['once'] && (new WC_Coupon($shipping_coupon['id']))->get_usage_limit_per_user() === 1);
+
+wp_set_current_user(get_user_by('login', 'shop')->ID);
+WC()->frontend_includes();
+WC()->session = new WC_Session_Handler();
+WC()->session->init();
+WC()->customer = new WC_Customer(get_current_user_id(), true);
+WC()->customer->set_shipping_country('DE');
+WC()->cart = new WC_Cart();
+$coupon_sticker = $service->save(ProductType::get('sticker'), ['sku' => ShopData::next_sku(), 'motif' => 'Gutscheintest', 'price' => '2,5', 'width' => '5', 'height' => '5', 'finish' => 'matt', 'status' => 'publish']);
+$coupon_card = $service->save(ProductType::get('card'), ['sku' => ShopData::next_sku(), 'motif' => 'Gutscheintest', 'price' => '2,5', 'format' => 'quer', 'status' => 'publish']);
+array_push($cleanup['products'], $coupon_sticker->get_id(), $coupon_card->get_id());
+$coupon_card->set_sale_price('2.00');
+$coupon_card->save();
+WC()->cart->add_to_cart($coupon_sticker->get_id(), 2);
+WC()->cart->add_to_cart($coupon_card->get_id(), 1);
+WC()->cart->calculate_totals();
+$shipping_before = (float) WC()->cart->get_shipping_total();
+WC()->cart->apply_coupon('test-zehn');
+WC()->cart->calculate_totals();
+check('Warenkorb: 10 % nur auf die nicht reduzierten Sticker', abs((float) WC()->cart->get_discount_total() + (float) WC()->cart->get_discount_tax() - 0.5) < 0.001);
+$sticker_sale = (new Campaigns())->save(['name' => 'Gutscheintest', 'percent' => '20', 'start' => wp_date('Y-m-d\TH:i', time() - 120), 'end' => wp_date('Y-m-d\TH:i', time() + 3600), 'scope' => 'products', 'products' => [$coupon_sticker->get_id()]]);
+WC()->cart->calculate_totals();
+check('Warenkorb: kein Gutschein-Rabatt auf Produkte aus einer Aktion', (float) WC()->cart->get_discount_total() === 0.0);
+wp_delete_post($sticker_sale['id'], true);
+Campaigns::flush();
+WC()->cart->apply_coupon('test-versand');
+WC()->cart->calculate_totals();
+check('Warenkorb: Versand-Gutschein macht den Versand kostenlos', $shipping_before > 0 && (float) WC()->cart->get_shipping_total() === 0.0);
+WC()->cart->empty_cart();
+wc_clear_notices();
+wp_set_current_user(0);
+
+$off = $coupons->set_active($percent_coupon['id'], false);
+check('deaktivierter Gutschein ist ein Entwurf und ungültig', !$off['active'] && get_post_status($percent_coupon['id']) === 'draft');
+check('wieder aktiviert', $coupons->set_active($percent_coupon['id'], true)['active']);
+$foreign = new WC_Coupon();
+$foreign->set_code('fremd-test');
+$foreign->set_amount(5);
+$foreign->save();
+$coupon_ids[] = $foreign->get_id();
+check('Gutscheine aus WooCommerce bleiben unberührt', is_wp_error($coupons->set_active($foreign->get_id(), false)) && is_wp_error($coupons->save(['code' => 'FREMD-TEST', 'kind' => 'percent', 'percent' => '5'], $foreign->get_id())));
+foreach ($coupon_ids as $coupon_id) {
+    wp_delete_post($coupon_id, true);
+}
 
 section('Updates aus GitHub-Releases (ohne echte Anfrage)');
 $github = null;

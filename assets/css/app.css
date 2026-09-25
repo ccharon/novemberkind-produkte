@@ -109,7 +109,8 @@ body.nkp-page {
 	}
 
 	.nkp-topbar__nav {
-		gap: 14px;
+		flex-wrap: wrap;
+		gap: 6px 14px;
 	}
 
 	.nkp-topbar__nav a {
@@ -1680,4 +1681,48 @@ body.nkp-page {
 .nkp-picker__hint {
 	color: var(--nkp-draft-text);
 	font-size: 13px;
+}
+
+/* Gutscheine */
+
+.nkp-coupon__link {
+	grid-template-columns: minmax(120px, auto) minmax(0, 1fr) auto;
+}
+
+.nkp-coupon__code {
+	color: var(--nkp-accent-dark);
+	font-size: 16px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+}
+
+.nkp-campaign--ended .nkp-coupon__code {
+	color: var(--nkp-text-muted);
+}
+
+.nkp-code-input {
+	display: flex;
+	gap: 10px;
+}
+
+.nkp-code-input input {
+	flex: 1;
+	letter-spacing: 0.06em;
+	min-width: 0;
+	text-transform: uppercase;
+}
+
+.nkp-code-input input::placeholder {
+	letter-spacing: normal;
+}
+
+@media (max-width: 600px) {
+	.nkp-coupon__link {
+		grid-template-columns: minmax(0, 1fr) auto;
+	}
+
+	.nkp-coupon__link .nkp-campaign__main {
+		grid-column: 1 / -1;
+		grid-row: 2;
+	}
 }
