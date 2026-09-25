@@ -484,6 +484,27 @@ foreach ($backups->for_product($backup_button->get_id()) as $leftover) {
     wp_delete_post($leftover->ID, true);
 }
 
+section('Geplant online stellen');
+$old_timezone = get_option('timezone_string');
+update_option('timezone_string', 'Europe/Berlin');
+$tomorrow = (new DateTimeImmutable('tomorrow 18:00', wp_timezone()));
+$planned_data = ['sku' => ShopData::next_sku(), 'motif' => 'Planungstest', 'price' => '4,5', 'status' => 'future', 'publish_at' => $tomorrow->format('Y-m-d\TH:i')];
+$planned = $service->save(ProductType::get('button'), $planned_data);
+$cleanup['products'][] = $planned->get_id();
+check('geplantes Produkt hat Status „geplant“', get_post_status($planned->get_id()) === 'future');
+check('Zeitpunkt in der Zeitzone des Shops', $planned->get_date_created()->getTimestamp() === $tomorrow->getTimestamp());
+check('WordPress hat die Veröffentlichung eingeplant', wp_next_scheduled('publish_future_post', [$planned->get_id()]) === $tomorrow->getTimestamp());
+$past = $service->save(ProductType::get('button'), ['publish_at' => (new DateTimeImmutable('-1 hour', wp_timezone()))->format('Y-m-d\TH:i')] + $planned_data, $planned->get_id());
+check('Zeitpunkt in der Vergangenheit wird abgelehnt', is_wp_error($past) && isset($past->get_error_data()['publish_at']));
+$invalid = $service->save(ProductType::get('button'), ['publish_at' => '2030-02-31T10:00'] + $planned_data, $planned->get_id());
+check('ungültiges Datum wird abgelehnt', is_wp_error($invalid) && isset($invalid->get_error_data()['publish_at']));
+$missing = $service->save(ProductType::get('button'), ['publish_at' => ''] + $planned_data, $planned->get_id());
+check('fehlender Zeitpunkt wird abgelehnt', is_wp_error($missing) && isset($missing->get_error_data()['publish_at']));
+$now_online = $service->save(ProductType::get('button'), ['status' => 'publish'] + $planned_data, $planned->get_id());
+check('sofort online statt geplant', get_post_status($planned->get_id()) === 'publish' && $now_online->get_date_created()->getTimestamp() <= time());
+check('keine Veröffentlichung mehr eingeplant', wp_next_scheduled('publish_future_post', [$planned->get_id()]) === false);
+update_option('timezone_string', $old_timezone);
+
 section('Updates aus GitHub-Releases (ohne echte Anfrage)');
 $github = null;
 $fake_github = static function ($pre, array $args, string $url) use (&$github) {

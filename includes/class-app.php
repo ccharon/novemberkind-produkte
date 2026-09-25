@@ -242,7 +242,7 @@ final class App
     private function overview_data(): array
     {
         $products = wc_get_products([
-            'status'  => ['publish', 'draft', 'pending', 'private'],
+            'status'  => ['publish', 'future', 'draft', 'pending', 'private'],
             'limit'   => -1,
             'orderby' => 'modified',
             'order'   => 'DESC',

@@ -50,12 +50,24 @@ final class Ajax
             'id'      => $result->get_id(),
             'name'    => $result->get_name(),
             'status'  => $result->get_status(),
-            'message' => $result->get_status() === 'publish'
-                ? __('Gespeichert. Das Produkt ist jetzt im Shop zu sehen.', 'novemberkind-produkte')
-                : __('Als Entwurf gespeichert.', 'novemberkind-produkte'),
+            'message' => self::saved_message($result),
             'viewUrl' => get_permalink($result->get_id()),
             'backups' => (new Backups())->summary($result->get_id()),
         ]);
+    }
+
+    private static function saved_message(\WC_Product $product): string
+    {
+        return match ($product->get_status()) {
+            'publish' => __('Gespeichert. Das Produkt ist jetzt im Shop zu sehen.', 'novemberkind-produkte'),
+            'future'  => sprintf(
+                /* translators: 1: Datum, 2: Uhrzeit */
+                __('Gespeichert. Das Produkt geht am %1$s um %2$s Uhr online.', 'novemberkind-produkte'),
+                wp_date('d.m.Y', $product->get_date_created()?->getTimestamp()),
+                wp_date('H:i', $product->get_date_created()?->getTimestamp())
+            ),
+            default   => __('Als Entwurf gespeichert.', 'novemberkind-produkte'),
+        };
     }
 
     /**

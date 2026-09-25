@@ -11,7 +11,7 @@ defined('ABSPATH') || exit;
  */
 final class ProductService
 {
-    private const STATUSES = ['draft', 'publish'];
+    private const STATUSES = ['draft', 'publish', 'future'];
 
     // Seitenlayout des Themes Divi wie bei allen bestehenden Produkten: ohne Seitenleiste
     private const DIVI_LAYOUT = '_et_pb_page_layout';
@@ -69,6 +69,20 @@ final class ProductService
             $stock = $stock_raw === '' ? null : (int) $stock_raw;
         }
 
+        $status = (string) ($data['status'] ?? 'draft');
+        if (!in_array($status, self::STATUSES, true)) {
+            $status = 'draft';
+        }
+        $publish_at = null;
+        if ($status === 'future') {
+            $publish_at = self::parse_publish_at((string) ($data['publish_at'] ?? ''));
+            if ($publish_at === null) {
+                $errors['publish_at'] = __('Bitte wähle Datum und Uhrzeit für die Veröffentlichung.', 'novemberkind-produkte');
+            } elseif ($publish_at <= time()) {
+                $errors['publish_at'] = __('Der Zeitpunkt liegt in der Vergangenheit. Wähle einen späteren oder stelle das Produkt direkt online.', 'novemberkind-produkte');
+            }
+        }
+
         $price_a4 = null;
         $stock_a4 = null;
         if ($with_a4) {
@@ -99,11 +113,6 @@ final class ProductService
             }
         }
         $sized = $type->has_field('a4') && $product instanceof \WC_Product_Variable;
-
-        $status = (string) ($data['status'] ?? 'draft');
-        if (!in_array($status, self::STATUSES, true)) {
-            $status = 'draft';
-        }
 
         $image_id    = self::usable_image(absint($data['image_id'] ?? 0), $is_new ? null : $product) ? absint($data['image_id']) : 0;
         $gallery_ids = array_values(array_filter(
@@ -145,6 +154,13 @@ final class ProductService
         $product->set_image_id($image_id ?: '');
         $product->set_gallery_image_ids($gallery_ids);
         $product->set_status($status);
+        if ($publish_at !== null) {
+            // WordPress veröffentlicht zum Beitragsdatum, WooCommerce führt es als Erstelldatum
+            $product->set_date_created($publish_at);
+        } elseif (!$is_new && $product->get_date_created('edit')?->getTimestamp() > time()) {
+            // Ohne Planung darf kein Datum in der Zukunft stehen bleiben, sonst plant WordPress beim Veröffentlichen erneut
+            $product->set_date_created(time());
+        }
         foreach (self::DIVI_DEFAULTS as $key => $value) {
             // Das Layout immer setzen, die übrigen Felder nur ergänzen
             if ($key === self::DIVI_LAYOUT || $product->get_meta($key) === '') {
@@ -200,6 +216,18 @@ final class ProductService
         }
 
         return wc_get_product($product->get_id());
+    }
+
+    /**
+     * Zeitpunkt aus dem Feld `datetime-local` in der Zeitzone des Shops.
+     */
+    public static function parse_publish_at(string $value): ?int
+    {
+        $value = trim($value);
+        $date  = \DateTimeImmutable::createFromFormat('!Y-m-d\TH:i', $value, wp_timezone());
+
+        // Der Vergleich verwirft Werte, die PHP stillschweigend umrechnet, z. B. den 31.02.
+        return $date !== false && $date->format('Y-m-d\TH:i') === $value ? $date->getTimestamp() : null;
     }
 
     /**

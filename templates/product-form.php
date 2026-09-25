@@ -25,7 +25,10 @@ namespace NovemberkindProdukte;
 defined('ABSPATH') || exit;
 
 $is_new    = $product === null;
-$is_online = !$is_new && $product->get_status() === 'publish';
+$status     = $is_new ? 'draft' : $product->get_status();
+$is_online  = $status === 'publish';
+$is_planned = $status === 'future';
+$publish_at = $is_planned && $product->get_date_created() ? wp_date('Y-m-d\TH:i', $product->get_date_created()->getTimestamp()) : '';
 $image_id  = $is_new ? 0 : (int) $product->get_image_id();
 $with_a4   = $type->has_field('a4') && ($context['a4'] ?? '') === '1';
 // Karten sind immer A6, A4 kommt optional dazu
@@ -337,9 +340,19 @@ $choice = static function (string $name, string $value, string $label, string $c
             <h2 class="nkp-panel__title"><?php esc_html_e('Sichtbarkeit', 'novemberkind-produkte'); ?></h2>
             <div class="nkp-choices">
                 <label class="nkp-choice">
-                    <input type="radio" name="status" value="draft" <?php checked(!$is_online); ?>>
+                    <input type="radio" name="status" value="draft" <?php checked(!$is_online && !$is_planned); ?>>
                     <span><strong><?php esc_html_e('Entwurf', 'novemberkind-produkte'); ?></strong>
                     <?php esc_html_e('Noch nicht im Shop', 'novemberkind-produkte'); ?></span>
+                </label>
+                <label class="nkp-choice">
+                    <input type="radio" name="status" value="future" <?php checked($is_planned); ?>>
+                    <span><strong><?php esc_html_e('Geplant', 'novemberkind-produkte'); ?></strong>
+                    <?php esc_html_e('Geht zum gewählten Zeitpunkt automatisch online', 'novemberkind-produkte'); ?></span>
+                </label>
+                <label class="nkp-field nkp-field--schedule" data-nkp-schedule <?php echo $is_planned ? '' : 'hidden'; ?>>
+                    <span class="nkp-field__label"><?php esc_html_e('Online ab', 'novemberkind-produkte'); ?></span>
+                    <input type="datetime-local" name="publish_at" value="<?php echo esc_attr($publish_at); ?>" <?php disabled(!$is_planned); ?>>
+                    <?php $field_error('publish_at'); ?>
                 </label>
                 <label class="nkp-choice">
                     <input type="radio" name="status" value="publish" <?php checked($is_online); ?>>

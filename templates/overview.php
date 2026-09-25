@@ -69,7 +69,8 @@ defined('ABSPATH') || exit;
             $is_sold   = Originals::is_sold($product);
             $url       = $type ? App::edit_url($product->get_id()) : (string) get_edit_post_link($product->get_id(), 'raw');
             $modified  = $product->get_date_modified() ?? $product->get_date_created();
-            $status    = $is_sold ? 3 : ($is_online ? 1 : 2);
+            $is_future = $product->get_status() === 'future';
+            $status    = $is_sold ? 4 : ($is_online ? 1 : ($is_future ? 2 : 3));
             ?>
             <li class="nkp-card<?php echo $is_sold ? ' nkp-card--sold' : ''; ?>"
                 data-name="<?php echo esc_attr($product->get_name()); ?>"
@@ -91,6 +92,13 @@ defined('ABSPATH') || exit;
                         <p class="nkp-card__meta">
                             <?php if ($is_sold) : ?>
                                 <span class="nkp-badge nkp-badge--sold"><?php esc_html_e('Verkauft', 'novemberkind-produkte'); ?></span>
+                            <?php elseif ($is_future && $product->get_date_created()) : ?>
+                                <span class="nkp-badge nkp-badge--future">
+                                    <?php
+                                    /* translators: %s: Datum und Uhrzeit der Veröffentlichung */
+                                    echo esc_html(sprintf(__('Geplant %s', 'novemberkind-produkte'), wp_date('d.m. H:i', $product->get_date_created()->getTimestamp())));
+                                    ?>
+                                </span>
                             <?php else : ?>
                                 <span class="nkp-badge nkp-badge--<?php echo $is_online ? 'online' : 'draft'; ?>">
                                     <?php echo $is_online ? esc_html__('Online', 'novemberkind-produkte') : esc_html__('Entwurf', 'novemberkind-produkte'); ?>
