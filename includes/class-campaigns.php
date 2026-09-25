@@ -39,6 +39,7 @@ final class Campaigns
         add_filter('woocommerce_variation_prices_price', [$this, 'filter_price'], 20, 2);
         add_filter('woocommerce_variation_prices_sale_price', [$this, 'filter_price'], 20, 2);
         add_filter('woocommerce_get_variation_prices_hash', [$this, 'prices_hash']);
+        add_filter('woocommerce_get_price_html', [$this, 'range_price_html'], 20, 2);
         add_action('save_post_' . self::POST_TYPE, [self::class, 'flush']);
     }
 
@@ -366,6 +367,40 @@ final class Campaigns
         }
 
         return wc_format_decimal(round((float) $regular * (100 - $percent) / 100, wc_get_price_decimals()), wc_get_price_decimals());
+    }
+
+    /**
+     * Zeigt bei einer Preisspanne in einer Aktion die normale Spanne durchgestrichen davor, wie bei einfachen Produkten.
+     * WooCommerce selbst streicht bei variablen Produkten nur Einzelpreise durch.
+     */
+    public function range_price_html(string $html, \WC_Product $product): string
+    {
+        if (!$product instanceof \WC_Product_Variable || !$this->in_running_campaign($product->get_id())) {
+            return $html;
+        }
+        $prices  = $product->get_variation_prices(true);
+        $sale    = array_values($prices['price'] ?? []);
+        $regular = array_values($prices['regular_price'] ?? []);
+        if ($sale === [] || $regular === []) {
+            return $html;
+        }
+        [$sale_min, $sale_max, $regular_min, $regular_max] = [min($sale), max($sale), min($regular), max($regular)];
+        if ($sale_min === $sale_max || ($sale_min === $regular_min && $sale_max === $regular_max)) {
+            return $html;
+        }
+
+        return wc_format_sale_price(wc_format_price_range($regular_min, $regular_max), wc_format_price_range($sale_min, $sale_max)) . $product->get_price_suffix();
+    }
+
+    private function in_running_campaign(int $product_id): bool
+    {
+        foreach (self::running() as $campaign) {
+            if (self::covers($campaign, $product_id)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

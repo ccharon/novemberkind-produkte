@@ -1748,3 +1748,13 @@ body.nkp-page {
 .nkp-field--schedule .nkp-moment__inputs {
 	grid-template-columns: minmax(0, 1fr) 108px;
 }
+
+/* Angebotspreise: alter Preis gedämpft, neuer Preis ohne Unterstreichung */
+.nkp-card__price del {
+	color: var(--nkp-text-muted);
+}
+
+.nkp-card__price ins {
+	font-weight: 600;
+	text-decoration: none;
+}

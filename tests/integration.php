@@ -562,6 +562,10 @@ $campaigns->end($parent_campaign['id']);
 $parent_campaign = $campaigns->save(['name' => 'Physisch', 'percent' => '10', ...$when('start', time() - 120), ...$when('end', time() + 3600), 'scope' => 'categories', 'categories' => $all_terms]);
 $campaign_ids[] = $parent_campaign['id'];
 check('Oberkategorie mit allen Unterkategorien erfasst alles', $fresh($aktion_card)->get_price() === '2.25');
+$range_card = $service->save(ProductType::get('card'), ['sku' => ShopData::next_sku(), 'motif' => 'Aktionstest A4', 'price' => '2,5', 'format' => 'quer', 'a4' => '1', 'price_a4' => '5', 'status' => 'publish']);
+$cleanup['products'][] = $range_card->get_id();
+$range_html = html_entity_decode(wp_strip_all_tags($fresh($range_card)->get_price_html()));
+check('Preisspanne in einer Aktion: normale Spanne durchgestrichen davor', str_contains($fresh($range_card)->get_price_html(), '<del') && str_contains($range_html, '2,50') && str_contains($range_html, '5,00') && str_contains($range_html, '2,25') && str_contains($range_html, '4,50'));
 check('bei zwei Aktionen gilt der höhere Rabatt', $fresh($sticker_a)->get_price() === '2.00');
 $variation = wc_get_product($aktion_button->get_children()[0]);
 $prices = $fresh($aktion_button)->get_variation_prices();
@@ -590,6 +594,7 @@ foreach ($campaign_ids as $campaign_id) {
 }
 Campaigns::flush();
 check('ohne Aktionen wieder Normalpreis', $fresh($sticker_a)->get_price() === '2.50' && !$fresh($sticker_a)->is_on_sale());
+check('Preisspanne ohne Aktion ohne Durchstreichung', !str_contains($fresh($range_card)->get_price_html(), '<del'));
 
 section('Gutscheine');
 $coupons = new Coupons();
