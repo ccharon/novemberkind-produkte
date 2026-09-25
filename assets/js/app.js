@@ -22,6 +22,26 @@
 		});
 	});
 
+	// Ansicht der Übersicht (Liste oder Kacheln) pro Gerät merken, Liste ist Standard
+	const overview = document.querySelector('[data-nkp-overview]');
+	const viewButtons = document.querySelectorAll('[data-nkp-view]');
+	function showView(view) {
+		overview.classList.toggle('nkp-overview--list', view === 'list');
+		overview.classList.toggle('nkp-overview--grid', view === 'grid');
+		viewButtons.forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.nkpView === view)));
+	}
+	if (overview) {
+		showView(overview.classList.contains('nkp-overview--grid') ? 'grid' : 'list');
+		viewButtons.forEach((button) => button.addEventListener('click', () => {
+			showView(button.dataset.nkpView);
+			try {
+				window.localStorage.setItem('nkpOverviewView', button.dataset.nkpView);
+			} catch {
+				// Speicher gesperrt, die Ansicht gilt dann nur bis zum Neuladen
+			}
+		}));
+	}
+
 	const config = window.novemberkindProdukte;
 	const form = document.querySelector('[data-nkp-form]');
 	if (!config || !form) {
