@@ -20,7 +20,7 @@ final class NewsletterMail
     public const COLORS = [
         'text'   => '#526077',
         'muted'  => '#666666',
-        'link'   => '#0000ff',
+        'link'   => '#3a5f95',
         'sky'    => '#d2e4fc',
         'page'   => '#feffff',
         'footer' => '#3e464a',
