@@ -41,16 +41,16 @@ $by_status['planned'] = array_reverse($by_status['planned']);
     <p class="nkp-empty"><?php esc_html_e('Noch keine Aktionen angelegt.', 'novemberkind-produkte'); ?></p>
 <?php endif; ?>
 
-<?php foreach ($sections as $status => $heading) : ?>
-    <?php if ($by_status[$status] === []) {
+<?php foreach ($sections as $section_status => $heading) : ?>
+    <?php if ($by_status[$section_status] === []) {
         continue;
     } ?>
     <section class="nkp-campaign-group">
         <h2 class="nkp-group__title"><?php echo esc_html($heading); ?></h2>
         <ul class="nkp-campaigns">
-            <?php foreach ($by_status[$status] as $campaign) : ?>
-                <?php $conflicts = $status === 'ended' ? ['overlaps' => [], 'reference' => []] : Campaigns::conflicts($campaign); ?>
-                <li class="nkp-campaign nkp-campaign--<?php echo esc_attr($status); ?>">
+            <?php foreach ($by_status[$section_status] as $campaign) : ?>
+                <?php $conflicts = $section_status === 'ended' ? ['overlaps' => [], 'reference' => []] : Campaigns::conflicts($campaign); ?>
+                <li class="nkp-campaign nkp-campaign--<?php echo esc_attr($section_status); ?>">
                     <a class="nkp-campaign__link" href="<?php echo esc_url(App::campaigns_url($campaign['id'])); ?>">
                         <span class="nkp-campaign__percent">−<?php echo esc_html((string) $campaign['percent']); ?> %</span>
                         <span class="nkp-campaign__main">

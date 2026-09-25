@@ -64,19 +64,19 @@ defined('ABSPATH') || exit;
         </li>
         <?php foreach ($group['products'] as $product) : ?>
             <?php
-            $is_online = $product->get_status() === 'publish';
-            $type      = ProductType::detect($product);
-            $is_sold   = Originals::is_sold($product);
-            $url       = $type ? App::edit_url($product->get_id()) : (string) get_edit_post_link($product->get_id(), 'raw');
-            $modified  = $product->get_date_modified() ?? $product->get_date_created();
-            $is_future = $product->get_status() === 'future';
-            $status    = $is_sold ? 4 : ($is_online ? 1 : ($is_future ? 2 : 3));
+            $is_online    = $product->get_status() === 'publish';
+            $product_type = ProductType::detect($product);
+            $is_sold      = Originals::is_sold($product);
+            $url          = $product_type ? App::edit_url($product->get_id()) : (string) get_edit_post_link($product->get_id(), 'raw');
+            $modified     = $product->get_date_modified() ?? $product->get_date_created();
+            $is_future    = $product->get_status() === 'future';
+            $sort_status  = $is_sold ? 4 : ($is_online ? 1 : ($is_future ? 2 : 3));
             ?>
             <li class="nkp-card<?php echo $is_sold ? ' nkp-card--sold' : ''; ?>"
                 data-name="<?php echo esc_attr($product->get_name()); ?>"
                 data-sku="<?php echo esc_attr($product->get_sku()); ?>"
                 data-price="<?php echo esc_attr((string) (float) $product->get_price()); ?>"
-                data-status="<?php echo esc_attr((string) $status); ?>"
+                data-status="<?php echo esc_attr((string) $sort_status); ?>"
                 data-stock="<?php echo esc_attr($product->managing_stock() ? (string) (int) $product->get_stock_quantity() : ''); ?>"
                 data-modified="<?php echo esc_attr($modified ? (string) $modified->getTimestamp() : '0'); ?>">
                 <a class="nkp-card__link" href="<?php echo esc_url($url); ?>">
@@ -104,9 +104,9 @@ defined('ABSPATH') || exit;
                                     <?php echo $is_online ? esc_html__('Online', 'novemberkind-produkte') : esc_html__('Entwurf', 'novemberkind-produkte'); ?>
                                 </span>
                             <?php endif; ?>
-                            <?php if (!$type) : ?>
+                            <?php if (!$product_type) : ?>
                                 <span class="nkp-stock"><?php esc_html_e('Bearbeiten in WooCommerce', 'novemberkind-produkte'); ?></span>
-                            <?php elseif ($type->is_unique()) : ?>
+                            <?php elseif ($product_type->is_unique()) : ?>
                                 <span class="nkp-stock"><?php esc_html_e('Unikat', 'novemberkind-produkte'); ?></span>
                             <?php elseif ($product->managing_stock()) : ?>
                                 <span class="nkp-stock">

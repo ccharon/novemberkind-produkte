@@ -245,10 +245,12 @@ final class App
             $data     = $route === 'aktion-neu' || $campaign ? $this->campaign_form_data($campaign) : null;
             $title    = $campaign ? $campaign['name'] : __('Neue Aktion', 'novemberkind-produkte');
         } elseif ($route === 'gutscheine') {
+            $this->require_coupon_rights();
             $view  = 'coupons';
             $title = __('Gutscheine', 'novemberkind-produkte');
             $data  = ['coupons' => Coupons::all()];
         } elseif (str_starts_with($route, 'gutschein-')) {
+            $this->require_coupon_rights();
             $view   = 'coupon-form';
             $coupon = $route === 'gutschein-neu' ? null : Coupons::get((int) substr($route, 10));
             if ($coupon && !$coupon['own']) {
@@ -400,6 +402,17 @@ final class App
         }
 
         return $context;
+    }
+
+    private function require_coupon_rights(): void
+    {
+        if (!current_user_can('edit_shop_coupons')) {
+            wp_die(
+                esc_html__('Für Gutscheine fehlen dir die Berechtigungen.', 'novemberkind-produkte'),
+                esc_html__('Keine Berechtigung', 'novemberkind-produkte'),
+                ['response' => 403, 'back_link' => true]
+            );
+        }
     }
 
     /**

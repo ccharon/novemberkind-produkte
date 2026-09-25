@@ -24,13 +24,13 @@ namespace NovemberkindProdukte;
 
 defined('ABSPATH') || exit;
 
-$is_new    = $product === null;
-$status     = $is_new ? 'draft' : $product->get_status();
-$is_online  = $status === 'publish';
-$is_planned = $status === 'future';
-$publish_at = $is_planned && $product->get_date_created() ? wp_date('Y-m-d\TH:i', $product->get_date_created()->getTimestamp()) : '';
-$image_id  = $is_new ? 0 : (int) $product->get_image_id();
-$with_a4   = $type->has_field('a4') && ($context['a4'] ?? '') === '1';
+$is_new         = $product === null;
+$product_status = $is_new ? 'draft' : $product->get_status();
+$is_online      = $product_status === 'publish';
+$is_planned     = $product_status === 'future';
+$publish_at     = $is_planned && $product->get_date_created() ? wp_date('Y-m-d\TH:i', $product->get_date_created()->getTimestamp()) : '';
+$image_id       = $is_new ? 0 : (int) $product->get_image_id();
+$with_a4        = $type->has_field('a4') && ($context['a4'] ?? '') === '1';
 // Karten sind immer A6, A4 kommt optional dazu
 $size_label = static function (string $plain, string $a6) use ($type): void {
     echo esc_html($type->has_field('a4') ? $a6 : $plain);

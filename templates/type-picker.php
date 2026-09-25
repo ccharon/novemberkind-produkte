@@ -19,11 +19,11 @@ defined('ABSPATH') || exit;
 </header>
 
 <ul class="nkp-types">
-    <?php foreach ($types as $type) : ?>
+    <?php foreach ($types as $product_type) : ?>
         <li>
-            <a class="nkp-type" href="<?php echo esc_url(App::new_url($type->key())); ?>">
-                <span class="nkp-type__label"><?php echo esc_html($type->label()); ?></span>
-                <span class="nkp-type__hint"><?php echo esc_html($type->hint()); ?></span>
+            <a class="nkp-type" href="<?php echo esc_url(App::new_url($product_type->key())); ?>">
+                <span class="nkp-type__label"><?php echo esc_html($product_type->label()); ?></span>
+                <span class="nkp-type__hint"><?php echo esc_html($product_type->hint()); ?></span>
             </a>
         </li>
     <?php endforeach; ?>

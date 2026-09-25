@@ -15,11 +15,11 @@ namespace NovemberkindProdukte;
 
 defined('ABSPATH') || exit;
 
-$is_new   = $campaign === null;
-$status   = $is_new ? 'new' : Campaigns::status($campaign);
-$is_ended = $status === 'ended';
-$scope    = $campaign['scope'] ?? 'all';
-$local    = static fn(?int $timestamp): string => $timestamp ? wp_date('Y-m-d\TH:i', $timestamp) : '';
+$is_new          = $campaign === null;
+$campaign_status = $is_new ? 'new' : Campaigns::status($campaign);
+$is_ended        = $campaign_status === 'ended';
+$scope           = $campaign['scope'] ?? 'all';
+$local           = static fn(?int $timestamp): string => $timestamp ? wp_date('Y-m-d\TH:i', $timestamp) : '';
 
 $field_error = static function (string $field): void {
     printf('<span class="nkp-field__error" data-error-for="%s" hidden></span>', esc_attr($field));
@@ -38,7 +38,7 @@ $status_labels = [
         <h1><?php echo $is_new ? esc_html__('Neue Aktion', 'novemberkind-produkte') : esc_html($campaign['name']); ?></h1>
     </div>
     <?php if (!$is_new) : ?>
-        <span class="nkp-badge nkp-badge--campaign-<?php echo esc_attr($status); ?>"><?php echo esc_html($status_labels[$status]); ?></span>
+        <span class="nkp-badge nkp-badge--campaign-<?php echo esc_attr($campaign_status); ?>"><?php echo esc_html($status_labels[$campaign_status]); ?></span>
     <?php endif; ?>
 </header>
 
@@ -155,7 +155,7 @@ $status_labels = [
             <?php if (!$is_new) : ?>
                 <button type="button" class="nkp-button nkp-button--secondary" data-nkp-action="novemberkind_produkte_end_campaign"
                         data-nkp-confirm="<?php esc_attr_e('Die Aktion endet sofort, die Preise im Shop sind dann wieder normal. Beenden?', 'novemberkind-produkte'); ?>">
-                    <?php echo $status === 'planned' ? esc_html__('Nicht starten', 'novemberkind-produkte') : esc_html__('Jetzt beenden', 'novemberkind-produkte'); ?>
+                    <?php echo $campaign_status === 'planned' ? esc_html__('Nicht starten', 'novemberkind-produkte') : esc_html__('Jetzt beenden', 'novemberkind-produkte'); ?>
                 </button>
             <?php endif; ?>
             <button type="submit" class="nkp-button nkp-button--primary" data-nkp-submit><?php esc_html_e('Speichern', 'novemberkind-produkte'); ?></button>

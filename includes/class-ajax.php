@@ -131,6 +131,12 @@ final class Ajax
         }
 
         // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
+        $status = sanitize_key(wp_unslash($_POST['status'] ?? ''));
+        if (in_array($status, ['publish', 'future'], true) && !current_user_can('publish_products')) {
+            wp_send_json_error(['message' => __('Du darfst Produkte nur als Entwurf speichern.', 'novemberkind-produkte')], 403);
+        }
+
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
         $result = (new ProductService())->save($type, $_POST, $product_id);
         if (is_wp_error($result)) {
             wp_send_json_error([
