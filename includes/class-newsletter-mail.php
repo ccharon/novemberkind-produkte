@@ -16,6 +16,17 @@ final class NewsletterMail
     // Wird pro Empfänger durch das Token ersetzt, damit die Mail nur einmal pro Päckchen gebaut wird
     public const TOKEN_PLACEHOLDER = 'nkptokenplatzhalter';
     private const IMAGE_SIZE = 'woocommerce_single';
+    // Farben und Schrift wie auf novemberkind.art
+    public const COLORS = [
+        'text'   => '#526077',
+        'muted'  => '#666666',
+        'link'   => '#0000ff',
+        'sky'    => '#d2e4fc',
+        'page'   => '#feffff',
+        'footer' => '#3e464a',
+    ];
+    public const FONT = "Helvetica,Arial,sans-serif";
+    private const LOGO_WIDTH = 200;
 
     private static string $alt_body = '';
     private static string $sender = '';
@@ -163,11 +174,29 @@ final class NewsletterMail
         $footer  = self::footer_lines();
         $imprint = function_exists('wc_gzd_get_page_permalink') ? (string) wc_gzd_get_page_permalink('imprint') : '';
         $privacy = get_privacy_policy_url();
+        $logo    = self::logo_url();
+        $colors  = self::COLORS;
+        $font    = self::FONT;
+        $logo_width = self::LOGO_WIDTH;
 
         ob_start();
         include __DIR__ . '/../templates/newsletter-mail.php';
 
         return (string) ob_get_clean();
+    }
+
+    /**
+     * Logo des Shops: WordPress-Logo, sonst das Logo aus den Divi-Einstellungen, sonst keins.
+     */
+    private static function logo_url(): string
+    {
+        $logo_id = (int) (get_theme_mod('custom_logo') ?: get_option('site_logo'));
+        $url     = $logo_id ? wp_get_attachment_image_url($logo_id, 'medium') : false;
+        if (!$url && function_exists('et_get_option')) {
+            $url = (string) et_get_option('divi_logo', '');
+        }
+
+        return $url ?: '';
     }
 
     /**
@@ -188,10 +217,11 @@ final class NewsletterMail
      */
     private static function style_content(string $html): string
     {
+        $c      = self::COLORS;
         $styles = [
-            'p'      => 'margin:0 0 16px;font-size:16px;line-height:1.6;color:#2e2823;',
-            'h2'     => 'margin:28px 0 12px;font-family:Georgia,\'Times New Roman\',serif;font-size:22px;line-height:1.3;font-weight:normal;color:#2e2823;',
-            'a'      => 'color:#914430;text-decoration:underline;',
+            'p'      => "margin:0 0 16px;font-size:16px;line-height:1.7;color:{$c['text']};",
+            'h2'     => "margin:28px 0 12px;font-size:24px;line-height:1.3;font-weight:normal;color:{$c['text']};",
+            'a'      => "color:{$c['link']};font-weight:bold;font-style:italic;text-decoration:none;",
             'strong' => 'font-weight:bold;',
         ];
         foreach ($styles as $tag => $style) {
@@ -268,25 +298,26 @@ final class NewsletterMail
         }
 
         $cells = array_map(static function (array $card): string {
+            $c     = self::COLORS;
             $price = $card['regular'] !== ''
-                ? '<del style="color:#6e645a;">' . esc_html($card['regular']) . '</del> <strong style="color:#914430;">' . esc_html($card['price']) . '</strong>'
+                ? '<del style="color:' . $c['muted'] . ';">' . esc_html($card['regular']) . '</del> <strong style="color:' . $c['text'] . ';">' . esc_html($card['price']) . '</strong>'
                 : esc_html($card['price']);
 
-            return '<td class="nkp-mail-card" width="50%" valign="top" style="padding:8px;">'
-                . '<a href="' . esc_url($card['url']) . '" style="text-decoration:none;color:#2e2823;">'
-                . '<img src="' . esc_url($card['image']) . '" alt="' . esc_attr($card['name']) . '" width="252" style="display:block;width:100%;max-width:252px;height:auto;border:0;border-radius:10px;">'
+            return '<td class="nkp-mail-card" width="50%" valign="top" align="center" style="padding:10px;">'
+                . '<a href="' . esc_url($card['url']) . '" style="text-decoration:none;color:' . $c['text'] . ';">'
+                . '<img src="' . esc_url($card['image']) . '" alt="' . esc_attr($card['name']) . '" width="250" style="display:block;width:100%;max-width:250px;height:auto;border:0;margin:0 auto;">'
                 . '<span style="display:block;margin-top:10px;font-size:15px;line-height:1.4;">' . esc_html($card['name']) . '</span>'
                 . '</a>'
-                . '<span style="display:block;margin-top:4px;font-size:15px;">' . $price . '</span>'
+                . '<span style="display:block;margin-top:4px;font-size:14px;color:' . $c['muted'] . ';">' . $price . '</span>'
                 . '</td>';
         }, array_values($cards));
 
         $rows = '';
         foreach (array_chunk($cells, 2) as $pair) {
-            $rows .= '<tr>' . implode('', $pair) . (count($pair) === 1 ? '<td class="nkp-mail-card" width="50%" style="padding:8px;"></td>' : '') . '</tr>';
+            $rows .= '<tr>' . implode('', $pair) . (count($pair) === 1 ? '<td class="nkp-mail-card" width="50%" style="padding:10px;"></td>' : '') . '</tr>';
         }
 
-        return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:12px -8px 0;">' . $rows . '</table>';
+        return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:16px 0 0;">' . $rows . '</table>';
     }
 
     /**
@@ -295,8 +326,8 @@ final class NewsletterMail
     private static function button(string $url, string $label): string
     {
         return '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 24px;"><tr>'
-            . '<td style="border-radius:10px;background:#b0553a;">'
-            . '<a href="' . esc_url($url) . '" style="display:inline-block;padding:13px 24px;font-size:16px;color:#ffffff;text-decoration:none;font-weight:bold;">' . esc_html($label) . '</a>'
+            . '<td style="border:2px solid ' . self::COLORS['text'] . ';border-radius:3px;">'
+            . '<a href="' . esc_url($url) . '" style="display:inline-block;padding:10px 22px;font-size:18px;color:' . self::COLORS['text'] . ';text-decoration:none;font-weight:500;">' . esc_html($label) . '</a>'
             . '</td></tr></table>';
     }
 
