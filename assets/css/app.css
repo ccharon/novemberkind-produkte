@@ -843,6 +843,8 @@ body.nkp-page {
 	cursor: pointer;
 	font-size: 15px;
 	height: 32px;
+	user-select: none;
+	-webkit-user-select: none;
 	width: 32px;
 }
 

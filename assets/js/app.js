@@ -337,7 +337,7 @@
 			const data = await post('novemberkind_produkte_preview', new FormData(form));
 			// Nur die Antwort auf die letzte Anfrage zählt, und nur ohne eigene Änderung dazwischen
 			if (request === previewRequest && description.dataset.custom !== '1') {
-				editor.innerHTML = data.html;
+				setEditorHTML(data.html);
 			}
 		} catch {
 			// Die Vorschau ist eine Hilfe. Schlägt sie fehl, bleibt der bisherige Text stehen.
@@ -345,18 +345,116 @@
 	}
 
 	document.execCommand('defaultParagraphSeparator', false, 'p');
+	document.execCommand('styleWithCSS', false, false);
 
-	editor.addEventListener('input', () => setCustom(true));
+	// Überschriften aus Vorlage oder Vorschlag. Andere entstehen nur versehentlich beim Zusammenfügen von Absätzen.
+	let headings = new Set();
+	function setEditorHTML(html) {
+		editor.innerHTML = html;
+		headings = new Set([...editor.querySelectorAll('h3')].map((h) => h.textContent.trim()));
+	}
+	setEditorHTML(editor.innerHTML);
+
+	function renameElement(element, tag) {
+		const replacement = document.createElement(tag);
+		replacement.append(...element.childNodes);
+		element.replaceWith(replacement);
+		return replacement;
+	}
+
+	// Macht versehentliche Überschriften wieder zu Absätzen, ohne dass die Einfügemarke verloren geht
+	function fixHeadings() {
+		const strays = [...editor.querySelectorAll('h3')].filter((h) => !headings.has(h.textContent.trim()));
+		if (!strays.length) {
+			return;
+		}
+		const selection = window.getSelection();
+		const range = selection.rangeCount ? selection.getRangeAt(0) : null;
+		const points = range && [[range.startContainer, range.startOffset], [range.endContainer, range.endOffset]];
+		strays.forEach((heading) => {
+			const paragraph = renameElement(heading, 'p');
+			points?.forEach((point) => {
+				if (point[0] === heading) {
+					point[0] = paragraph;
+				}
+			});
+		});
+		if (points && points.every(([node]) => editor.contains(node))) {
+			selection.setBaseAndExtent(points[0][0], points[0][1], points[1][0], points[1][1]);
+		}
+	}
+
+	// Einheitliches HTML für den Shop: strong und em statt b, i und Stil-Spans der Browser
+	function cleanHTML() {
+		const copy = editor.cloneNode(true);
+		copy.querySelectorAll('h3').forEach((h) => {
+			if (!headings.has(h.textContent.trim())) {
+				renameElement(h, 'p');
+			}
+		});
+		copy.querySelectorAll('b').forEach((b) => renameElement(b, 'strong'));
+		copy.querySelectorAll('i').forEach((i) => renameElement(i, 'em'));
+		copy.querySelectorAll('span, font').forEach((span) => {
+			let inner = [...span.childNodes];
+			// Nur echte Formatierung übernehmen, Schriftgrößen stammen vom Zusammenfügen mit der Überschrift
+			if (!span.style.fontSize) {
+				if (/^(bold|[6-9]00)$/.test(span.style.fontWeight)) {
+					const strong = document.createElement('strong');
+					strong.append(...inner);
+					inner = [strong];
+				}
+				if (span.style.fontStyle === 'italic') {
+					const em = document.createElement('em');
+					em.append(...inner);
+					inner = [em];
+				}
+			}
+			span.replaceWith(...inner);
+		});
+		copy.querySelectorAll('[style]').forEach((element) => element.removeAttribute('style'));
+		copy.querySelectorAll('strong, em').forEach((element) => {
+			if (!element.textContent.trim()) {
+				element.replaceWith(...element.childNodes);
+			}
+		});
+		copy.normalize();
+		const walker = document.createTreeWalker(copy, NodeFilter.SHOW_TEXT);
+		while (walker.nextNode()) {
+			walker.currentNode.textContent = walker.currentNode.textContent.replace(/\u00a0/g, ' ');
+		}
+		return copy.innerHTML;
+	}
+
+	editor.addEventListener('input', () => {
+		fixHeadings();
+		setCustom(true);
+	});
 
 	editor.addEventListener('paste', (event) => {
 		event.preventDefault();
 		document.execCommand('insertText', false, event.clipboardData.getData('text/plain'));
 	});
 
+	// Letzte Markierung im Editor merken. Safari verliert sie beim Klick auf einen Knopf trotz preventDefault.
+	let editorRange = null;
+	document.addEventListener('selectionchange', () => {
+		const selection = window.getSelection();
+		if (selection.rangeCount && editor.contains(selection.getRangeAt(0).commonAncestorContainer)) {
+			editorRange = selection.getRangeAt(0).cloneRange();
+		}
+	});
+
 	form.querySelectorAll('[data-nkp-command]').forEach((button) => {
-		// mousedown statt click, damit die Markierung im Text erhalten bleibt
+		// mousedown statt click, damit der Fokus im Text bleibt
 		button.addEventListener('mousedown', (event) => {
 			event.preventDefault();
+			const range = editorRange;
+			editor.focus();
+			if (range) {
+				const selection = window.getSelection();
+				selection.removeAllRanges();
+				selection.addRange(range);
+			}
 			document.execCommand(button.dataset.nkpCommand);
 			editor.dispatchEvent(new Event('input', { bubbles: true }));
 		});
@@ -405,7 +503,7 @@
 		suggestButton.disabled = true;
 		suggestButton.textContent = i18n.suggesting;
 		try {
-			form.elements.description.value = editor.innerHTML;
+			form.elements.description.value = cleanHTML();
 			suggestion = await post('novemberkind_produkte_suggest', new FormData(form));
 			dialog.querySelector('[data-nkp-suggestion-mode]').textContent = suggestion.mode === 'neu' ? i18n.modeNew : i18n.modeImproved;
 			dialog.querySelector('[data-nkp-suggestion-title]').textContent = suggestion.title;
@@ -435,7 +533,7 @@
 		const take = (part) => dialog.querySelector(`[data-nkp-take="${part}"]`).checked;
 		if (take('description')) {
 			setCustom(true);
-			editor.innerHTML = suggestion.description;
+			setEditorHTML(suggestion.description);
 		}
 		if (take('tags')) {
 			form.elements.tags.value = suggestion.tags.join(', ');
@@ -464,7 +562,7 @@
 		submitButton.textContent = i18n.saving;
 
 		try {
-			form.elements.description.value = editor.innerHTML;
+			form.elements.description.value = cleanHTML();
 			const data = await post('novemberkind_produkte_save', new FormData(form));
 			dirty = false;
 			applySaved(data);
