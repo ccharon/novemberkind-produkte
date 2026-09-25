@@ -117,11 +117,22 @@ check 'Aktionen: Formular lädt mit Nonce' "$(curl -s -b "$JAR" "$APP/aktionen/n
 check 'Aktionen: unbekannte Aktion liefert 404' "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$APP/aktionen/999999/")" 404
 check 'Aktionen: ohne Nonce abgelehnt' "$(ajax -d action=novemberkind_produkte_save_campaign -d nonce=falsch -d name=x)" 403
 check 'Aktionen: Pflichtfehler liefert 422' "$(ajax -d action=novemberkind_produkte_save_campaign -d "nonce=$nonce" -d name=)" 422
+# Ein einfaches Produkt, das gerade nicht reduziert ist, auch nicht durch eine von Hand angelegte Aktion
+plain=$(bin/wp eval 'foreach (wc_get_products(["limit" => -1, "status" => "publish", "type" => "simple"]) as $p) { if (!$p->is_on_sale()) { echo $p->get_name(), "\t", get_permalink($p->get_id()); break; } }')
+plain_name=${plain%%$'\t'*}
+plain_url=${plain#*$'\t'}
+# Ob die Karte eines Produkts in der Übersicht einen durchgestrichenen Preis zeigt
+card_on_sale() {
+  curl -s -b "$JAR" "$APP/" | awk -v name="data-name=\"$1\"" 'index($0, name) { found = 1 } found && /nkp-card__price/ { print (index($0, "<del") ? "ja" : "nein"); exit }'
+}
 today=$(bin/wp eval "echo wp_date('Y-m-d');")
 tomorrow=$(bin/wp eval "echo wp_date('Y-m-d', time() + DAY_IN_SECONDS);")
 check 'Aktionen: Speichern erfolgreich' "$(ajax -d action=novemberkind_produkte_save_campaign -d "nonce=$nonce" -d name=HTTP-Aktion -d percent=10 -d "start_date=$today" -d start_time=00:00 -d "end_date=$tomorrow" -d scope=all)" 200
 campaign_id=$(grep -oP '"id":\K\d+' "$TMP/body")
+check 'Aktionen: Übersicht zeigt den Aktionspreis durchgestrichen' "$(card_on_sale "$plain_name")" ja
+check 'Aktionen: Produktseite im Shop zeigt den Aktionspreis' "$(curl -s "$plain_url" | grep -c '<del' | awk '$1 > 0 { print "ja" }')" ja
 check 'Aktionen: Beenden erfolgreich' "$(ajax -d action=novemberkind_produkte_end_campaign -d "nonce=$nonce" -d "id=$campaign_id")" 200
+check 'Aktionen: nach dem Ende wieder Normalpreis in der Übersicht' "$(card_on_sale "$plain_name")" nein
 check 'Aktionen: beendete Aktion lässt sich nicht ändern' "$(ajax -d action=novemberkind_produkte_save_campaign -d "nonce=$nonce" -d "id=$campaign_id" -d name=x -d percent=5 -d "start_date=$today" -d start_time=00:00 -d "end_date=$tomorrow" -d scope=all)" 422
 [ -n "$campaign_id" ] && bin/wp post delete "$campaign_id" --force >/dev/null
 
