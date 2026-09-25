@@ -111,7 +111,7 @@
 				firstError ??= error;
 			}
 			// Datum und Uhrzeit melden Fehler unter dem gemeinsamen Namen, z. B. start für start_date
-			const input = form.elements[name] ?? form.elements[`${name}_date`];
+			const input = form.elements[`${name}_date`] ?? form.elements[name];
 			if (input instanceof HTMLInputElement && input.type !== 'hidden') {
 				input.setAttribute('aria-invalid', 'true');
 				firstInput ??= input;
