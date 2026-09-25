@@ -726,6 +726,8 @@ update_post_meta($old['id'], Subscribers::META, ['status' => 'pending', 'created
 $subscribers->cleanup();
 check('unbestätigte Anmeldung verfällt nach 7 Tagen', Subscribers::get($old['id']) === null);
 check('CSV mit bestätigter Adresse', str_contains(Subscribers::csv(), '"test-abo@example.org";') && !str_contains(Subscribers::csv(), 'test-alt@'));
+$formula = $confirm_new('=1+1@example.org');
+check('CSV entschärft Werte, die wie Formeln aussehen', str_contains(Subscribers::csv(), '"\'=1+1@example.org";'));
 
 $from = NewsletterMail::from();
 check('Absender aus den WooCommerce-Einstellungen', $from['email'] === get_option('woocommerce_email_from_address'));

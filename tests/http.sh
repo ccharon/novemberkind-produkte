@@ -165,9 +165,9 @@ subscriber_status() {
   bin/wp eval "\$s = NovemberkindProdukte\Subscribers::find('$1'); echo \$s ? \$s['status'] : 'weg';"
 }
 # Reste eines abgebrochenen Laufs
-bin/wp eval 'foreach (["http-abo", "http-bot", "http-csv", "http-kasse", "http-voll"] as $n) { $s = NovemberkindProdukte\Subscribers::find("$n@example.org"); $s && (new NovemberkindProdukte\Subscribers())->remove($s["id"]); }' >/dev/null
+bin/wp eval 'foreach (["http-abo", "http-bot", "http-csv", "http-kasse", "http-voll", "http-a&b"] as $n) { $s = NovemberkindProdukte\Subscribers::find("$n@example.org"); $s && (new NovemberkindProdukte\Subscribers())->remove($s["id"]); }' >/dev/null
 reset_signup_limits() {
-  bin/wp transient list --search='novemberkind_produkte_signup_*' --fields=name --format=csv | tail -n +2 | xargs -r bin/wp transient delete >/dev/null
+  bin/wp transient list --search='novemberkind_produkte_signup_*' --fields=name --format=csv | tail -n +2 | xargs -r -n1 bin/wp transient delete >/dev/null
 }
 reset_signup_limits
 check 'Newsletter: Liste lädt' "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$APP/newsletter/")" 200
@@ -181,6 +181,9 @@ check 'Anmeldung leitet mit Rückmeldung zurück' "$signup" "302 $BASE/kontakt/?
 bin/wp eval 'set_transient("novemberkind_produkte_signup_all", ["start" => time(), "count" => 999], 60);'
 check 'Obergrenze erreicht: Anmeldung pausiert' "$(location -e "$BASE/kontakt/" -d action=novemberkind_produkte_newsletter_signup -d email=http-voll@example.org "$BASE/wp-admin/admin-post.php" | grep -o 'status=[a-z]*')/$(subscriber_status http-voll@example.org)" status=busy/weg
 reset_signup_limits
+curl -s -o /dev/null -d action=novemberkind_produkte_newsletter_signup --data-urlencode 'email=http-a&b@example.org' "$BASE/wp-admin/admin-post.php"
+check 'Adresse mit & bleibt bei Besuchern unverändert' "$(bin/wp eval '$s = NovemberkindProdukte\Subscribers::find("http-a&b@example.org"); echo $s ? $s["email"] : "fehlt";')" 'http-a&b@example.org'
+bin/wp eval '$s = NovemberkindProdukte\Subscribers::find("http-a&b@example.org"); $s && (new NovemberkindProdukte\Subscribers())->remove($s["id"]);' >/dev/null
 curl -s -o /dev/null -d action=novemberkind_produkte_newsletter_signup -d email=http-bot@example.org -d nkp_website=spam "$BASE/wp-admin/admin-post.php"
 check 'Bot mit ausgefülltem Feld wird nicht angemeldet' "$(subscriber_status http-bot@example.org)" weg
 confirm_url=$(mail_text http-abo@example.org | grep -oE 'http[^ )]*nkp-newsletter=bestaetigen&t=[A-Za-z0-9]+' | head -1)

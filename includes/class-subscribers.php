@@ -16,6 +16,8 @@ final class Subscribers
     public const POST_TYPE = 'novemberkind_abo';
     public const META = '_novemberkind_produkte_subscriber';
     public const META_TOKEN = '_novemberkind_produkte_token';
+    // Die Adresse steht im Metafeld, weil WordPress im Titel für Besucher & zu &amp; macht
+    public const META_EMAIL = '_novemberkind_produkte_email';
     public const SOURCES = ['form', 'checkout'];
     public const PENDING_DAYS = 7;
     // Schützt Postfächer davor, über das öffentliche Formular mit Bestätigungsmails überhäuft zu werden
@@ -114,7 +116,8 @@ final class Subscribers
         $posts = get_posts([
             'post_type'      => self::POST_TYPE,
             'post_status'    => 'private',
-            'title'          => strtolower($email),
+            'meta_key'       => self::META_EMAIL, // phpcs:ignore WordPress.DB.SlowDBQuery -- wenige Einträge
+            'meta_value'     => strtolower($email), // phpcs:ignore WordPress.DB.SlowDBQuery -- wenige Einträge
             'posts_per_page' => 1,
             'no_found_rows'  => true,
         ]);
@@ -173,6 +176,7 @@ final class Subscribers
             return new \WP_Error('save', __('Die Anmeldung hat nicht geklappt. Bitte versuche es später noch einmal.', 'novemberkind-produkte'));
         }
         $token = $existing['token'] ?? wp_generate_password(self::TOKEN_LENGTH, false);
+        update_post_meta($id, self::META_EMAIL, wp_slash($email));
         update_post_meta($id, self::META_TOKEN, $token);
         update_post_meta($id, self::META, ['status' => 'pending', 'created' => time(), 'confirmed' => 0, 'source' => $source]);
 
@@ -267,10 +271,10 @@ final class Subscribers
             ];
         }
 
-        return implode("\r\n", array_map(
-            static fn(array $row): string => implode(';', array_map(static fn(string $value): string => '"' . str_replace('"', '""', $value) . '"', $row)),
-            $rows
-        )) . "\r\n";
+        // Ein Apostroph vor =, +, - und @ verhindert, dass Tabellenprogramme den Wert als Formel ausführen
+        $cell = static fn(string $value): string => '"' . str_replace('"', '""', preg_match('/^[=+\-@\t\r]/', $value) ? "'" . $value : $value) . '"';
+
+        return implode("\r\n", array_map(static fn(array $row): string => implode(';', array_map($cell, $row)), $rows)) . "\r\n";
     }
 
     /**
@@ -310,7 +314,7 @@ final class Subscribers
 
         return [
             'id'        => $post->ID,
-            'email'     => $post->post_title,
+            'email'     => (string) get_post_meta($post->ID, self::META_EMAIL, true),
             'status'    => ($meta['status'] ?? '') === 'confirmed' ? 'confirmed' : 'pending',
             'created'   => (int) ($meta['created'] ?? 0),
             'confirmed' => (int) ($meta['confirmed'] ?? 0),

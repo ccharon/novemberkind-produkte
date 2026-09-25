@@ -21,7 +21,7 @@ final class Newsletters
     public const SEND_MODES = ['draft', 'now', 'scheduled'];
     public const SUBJECT_MAX_LENGTH = 150;
     public const PREHEADER_MAX_LENGTH = 150;
-    // Hoster begrenzen Mails pro Stunde; 25 pro Minute bleiben weit darunter
+    // Hoster begrenzen die Zahl der Mails pro Stunde, deshalb in kleinen Päckchen
     public const BATCH_SIZE = 25;
     public const BATCH_INTERVAL = 60;
     public const HOOK_START = 'novemberkind_produkte_newsletter_start';

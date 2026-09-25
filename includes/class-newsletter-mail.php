@@ -76,7 +76,7 @@ final class NewsletterMail
         $content = '<p>' . esc_html__('Hallo,', 'novemberkind-produkte') . '</p>'
             . '<p>' . esc_html(sprintf(
                 /* translators: %s: Name des Shops */
-                __('du hast dich für den Newsletter von %s angemeldet. Bitte bestätige das mit einem Klick auf den Knopf. Erst danach bekommst du Post von uns.', 'novemberkind-produkte'),
+                __('du hast dich für den Newsletter von %s angemeldet. Bitte bestätige das mit einem Klick auf den Knopf. Erst danach bekommst du den Newsletter.', 'novemberkind-produkte'),
                 $shop
             )) . '</p>'
             . self::button($confirm_url, __('Anmeldung bestätigen', 'novemberkind-produkte'))
@@ -167,7 +167,7 @@ final class NewsletterMail
     }
 
     /**
-     * Rahmen der Mail: Kopf mit Shopname, Inhalt, Fuß mit Adresse und rechtlichen Links.
+     * Rahmen der Mail: Kopf mit Logo oder Shopname, Inhalt, Fuß mit Adresse und rechtlichen Links.
      */
     private static function layout(string $subject, string $preheader, string $content, string $unsubscribe_url): string
     {

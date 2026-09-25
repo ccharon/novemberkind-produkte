@@ -61,7 +61,7 @@ final class NewsletterSignup
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- nur Anzeige der Rückmeldung
         $status  = sanitize_key(wp_unslash($_GET[self::STATUS_ARG] ?? ''));
         $message = match ($status) {
-            'ok'      => __('Fast geschafft. Wir haben dir eine Mail geschickt. Bitte bestätige darin deine Anmeldung.', 'novemberkind-produkte'),
+            'ok'      => __('Du bekommst gleich eine Mail. Bitte bestätige darin deine Anmeldung.', 'novemberkind-produkte'),
             'invalid' => __('Bitte gib eine gültige E-Mail-Adresse ein.', 'novemberkind-produkte'),
             'busy'    => __('Gerade kommen sehr viele Anmeldungen. Bitte versuche es in einer Stunde noch einmal.', 'novemberkind-produkte'),
             'error'   => __('Die Anmeldung hat nicht geklappt. Bitte versuche es später noch einmal.', 'novemberkind-produkte'),
@@ -98,7 +98,7 @@ final class NewsletterSignup
 
     /**
      * Nimmt das Formular an und leitet zurück zur Seite mit einer Rückmeldung.
-     * Ohne Nonce, weil Seiten-Caches sie für Besucher veralten lassen; Schutz über Honeypot und Wartezeit je Adresse.
+     * Ohne Nonce, weil Seiten-Caches sie für Besucher veralten lassen; Schutz über Honeypot, Wartezeit je Adresse und Grenzen pro Stunde.
      */
     public function handle_signup(): void
     {
@@ -239,6 +239,8 @@ final class NewsletterSignup
         nocache_headers();
         status_header(200);
         header('X-Robots-Tag: noindex, nofollow');
+        // Die Adresse enthält das Token, es soll nicht über Links weitergegeben werden
+        header('Referrer-Policy: no-referrer');
         send_frame_options_header();
         $this->render_page($action, $state);
         exit;
