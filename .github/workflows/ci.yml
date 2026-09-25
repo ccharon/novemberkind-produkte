@@ -1,9 +1,10 @@
-# Prüft jeden Push auf main und jeden Pull Request: erst statisch, dann in einer echten Testumgebung.
+# Prüft jeden Push auf develop und main und jeden Pull Request: erst statisch, dann in einer echten Testumgebung.
+# Die Jobnamen sind als Pflichtprüfungen für main eingetragen; beim Umbenennen den Branch-Schutz anpassen.
 name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
 
 permissions:

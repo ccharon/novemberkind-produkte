@@ -1,8 +1,9 @@
-# Wöchentliche Aktualisierungen als gebündelte Pull Requests; Sicherheitsupdates kommen sofort.
+# Wöchentliche Aktualisierungen als gebündelte Pull Requests gegen develop; Sicherheitsupdates kommen sofort.
 version: 2
 updates:
   - package-ecosystem: composer
     directory: /
+    target-branch: develop
     schedule:
       interval: weekly
     groups:
@@ -11,6 +12,7 @@ updates:
 
   - package-ecosystem: composer
     directory: /tools
+    target-branch: develop
     schedule:
       interval: weekly
     groups:
@@ -19,6 +21,7 @@ updates:
 
   - package-ecosystem: github-actions
     directory: /
+    target-branch: develop
     schedule:
       interval: weekly
     groups:
