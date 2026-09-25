@@ -1,0 +1,26 @@
+# Wöchentliche Aktualisierungen als gebündelte Pull Requests; Sicherheitsupdates kommen sofort.
+version: 2
+updates:
+  - package-ecosystem: composer
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      plugin:
+        patterns: ['*']
+
+  - package-ecosystem: composer
+    directory: /tools
+    schedule:
+      interval: weekly
+    groups:
+      tools:
+        patterns: ['*']
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']

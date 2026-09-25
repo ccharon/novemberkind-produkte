@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Statische Prüfungen ohne Testumgebung: Sicherheitsmeldungen zu Abhängigkeiten, PHPStan, WordPress-Regeln, PSR-12, JavaScript-Syntax.
+# Läuft lokal und in der CI; braucht nur Docker.
+set -uo pipefail
+cd "$(dirname "$0")/.."
+
+status=0
+composer() {
+  docker run --rm -u "$(id -u):$(id -g)" -v "$PWD:/app" -w /app -e COMPOSER_HOME=/tmp/composer composer:2 "$@"
+}
+php() {
+  docker run --rm -u "$(id -u):$(id -g)" -v "$PWD:/app" -w /app php:8.3-cli-alpine php -d memory_limit=2G "$@"
+}
+step() {
+  local label=$1
+  shift
+  if "$@"; then echo "  ✓ $label"; else echo "  ✗ $label"; status=1; fi
+}
+
+echo "Abhängigkeiten"
+step 'Plugin installiert' composer install --no-dev --no-progress --quiet
+step 'Werkzeuge installiert' composer install -d tools --no-progress --quiet
+step 'keine bekannten Sicherheitslücken (Plugin)' composer audit --no-dev --locked
+step 'keine bekannten Sicherheitslücken (Werkzeuge)' composer audit -d tools --locked
+
+echo
+echo "PHP"
+step 'PHPStan Stufe 6' php tools/vendor/bin/phpstan analyse -c tools/phpstan.neon --no-progress --error-format=raw
+step 'WordPress-Sicherheitsregeln und PSR-12' php tools/vendor/bin/phpcs --standard=tools/phpcs.xml --report=emacs
+
+echo
+echo "JavaScript-Syntax"
+for f in assets/js/*.js; do
+  step "$f" docker run --rm -v "$PWD:/app:ro" -w /app node:22-alpine node --check "$f"
+done
+
+echo
+if [ "$status" -eq 0 ]; then echo "Statische Prüfungen bestanden."; else echo "Statische Prüfungen mit Fehlern."; fi
+exit $status

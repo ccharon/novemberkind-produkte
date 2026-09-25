@@ -14,5 +14,6 @@
 /dist
 /docker-compose.yml
 /tests
+/tools
 /*.iml
 /Produkt-Helfer für WooCommerce Ideendokument.md

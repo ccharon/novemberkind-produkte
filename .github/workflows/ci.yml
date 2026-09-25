@@ -1,0 +1,39 @@
+# Prüft jeden Push auf main und jeden Pull Request: erst statisch, dann in einer echten Testumgebung.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyse:
+    name: Statische Prüfungen
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: bin/analyse
+
+  test:
+    name: Integrations- und HTTP-Tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Testumgebung einrichten
+        run: bin/setup
+      - name: Tests
+        run: bin/test
+      - name: Debug-Log bei Fehlern
+        if: failure()
+        run: docker compose exec -T wordpress sh -c 'cat wp-content/debug.log 2>/dev/null | tail -100' || true

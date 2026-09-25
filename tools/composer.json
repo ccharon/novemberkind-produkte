@@ -1,0 +1,19 @@
+{
+  "name": "ccharon/novemberkind-produkte-tools",
+  "description": "Prüfwerkzeuge für bin/analyse, getrennt vom vendor/ des Plugins",
+  "license": "GPL-2.0-or-later",
+  "require-dev": {
+    "phpstan/phpstan": "^2.1",
+    "phpstan/extension-installer": "^1.4",
+    "szepeviktor/phpstan-wordpress": "^2.0",
+    "php-stubs/woocommerce-stubs": "^10.0",
+    "squizlabs/php_codesniffer": "^3.10",
+    "wp-coding-standards/wpcs": "^3.1"
+  },
+  "config": {
+    "allow-plugins": {
+      "dealerdirect/phpcodesniffer-composer-installer": true,
+      "phpstan/extension-installer": true
+    }
+  }
+}

@@ -16,3 +16,6 @@
 
 # Secrets für die Testumgebung
 /.env
+
+# Prüfwerkzeuge für bin/analyse
+/tools/vendor/

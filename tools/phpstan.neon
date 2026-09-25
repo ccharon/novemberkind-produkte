@@ -1,0 +1,12 @@
+# PHPStan für bin/analyse. Pfade relativ zu diesem Ordner.
+parameters:
+  level: 6
+  phpVersion: 80100
+  paths:
+    - ../novemberkind-produkte.php
+    - ../includes
+  scanFiles:
+    - vendor/php-stubs/woocommerce-stubs/woocommerce-stubs.php
+  scanDirectories:
+    - ../vendor
+  treatPhpDocTypesAsCertain: false

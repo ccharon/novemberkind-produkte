@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<!-- phpcs für bin/analyse: WordPress-Sicherheitsregeln für alles, PSR-12 für die Klassen. -->
+<ruleset name="Novemberkind Produkte">
+  <file>../novemberkind-produkte.php</file>
+  <file>../includes</file>
+  <file>../templates</file>
+  <arg name="extensions" value="php"/>
+  <arg value="s"/>
+
+  <rule ref="WordPress.Security"/>
+  <rule ref="WordPress.DB"/>
+  <rule ref="WordPress.WP.AlternativeFunctions"/>
+  <rule ref="WordPress.PHP.DevelopmentFunctions"/>
+  <rule ref="WordPress.PHP.DiscouragedPHPFunctions"/>
+  <rule ref="WordPress.PHP.StrictInArray"/>
+  <rule ref="WordPress.WP.I18n"/>
+  <rule ref="WordPress.WP.GlobalVariablesOverride"/>
+  <rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+    <properties>
+      <property name="prefixes" type="array">
+        <element value="NovemberkindProdukte"/>
+        <element value="novemberkind_produkte"/>
+      </property>
+    </properties>
+    <!-- Templates laufen im Methodenkontext von App::render(), ihre Variablen sind lokal -->
+    <exclude-pattern>*/templates/*</exclude-pattern>
+  </rule>
+
+  <!-- Benennung nach WordPress (snake_case) statt camelCase, siehe CLAUDE.md -->
+  <rule ref="PSR12">
+    <exclude-pattern>*/templates/*</exclude-pattern>
+    <exclude name="PSR1.Files.SideEffects"/>
+    <exclude name="PSR1.Methods.CamelCapsMethodName"/>
+    <exclude name="Generic.Files.LineLength"/>
+  </rule>
+</ruleset>
