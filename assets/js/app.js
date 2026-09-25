@@ -134,7 +134,7 @@
 		let first = null;
 		Object.entries(fields).forEach(([name, message]) => {
 			const error = form.querySelector(`[data-error-for="${name}"]`);
-			const input = form.elements[name];
+			const input = form.elements[name] ?? form.elements[name.replace(/_at$/, '_date')];
 			if (error) {
 				error.textContent = message;
 				error.hidden = false;
@@ -557,14 +557,13 @@
 	const schedule = form.querySelector('[data-nkp-schedule]');
 	form.querySelectorAll('input[name="status"]').forEach((radio) => radio.addEventListener('change', () => {
 		const planned = form.elements.status.value === 'future';
-		const input = form.elements.publish_at;
 		schedule.hidden = !planned;
-		input.disabled = !planned;
+		schedule.disabled = !planned;
 		if (planned) {
-			// Frühester Zeitpunkt ist die nächste volle Minute in der Zeit des Geräts
-			const now = new Date(Date.now() + 60000 - new Date().getTimezoneOffset() * 60000);
-			input.min = now.toISOString().slice(0, 16);
-			input.focus();
+			// Frühestes Datum ist heute in der Zeit des Geräts; den genauen Zeitpunkt prüft der Server
+			const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60000);
+			form.elements.publish_date.min = today.toISOString().slice(0, 10);
+			form.elements.publish_date.focus();
 		}
 	}));
 

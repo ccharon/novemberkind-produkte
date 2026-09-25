@@ -28,7 +28,7 @@ $is_new         = $product === null;
 $product_status = $is_new ? 'draft' : $product->get_status();
 $is_online      = $product_status === 'publish';
 $is_planned     = $product_status === 'future';
-$publish_at     = $is_planned && $product->get_date_created() ? wp_date('Y-m-d\TH:i', $product->get_date_created()->getTimestamp()) : '';
+$publish_at     = $is_planned && $product->get_date_created() ? $product->get_date_created()->getTimestamp() : null;
 $image_id       = $is_new ? 0 : (int) $product->get_image_id();
 $with_a4        = $type->has_field('a4') && ($context['a4'] ?? '') === '1';
 // Karten sind immer A6, A4 kommt optional dazu
@@ -349,11 +349,14 @@ $choice = static function (string $name, string $value, string $label, string $c
                     <span><strong><?php esc_html_e('Geplant', 'novemberkind-produkte'); ?></strong>
                     <?php esc_html_e('Geht zum gewählten Zeitpunkt automatisch online', 'novemberkind-produkte'); ?></span>
                 </label>
-                <label class="nkp-field nkp-field--schedule" data-nkp-schedule <?php echo $is_planned ? '' : 'hidden'; ?>>
-                    <span class="nkp-field__label"><?php esc_html_e('Online ab', 'novemberkind-produkte'); ?></span>
-                    <input type="datetime-local" name="publish_at" value="<?php echo esc_attr($publish_at); ?>" <?php disabled(!$is_planned); ?>>
+                <fieldset class="nkp-field nkp-field--schedule nkp-moment" data-nkp-schedule <?php disabled(!$is_planned); ?> <?php echo $is_planned ? '' : 'hidden'; ?>>
+                    <legend class="nkp-field__label"><?php esc_html_e('Online ab', 'novemberkind-produkte'); ?></legend>
+                    <div class="nkp-moment__inputs">
+                        <input type="date" name="publish_date" value="<?php echo esc_attr($publish_at ? wp_date('Y-m-d', $publish_at) : ''); ?>" aria-label="<?php esc_attr_e('Datum', 'novemberkind-produkte'); ?>">
+                        <input type="time" name="publish_time" step="60" value="<?php echo esc_attr($publish_at ? wp_date('H:i', $publish_at) : '00:00'); ?>" aria-label="<?php esc_attr_e('Uhrzeit', 'novemberkind-produkte'); ?>">
+                    </div>
                     <?php $field_error('publish_at'); ?>
-                </label>
+                </fieldset>
                 <label class="nkp-choice">
                     <input type="radio" name="status" value="publish" <?php checked($is_online); ?>>
                     <span><strong><?php esc_html_e('Online', 'novemberkind-produkte'); ?></strong>

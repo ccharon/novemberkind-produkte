@@ -490,17 +490,17 @@ section('Geplant online stellen');
 $old_timezone = get_option('timezone_string');
 update_option('timezone_string', 'Europe/Berlin');
 $tomorrow = (new DateTimeImmutable('tomorrow 18:00', wp_timezone()));
-$planned_data = ['sku' => ShopData::next_sku(), 'motif' => 'Planungstest', 'price' => '4,5', 'status' => 'future', 'publish_at' => $tomorrow->format('Y-m-d\TH:i')];
+$planned_data = ['sku' => ShopData::next_sku(), 'motif' => 'Planungstest', 'price' => '4,5', 'status' => 'future', 'publish_date' => $tomorrow->format('Y-m-d'), 'publish_time' => $tomorrow->format('H:i')];
 $planned = $service->save(ProductType::get('button'), $planned_data);
 $cleanup['products'][] = $planned->get_id();
 check('geplantes Produkt hat Status „geplant“', get_post_status($planned->get_id()) === 'future');
 check('Zeitpunkt in der Zeitzone des Shops', $planned->get_date_created()->getTimestamp() === $tomorrow->getTimestamp());
 check('WordPress hat die Veröffentlichung eingeplant', wp_next_scheduled('publish_future_post', [$planned->get_id()]) === $tomorrow->getTimestamp());
-$past = $service->save(ProductType::get('button'), ['publish_at' => (new DateTimeImmutable('-1 hour', wp_timezone()))->format('Y-m-d\TH:i')] + $planned_data, $planned->get_id());
+$past = $service->save(ProductType::get('button'), ['publish_date' => wp_date('Y-m-d', time() - 3600), 'publish_time' => wp_date('H:i', time() - 3600)] + $planned_data, $planned->get_id());
 check('Zeitpunkt in der Vergangenheit wird abgelehnt', is_wp_error($past) && isset($past->get_error_data()['publish_at']));
-$invalid = $service->save(ProductType::get('button'), ['publish_at' => '2030-02-31T10:00'] + $planned_data, $planned->get_id());
+$invalid = $service->save(ProductType::get('button'), ['publish_date' => '2030-02-31'] + $planned_data, $planned->get_id());
 check('ungültiges Datum wird abgelehnt', is_wp_error($invalid) && isset($invalid->get_error_data()['publish_at']));
-$missing = $service->save(ProductType::get('button'), ['publish_at' => ''] + $planned_data, $planned->get_id());
+$missing = $service->save(ProductType::get('button'), ['publish_date' => ''] + $planned_data, $planned->get_id());
 check('fehlender Zeitpunkt wird abgelehnt', is_wp_error($missing) && isset($missing->get_error_data()['publish_at']));
 $now_online = $service->save(ProductType::get('button'), ['status' => 'publish'] + $planned_data, $planned->get_id());
 check('sofort online statt geplant', get_post_status($planned->get_id()) === 'publish' && $now_online->get_date_created()->getTimestamp() <= time());
@@ -509,7 +509,7 @@ update_option('timezone_string', $old_timezone);
 
 section('Rabattaktionen');
 $campaigns = new Campaigns();
-$local = static fn(int $timestamp): string => wp_date('Y-m-d\TH:i', $timestamp);
+$when = static fn(string $key, int $timestamp): array => ["{$key}_date" => wp_date('Y-m-d', $timestamp), "{$key}_time" => wp_date('H:i', $timestamp)];
 $campaign_ids = [];
 // Aktionen, die in der Testumgebung von Hand angelegt wurden, dürfen die Preise hier nicht beeinflussen
 Campaigns::flush();
@@ -525,11 +525,16 @@ $sticker_b->set_sale_price('1.99');
 $sticker_b->save();
 $fresh = static fn(WC_Product $product): WC_Product => wc_get_product($product->get_id());
 
-$invalid = $campaigns->save(['name' => '', 'percent' => '95', 'start' => $local(time()), 'end' => $local(time() - 3600), 'scope' => 'categories']);
+$invalid = $campaigns->save(['name' => '', 'percent' => '95', ...$when('start', time()), ...$when('end', time() - 3600), 'scope' => 'categories']);
 check('Aktion: Pflichtfelder und Grenzen werden geprüft', is_wp_error($invalid) && array_keys($invalid->get_error_data()) === ['name', 'percent', 'end', 'categories']);
 
+$date_only = $campaigns->save(['name' => 'Nur Datum', 'percent' => '5', 'start_date' => wp_date('Y-m-d', time() + DAY_IN_SECONDS), 'end_date' => wp_date('Y-m-d', time() + 2 * DAY_IN_SECONDS), 'scope' => 'products', 'products' => [$sticker_a->get_id()]]);
+$campaign_ids[] = $date_only['id'];
+check('ohne Uhrzeit beginnt eine Aktion um 0:00 und endet um 23:59', wp_date('H:i', $date_only['start']) === '00:00' && wp_date('H:i', $date_only['end']) === '23:59');
+$campaigns->end($date_only['id']);
+
 $sticker_term = ShopData::category_ids(['Physische Produkte', 'Sticker'])[1];
-$sticker_campaign = $campaigns->save(['name' => 'Stickerwoche', 'percent' => '20', 'start' => $local(time() - 120), 'end' => $local(time() + 3600), 'scope' => 'categories', 'categories' => [$sticker_term]]);
+$sticker_campaign = $campaigns->save(['name' => 'Stickerwoche', 'percent' => '20', ...$when('start', time() - 120), ...$when('end', time() + 3600), 'scope' => 'categories', 'categories' => [$sticker_term]]);
 $campaign_ids[] = $sticker_campaign['id'];
 check('Aktion läuft', Campaigns::status($sticker_campaign) === 'running');
 check('Sticker kostet 20 % weniger und gilt als Angebot', $fresh($sticker_a)->get_price() === '2.00' && $fresh($sticker_a)->is_on_sale());
@@ -537,7 +542,7 @@ check('Normalpreis und gespeicherte Werte bleiben unverändert', $fresh($sticker
 check('Produkt mit eigenem Angebotspreis ist ausgenommen', $fresh($sticker_b)->get_price() === '1.99');
 check('Karte außerhalb der Kategorie bleibt beim Normalpreis', $fresh($aktion_card)->get_price() === '2.50');
 
-$parent_campaign = $campaigns->save(['name' => 'Physisch', 'percent' => '10', 'start' => $local(time() - 120), 'end' => $local(time() + 3600), 'scope' => 'categories', 'categories' => [ShopData::category_ids(['Physische Produkte'])[0]]]);
+$parent_campaign = $campaigns->save(['name' => 'Physisch', 'percent' => '10', ...$when('start', time() - 120), ...$when('end', time() + 3600), 'scope' => 'categories', 'categories' => [ShopData::category_ids(['Physische Produkte'])[0]]]);
 $campaign_ids[] = $parent_campaign['id'];
 check('übergeordnete Kategorie erfasst die Unterkategorien', $fresh($aktion_card)->get_price() === '2.25');
 check('bei zwei Aktionen gilt der höhere Rabatt', $fresh($sticker_a)->get_price() === '2.00');
@@ -546,17 +551,17 @@ $prices = $fresh($aktion_button)->get_variation_prices();
 check('Varianten eines Buttons sind reduziert, auch in der Preisspanne', $variation->get_price() === '4.05' && (string) min($prices['price']) === '4.05' && (string) max($prices['regular_price']) === '4.50');
 check('beide Aktionen melden die Überschneidung', Campaigns::conflicts($sticker_campaign)['overlaps'] === ['Physisch']);
 
-$single = $campaigns->save(['name' => 'Einzeln', 'percent' => '50', 'start' => $local(time() + 3600), 'end' => $local(time() + 7200), 'scope' => 'products', 'products' => [$sticker_a->get_id()]]);
+$single = $campaigns->save(['name' => 'Einzeln', 'percent' => '50', ...$when('start', time() + 3600), ...$when('end', time() + 7200), 'scope' => 'products', 'products' => [$sticker_a->get_id()]]);
 $campaign_ids[] = $single['id'];
 check('geplante Aktion wirkt noch nicht', Campaigns::status($single) === 'planned' && $fresh($sticker_a)->get_price() === '2.00');
 
 $ended = $campaigns->end($sticker_campaign['id']);
 check('beendete Aktion wirkt nicht mehr', Campaigns::status($ended) === 'ended' && $fresh($sticker_a)->get_price() === '2.25');
-check('beendete Aktion lässt sich nicht mehr ändern', is_wp_error($campaigns->save(['name' => 'Neu', 'percent' => '5', 'start' => $local(time()), 'end' => $local(time() + 60), 'scope' => 'all'], $ended['id'])));
+check('beendete Aktion lässt sich nicht mehr ändern', is_wp_error($campaigns->save(['name' => 'Neu', 'percent' => '5', ...$when('start', time()), ...$when('end', time() + 60), 'scope' => 'all'], $ended['id'])));
 $cancelled = $campaigns->end($single['id']);
 check('abgesagte geplante Aktion startet nie', Campaigns::status($cancelled) === 'ended' && $cancelled['end'] <= $cancelled['start']);
 
-$follow_up = $campaigns->save(['name' => 'Nachfolger', 'percent' => '15', 'start' => $local(time() + 120), 'end' => $local(time() + 3600), 'scope' => 'products', 'products' => [$sticker_a->get_id()]]);
+$follow_up = $campaigns->save(['name' => 'Nachfolger', 'percent' => '15', ...$when('start', time() + 120), ...$when('end', time() + 3600), 'scope' => 'products', 'products' => [$sticker_a->get_id()]]);
 $campaign_ids[] = $follow_up['id'];
 check('Warnung, wenn dieselben Produkte in den 30 Tagen davor reduziert waren', Campaigns::conflicts($follow_up)['reference'] === ['Stickerwoche']);
 check('abgesagte Aktion zählt nicht als Reduzierung', !in_array('Einzeln', Campaigns::conflicts($follow_up)['reference'], true));
@@ -601,7 +606,7 @@ $shipping_before = (float) WC()->cart->get_shipping_total();
 WC()->cart->apply_coupon('test-zehn');
 WC()->cart->calculate_totals();
 check('Warenkorb: 10 % nur auf die nicht reduzierten Sticker', abs((float) WC()->cart->get_discount_total() + (float) WC()->cart->get_discount_tax() - 0.5) < 0.001);
-$sticker_sale = (new Campaigns())->save(['name' => 'Gutscheintest', 'percent' => '20', 'start' => wp_date('Y-m-d\TH:i', time() - 120), 'end' => wp_date('Y-m-d\TH:i', time() + 3600), 'scope' => 'products', 'products' => [$coupon_sticker->get_id()]]);
+$sticker_sale = (new Campaigns())->save(['name' => 'Gutscheintest', 'percent' => '20', 'start_date' => wp_date('Y-m-d', time() - 120), 'start_time' => wp_date('H:i', time() - 120), 'end_date' => wp_date('Y-m-d', time() + 3600), 'end_time' => wp_date('H:i', time() + 3600), 'scope' => 'products', 'products' => [$coupon_sticker->get_id()]]);
 WC()->cart->calculate_totals();
 check('Warenkorb: kein Gutschein-Rabatt auf Produkte aus einer Aktion', (float) WC()->cart->get_discount_total() === 0.0);
 wp_delete_post($sticker_sale['id'], true);

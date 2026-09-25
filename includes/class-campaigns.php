@@ -163,8 +163,8 @@ final class Campaigns
             $errors['percent'] = sprintf(__('Bitte gib einen Rabatt zwischen 1 und %d Prozent ein.', 'novemberkind-produkte'), self::MAX_PERCENT);
         }
 
-        $start = ProductService::parse_local_datetime((string) ($data['start'] ?? ''));
-        $end   = ProductService::parse_local_datetime((string) ($data['end'] ?? ''));
+        $start = ProductService::parse_local_datetime((string) ($data['start_date'] ?? ''), (string) ($data['start_time'] ?? ''));
+        $end   = ProductService::parse_local_datetime((string) ($data['end_date'] ?? ''), (string) ($data['end_time'] ?? ''), '23:59');
         if ($start === null) {
             $errors['start'] = __('Bitte wähle, wann die Aktion beginnt.', 'novemberkind-produkte');
         }

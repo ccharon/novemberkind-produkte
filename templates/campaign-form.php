@@ -19,7 +19,7 @@ $is_new          = $campaign === null;
 $campaign_status = $is_new ? 'new' : Campaigns::status($campaign);
 $is_ended        = $campaign_status === 'ended';
 $scope           = $campaign['scope'] ?? 'all';
-$local           = static fn(?int $timestamp): string => $timestamp ? wp_date('Y-m-d\TH:i', $timestamp) : '';
+$local           = static fn(?int $timestamp, string $format): string => $timestamp ? wp_date($format, $timestamp) : '';
 
 $field_error = static function (string $field): void {
     printf('<span class="nkp-field__error" data-error-for="%s" hidden></span>', esc_attr($field));
@@ -82,18 +82,24 @@ $status_labels = [
                 <?php $field_error('percent'); ?>
             </label>
 
-            <div class="nkp-row">
-                <label class="nkp-field">
-                    <span class="nkp-field__label"><?php esc_html_e('Beginn', 'novemberkind-produkte'); ?></span>
-                    <input type="datetime-local" name="start" required value="<?php echo esc_attr($local($campaign['start'] ?? time())); ?>">
-                    <?php $field_error('start'); ?>
-                </label>
-                <label class="nkp-field">
-                    <span class="nkp-field__label"><?php esc_html_e('Ende', 'novemberkind-produkte'); ?></span>
-                    <input type="datetime-local" name="end" required value="<?php echo esc_attr($local($campaign['end'] ?? null)); ?>">
-                    <?php $field_error('end'); ?>
-                </label>
-            </div>
+            <?php
+            $moments = [
+                'start' => [__('Beginn', 'novemberkind-produkte'), $campaign['start'] ?? time(), ''],
+                'end'   => [__('Ende', 'novemberkind-produkte'), $campaign['end'] ?? null, '23:59'],
+            ];
+            foreach ($moments as $key => [$label, $timestamp, $default_time]) :
+                ?>
+                <fieldset class="nkp-field nkp-moment">
+                    <legend class="nkp-field__label"><?php echo esc_html($label); ?></legend>
+                    <div class="nkp-moment__inputs">
+                        <input type="date" name="<?php echo esc_attr($key); ?>_date" required value="<?php echo esc_attr($local($timestamp, 'Y-m-d')); ?>"
+                               aria-label="<?php echo esc_attr(sprintf(/* translators: %s: Beginn oder Ende */ __('%s, Datum', 'novemberkind-produkte'), $label)); ?>">
+                        <input type="time" name="<?php echo esc_attr($key); ?>_time" step="60" value="<?php echo esc_attr($timestamp ? $local($timestamp, 'H:i') : $default_time); ?>"
+                               aria-label="<?php echo esc_attr(sprintf(/* translators: %s: Beginn oder Ende */ __('%s, Uhrzeit', 'novemberkind-produkte'), $label)); ?>">
+                    </div>
+                    <?php $field_error($key); ?>
+                </fieldset>
+            <?php endforeach; ?>
         </section>
 
         <section class="nkp-panel">

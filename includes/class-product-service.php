@@ -75,9 +75,9 @@ final class ProductService
         }
         $publish_at = null;
         if ($status === 'future') {
-            $publish_at = self::parse_local_datetime((string) ($data['publish_at'] ?? ''));
+            $publish_at = self::parse_local_datetime((string) ($data['publish_date'] ?? ''), (string) ($data['publish_time'] ?? ''));
             if ($publish_at === null) {
-                $errors['publish_at'] = __('Bitte wähle Datum und Uhrzeit für die Veröffentlichung.', 'novemberkind-produkte');
+                $errors['publish_at'] = __('Bitte wähle das Datum für die Veröffentlichung.', 'novemberkind-produkte');
             } elseif ($publish_at <= time()) {
                 $errors['publish_at'] = __('Der Zeitpunkt liegt in der Vergangenheit. Wähle einen späteren oder stelle das Produkt direkt online.', 'novemberkind-produkte');
             }
@@ -219,15 +219,15 @@ final class ProductService
     }
 
     /**
-     * Zeitpunkt aus dem Feld `datetime-local` in der Zeitzone des Shops.
+     * Zeitpunkt aus einem Datums- und einem Uhrzeitfeld in der Zeitzone des Shops. Ohne Uhrzeit gilt `$default_time`.
      */
-    public static function parse_local_datetime(string $value): ?int
+    public static function parse_local_datetime(string $date, string $time, string $default_time = '00:00'): ?int
     {
-        $value = trim($value);
-        $date  = \DateTimeImmutable::createFromFormat('!Y-m-d\TH:i', $value, wp_timezone());
+        $value = trim($date) . 'T' . (trim($time) !== '' ? trim($time) : $default_time);
+        $parsed = \DateTimeImmutable::createFromFormat('!Y-m-d\TH:i', $value, wp_timezone());
 
         // Der Vergleich verwirft Werte, die PHP stillschweigend umrechnet, z. B. den 31.02.
-        return $date !== false && $date->format('Y-m-d\TH:i') === $value ? $date->getTimestamp() : null;
+        return $parsed !== false && $parsed->format('Y-m-d\TH:i') === $value ? $parsed->getTimestamp() : null;
     }
 
     /**

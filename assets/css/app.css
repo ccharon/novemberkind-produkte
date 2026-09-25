@@ -1503,11 +1503,6 @@ body.nkp-page {
 	}
 }
 
-/* Zeitpunkt für geplante Produkte direkt unter der Auswahl */
-.nkp-field--schedule {
-	margin: 0 0 0 30px;
-}
-
 .nkp-badge--future {
 	background: #e4e9f1;
 	color: #3b4f6b;
@@ -1725,4 +1720,31 @@ body.nkp-page {
 		grid-column: 1 / -1;
 		grid-row: 2;
 	}
+}
+
+/* Datum und Uhrzeit nebeneinander */
+.nkp-moment {
+	border: 0;
+	margin: 0;
+	min-width: 0;
+	padding: 0;
+}
+
+.nkp-moment legend {
+	float: left;
+	margin-bottom: 8px;
+	padding: 0;
+	width: 100%;
+}
+
+.nkp-moment__inputs {
+	clear: both;
+	display: grid;
+	gap: 10px;
+	grid-template-columns: minmax(0, 1fr) minmax(110px, 140px);
+}
+
+/* In der schmalen Seitenleiste bekommt das Datum mehr Platz */
+.nkp-field--schedule .nkp-moment__inputs {
+	grid-template-columns: minmax(0, 1fr) 108px;
 }

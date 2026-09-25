@@ -117,12 +117,12 @@ check 'Aktionen: Formular lädt mit Nonce' "$(curl -s -b "$JAR" "$APP/aktionen/n
 check 'Aktionen: unbekannte Aktion liefert 404' "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$APP/aktionen/999999/")" 404
 check 'Aktionen: ohne Nonce abgelehnt' "$(ajax -d action=novemberkind_produkte_save_campaign -d nonce=falsch -d name=x)" 403
 check 'Aktionen: Pflichtfehler liefert 422' "$(ajax -d action=novemberkind_produkte_save_campaign -d "nonce=$nonce" -d name=)" 422
-start=$(bin/wp eval "echo wp_date('Y-m-d\\TH:i');")
-end=$(bin/wp eval "echo wp_date('Y-m-d\\TH:i', time() + 3600);")
-check 'Aktionen: Speichern erfolgreich' "$(ajax -d action=novemberkind_produkte_save_campaign -d "nonce=$nonce" -d name=HTTP-Aktion -d percent=10 -d "start=$start" -d "end=$end" -d scope=all)" 200
+today=$(bin/wp eval "echo wp_date('Y-m-d');")
+tomorrow=$(bin/wp eval "echo wp_date('Y-m-d', time() + DAY_IN_SECONDS);")
+check 'Aktionen: Speichern erfolgreich' "$(ajax -d action=novemberkind_produkte_save_campaign -d "nonce=$nonce" -d name=HTTP-Aktion -d percent=10 -d "start_date=$today" -d start_time=00:00 -d "end_date=$tomorrow" -d scope=all)" 200
 campaign_id=$(grep -oP '"id":\K\d+' "$TMP/body")
 check 'Aktionen: Beenden erfolgreich' "$(ajax -d action=novemberkind_produkte_end_campaign -d "nonce=$nonce" -d "id=$campaign_id")" 200
-check 'Aktionen: beendete Aktion lässt sich nicht ändern' "$(ajax -d action=novemberkind_produkte_save_campaign -d "nonce=$nonce" -d "id=$campaign_id" -d name=x -d percent=5 -d "start=$start" -d "end=$end" -d scope=all)" 422
+check 'Aktionen: beendete Aktion lässt sich nicht ändern' "$(ajax -d action=novemberkind_produkte_save_campaign -d "nonce=$nonce" -d "id=$campaign_id" -d name=x -d percent=5 -d "start_date=$today" -d start_time=00:00 -d "end_date=$tomorrow" -d scope=all)" 422
 [ -n "$campaign_id" ] && bin/wp post delete "$campaign_id" --force >/dev/null
 
 # Gutscheine
