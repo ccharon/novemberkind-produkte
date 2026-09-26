@@ -35,6 +35,7 @@ final class Plugin
         (new Newsletters())->register();
         (new NewsletterSignup())->register();
         (new App())->register();
+        (new Login())->register();
         (new AdminPage())->register();
         (new Ajax())->register();
         (new Originals())->register();

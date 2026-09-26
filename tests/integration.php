@@ -80,7 +80,7 @@ check('Sichtbarkeit verkaufter Unikate mit fremden Werten bricht nicht ab', (sta
     (new NovemberkindProdukte\Originals())->update_visibility('abc');
     return true;
 })());
-check('Login-Weiterleitung mit fremden Werten bleibt unverändert', (new NovemberkindProdukte\App())->login_redirect('/ziel/', ['liste'], get_user_by('login', 'shop')) === '/ziel/' && (new NovemberkindProdukte\App())->login_redirect('/ziel/') === '/ziel/');
+check('Login-Weiterleitung mit fremden Werten bleibt unverändert', (new NovemberkindProdukte\Login())->login_redirect('/ziel/', ['liste'], get_user_by('login', 'shop')) === '/ziel/' && (new NovemberkindProdukte\Login())->login_redirect('/ziel/') === '/ziel/');
 
 section('Datenbank-Stand');
 update_option('novemberkind_produkte_webp_supported', 'yes');
