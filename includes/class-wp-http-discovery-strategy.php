@@ -15,6 +15,8 @@ defined('ABSPATH') || exit;
 final class WpHttpDiscoveryStrategy implements DiscoveryStrategy
 {
     /**
+     * WpHttpClient als Kandidat, wenn php-http/discovery einen PSR-18-Client sucht.
+     *
      * @param string $type
      * @return array<int, array{class: string, condition: string}>
      */

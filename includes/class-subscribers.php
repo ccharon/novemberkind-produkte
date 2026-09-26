@@ -56,42 +56,25 @@ final class Subscribers
      */
     public function register_post_type(): void
     {
-        register_post_type(self::POST_TYPE, [
-            'label'               => __('Newsletter-Abonnenten', 'novemberkind-produkte'),
-            'public'              => false,
-            'publicly_queryable'  => false,
-            'exclude_from_search' => true,
-            'show_ui'             => false,
-            'show_in_rest'        => false,
-            'show_in_nav_menus'   => false,
-            'rewrite'             => false,
-            'query_var'           => false,
-            'can_export'          => false,
-            'supports'            => ['title'],
-            'capability_type'     => 'product',
-            'map_meta_cap'        => true,
-        ]);
+        Plugin::register_private_post_type(self::POST_TYPE, __('Newsletter-Abonnenten', 'novemberkind-produkte'));
     }
 
     /**
-     * @return array<int, array<string, mixed>> alle Abonnenten, neueste zuerst
+     * Alle Abonnenten, bestätigt und unbestätigt, neueste zuerst.
+     *
+     * @return array<int, array<string, mixed>>
      * @phpstan-return array<int, Subscriber>
      */
     public static function all(): array
     {
-        $posts = get_posts([
-            'post_type'      => self::POST_TYPE,
-            'post_status'    => 'private',
-            'posts_per_page' => -1,
-            'orderby'        => 'date',
-            'order'          => 'DESC',
-            'no_found_rows'  => true,
-        ]);
+        $posts = Plugin::private_posts(self::POST_TYPE, ['orderby' => 'date', 'order' => 'DESC']);
 
         return array_values(array_filter(array_map([self::class, 'from_post'], $posts)));
     }
 
     /**
+     * Abonnenten, die ihre Anmeldung bestätigt haben.
+     *
      * @return array<int, array<string, mixed>>
      * @phpstan-return array<int, Subscriber>
      */
@@ -101,6 +84,8 @@ final class Subscribers
     }
 
     /**
+     * Zahl der bestätigten und der unbestätigten Anmeldungen.
+     *
      * @return array{confirmed: int, pending: int}
      */
     public static function counts(): array
@@ -114,6 +99,8 @@ final class Subscribers
     }
 
     /**
+     * Ein Abonnent oder null, wenn es ihn nicht gibt.
+     *
      * @return array<string, mixed>|null
      * @phpstan-return Subscriber|null
      */
@@ -125,6 +112,8 @@ final class Subscribers
     }
 
     /**
+     * Der älteste Eintrag einer Adresse oder null.
+     *
      * @return array<string, mixed>|null
      * @phpstan-return Subscriber|null
      */
@@ -142,20 +131,17 @@ final class Subscribers
      */
     private static function ids_for_email(string $email): array
     {
-        return array_map('intval', get_posts([
-            'post_type'      => self::POST_TYPE,
-            'post_status'    => 'private',
-            'meta_key'       => self::META_EMAIL, // phpcs:ignore WordPress.DB.SlowDBQuery -- wenige Einträge
-            'meta_value'     => strtolower(trim($email)), // phpcs:ignore WordPress.DB.SlowDBQuery -- wenige Einträge
-            'posts_per_page' => -1,
-            'orderby'        => 'ID',
-            'order'          => 'ASC',
-            'fields'         => 'ids',
-            'no_found_rows'  => true,
-        ]));
+        return Plugin::private_post_ids(self::POST_TYPE, [
+            'meta_key'   => self::META_EMAIL, // phpcs:ignore WordPress.DB.SlowDBQuery -- wenige Einträge
+            'meta_value' => strtolower(trim($email)), // phpcs:ignore WordPress.DB.SlowDBQuery -- wenige Einträge
+            'orderby'    => 'ID',
+            'order'      => 'ASC',
+        ]);
     }
 
     /**
+     * Abonnent zum Token aus einem Link, verglichen in konstanter Zeit, oder null.
+     *
      * @return array<string, mixed>|null
      * @phpstan-return Subscriber|null
      */
@@ -164,13 +150,10 @@ final class Subscribers
         if (strlen($token) !== self::TOKEN_LENGTH || !ctype_alnum($token)) {
             return null;
         }
-        $posts = get_posts([
-            'post_type'      => self::POST_TYPE,
-            'post_status'    => 'private',
+        $posts = Plugin::private_posts(self::POST_TYPE, [
             'meta_key'       => self::META_TOKEN, // phpcs:ignore WordPress.DB.SlowDBQuery -- wenige Einträge
             'meta_value'     => $token, // phpcs:ignore WordPress.DB.SlowDBQuery -- wenige Einträge
             'posts_per_page' => 1,
-            'no_found_rows'  => true,
         ]);
         $subscriber = $posts ? self::from_post($posts[0]) : null;
 
@@ -334,20 +317,16 @@ final class Subscribers
     public function download_csv(): void
     {
         check_admin_referer(self::CSV_ACTION);
-        if (!current_user_can(Plugin::CAPABILITY) || !current_user_can(Newsletters::CAPABILITY)) {
-            wp_die(esc_html__('Dafür fehlen dir die Berechtigungen.', 'novemberkind-produkte'), '', ['response' => 403]);
-        }
+        Plugin::require_capability(Plugin::CAPABILITY);
+        Plugin::require_capability(Newsletters::CAPABILITY);
 
-        nocache_headers();
-        header('Content-Type: text/csv; charset=utf-8');
-        header('X-Content-Type-Options: nosniff');
-        header('Content-Disposition: attachment; filename="newsletter-abonnenten-' . wp_date('Y-m-d') . '.csv"');
         // BOM, damit Excel die Umlaute richtig liest
-        echo "\xEF\xBB\xBF" . self::csv(); // phpcs:ignore WordPress.Security.EscapeOutput -- CSV mit Content-Type text/csv und nosniff
-        exit;
+        Plugin::send_file('newsletter-abonnenten-' . wp_date('Y-m-d') . '.csv', 'text/csv; charset=utf-8', "\xEF\xBB\xBF" . self::csv());
     }
 
     /**
+     * Meldet den Export der Anmeldung bei den Datenschutz-Werkzeugen von WordPress an.
+     *
      * @return array<mixed>
      */
     public function register_exporter(mixed $exporters): array
@@ -359,6 +338,8 @@ final class Subscribers
     }
 
     /**
+     * Meldet das Löschen der Anmeldung bei den Datenschutz-Werkzeugen von WordPress an.
+     *
      * @return array<mixed>
      */
     public function register_eraser(mixed $erasers): array
@@ -436,6 +417,9 @@ final class Subscribers
         );
     }
 
+    /**
+     * Bezeichnung der Quelle einer Anmeldung: Kasse oder Formular.
+     */
     public static function source_label(string $source): string
     {
         return $source === 'checkout' ? __('Kasse', 'novemberkind-produkte') : __('Formular', 'novemberkind-produkte');

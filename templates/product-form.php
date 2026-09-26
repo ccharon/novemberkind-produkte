@@ -39,12 +39,9 @@ $size_label = static function (string $plain, string $a6) use ($type): void {
     echo esc_html($type->has_field('a4') ? $a6 : $plain);
 };
 
-$field_error = static function (string $field): void {
-    printf('<span class="nkp-field__error" data-error-for="%s" hidden></span>', esc_attr($field));
-};
 $size_label_text = static fn(string $plain, string $a6): string => $type->has_field('a4') ? $a6 : $plain;
 // Gesperrt bei Angeboten mit Zeitraum oder je Variante verschiedenen Preisen aus der WooCommerce-Maske
-$sale_field = static function (string $name, string $label, string $value, bool $disabled) use ($field_error, $sale_locked): void {
+$sale_field = static function (string $name, string $label, string $value, bool $disabled) use ($sale_locked): void {
     ?>
     <label class="nkp-field">
         <span class="nkp-field__label"><?php echo esc_html($label); ?></span>
@@ -58,7 +55,7 @@ $sale_field = static function (string $name, string $label, string $value, bool 
         <?php elseif ($name === 'sale') : ?>
             <span class="nkp-field__hint"><?php esc_html_e('Mit Angebotspreis gelten keine Aktionen und keine Prozent-Gutscheine.', 'novemberkind-produkte'); ?></span>
         <?php endif; ?>
-        <?php $field_error($name); ?>
+        <?php Html::field_error($name); ?>
     </label>
     <?php
 };
@@ -112,7 +109,7 @@ $choice = static function (string $name, string $value, string $label, string $c
                     <?php esc_html_e('Im Shop:', 'novemberkind-produkte'); ?>
                     <strong><?php echo esc_html($type->product_name($context['motif'])); ?></strong>
                 </span>
-                <?php $field_error('motif'); ?>
+                <?php Html::field_error('motif'); ?>
             </label>
 
             <label class="nkp-field nkp-field--narrow">
@@ -125,7 +122,7 @@ $choice = static function (string $name, string $value, string $label, string $c
                     echo esc_html(sprintf(__('Auch Grundlage für die Dateinamen der Fotos. Nächste freie Nummer: %s', 'novemberkind-produkte'), ShopData::next_sku()));
                     ?>
                 </span>
-                <?php $field_error('sku'); ?>
+                <?php Html::field_error('sku'); ?>
             </label>
 
             <?php if ($type->has_field('format')) : ?>
@@ -135,7 +132,7 @@ $choice = static function (string $name, string $value, string $label, string $c
                         <?php $choice('format', 'quer', __('Querformat 15 × 10,5 cm', 'novemberkind-produkte'), $context['format']); ?>
                         <?php $choice('format', 'hoch', __('Hochformat 10,5 × 15 cm', 'novemberkind-produkte'), $context['format']); ?>
                     </div>
-                    <?php $field_error('format'); ?>
+                    <?php Html::field_error('format'); ?>
                 </div>
             <?php endif; ?>
 
@@ -153,7 +150,7 @@ $choice = static function (string $name, string $value, string $label, string $c
                         <?php $choice('finish', 'matt', __('Matt', 'novemberkind-produkte'), $context['finish']); ?>
                         <?php $choice('finish', 'glaenzend', __('Glänzend', 'novemberkind-produkte'), $context['finish']); ?>
                     </div>
-                    <?php $field_error('finish'); ?>
+                    <?php Html::field_error('finish'); ?>
                 </div>
             <?php endif; ?>
 
@@ -164,7 +161,7 @@ $choice = static function (string $name, string $value, string $label, string $c
                         <?php $choice('width', '5', __('5 cm', 'novemberkind-produkte'), $context['width']); ?>
                         <?php $choice('width', '7', __('7 cm', 'novemberkind-produkte'), $context['width']); ?>
                     </div>
-                    <?php $field_error('width'); ?>
+                    <?php Html::field_error('width'); ?>
                 </div>
             <?php endif; ?>
 
@@ -179,14 +176,14 @@ $choice = static function (string $name, string $value, string $label, string $c
                                     <option <?php selected($context['technique'], $technique); ?>><?php echo esc_html($technique); ?></option>
                                 <?php endforeach; ?>
                             </select>
-                            <?php $field_error('technique'); ?>
+                            <?php Html::field_error('technique'); ?>
                         </label>
                     <?php endif; ?>
                     <?php if ($type->has_field('year')) : ?>
                         <label class="nkp-field">
                             <span class="nkp-field__label"><?php esc_html_e('Entstanden', 'novemberkind-produkte'); ?></span>
                             <input type="text" name="year" inputmode="numeric" maxlength="4" value="<?php echo esc_attr($context['year']); ?>">
-                            <?php $field_error('year'); ?>
+                            <?php Html::field_error('year'); ?>
                         </label>
                     <?php endif; ?>
                 </div>
@@ -200,7 +197,7 @@ $choice = static function (string $name, string $value, string $label, string $c
                             <input type="text" name="width" inputmode="decimal" value="<?php echo esc_attr(ProductType::format_number($context['width'])); ?>">
                             <span aria-hidden="true">cm</span>
                         </span>
-                        <?php $field_error('width'); ?>
+                        <?php Html::field_error('width'); ?>
                     </label>
                     <label class="nkp-field">
                         <span class="nkp-field__label"><?php esc_html_e('Höhe', 'novemberkind-produkte'); ?></span>
@@ -208,7 +205,7 @@ $choice = static function (string $name, string $value, string $label, string $c
                             <input type="text" name="height" inputmode="decimal" value="<?php echo esc_attr(ProductType::format_number($context['height'])); ?>">
                             <span aria-hidden="true">cm</span>
                         </span>
-                        <?php $field_error('height'); ?>
+                        <?php Html::field_error('height'); ?>
                     </label>
                 </div>
             <?php endif; ?>
@@ -218,7 +215,7 @@ $choice = static function (string $name, string $value, string $label, string $c
                     <span class="nkp-field__label"><?php esc_html_e('Über das Bild', 'novemberkind-produkte'); ?></span>
                     <span class="nkp-field__hint"><?php esc_html_e('Was ist zu sehen, wie ist es entstanden? Technik, Maße und Jahr werden automatisch ergänzt.', 'novemberkind-produkte'); ?></span>
                     <textarea name="text" rows="7"><?php echo esc_textarea($context['text']); ?></textarea>
-                    <?php $field_error('text'); ?>
+                    <?php Html::field_error('text'); ?>
                 </label>
             <?php endif; ?>
 
@@ -233,7 +230,7 @@ $choice = static function (string $name, string $value, string $label, string $c
                     <?php if ($type->is_variable()) : ?>
                         <span class="nkp-field__hint"><?php esc_html_e('Gilt für alle Rückseiten.', 'novemberkind-produkte'); ?></span>
                     <?php endif; ?>
-                    <?php $field_error('price'); ?>
+                    <?php Html::field_error('price'); ?>
                 </label>
                 <?php $sale_field('sale', $size_label_text(__('Angebotspreis', 'novemberkind-produkte'), __('Angebotspreis A6', 'novemberkind-produkte')), $sale, $sale_locked); ?>
                 <?php if (!$type->is_unique()) : ?>
@@ -241,7 +238,7 @@ $choice = static function (string $name, string $value, string $label, string $c
                         <span class="nkp-field__label"><?php $size_label(__('Lagerbestand', 'novemberkind-produkte'), __('Lagerbestand A6', 'novemberkind-produkte')); ?></span>
                         <input type="number" name="stock" min="0" step="1" inputmode="numeric" value="<?php echo esc_attr($stock); ?>"
                                placeholder="<?php esc_attr_e('leer = nicht zählen', 'novemberkind-produkte'); ?>">
-                        <?php $field_error('stock'); ?>
+                        <?php Html::field_error('stock'); ?>
                     </label>
                 <?php endif; ?>
             </div>
@@ -255,14 +252,14 @@ $choice = static function (string $name, string $value, string $label, string $c
                                    value="<?php echo esc_attr($price_a4 === '' ? '' : wc_format_localized_price($price_a4)); ?>" placeholder="0,00">
                             <span aria-hidden="true">€</span>
                         </span>
-                        <?php $field_error('price_a4'); ?>
+                        <?php Html::field_error('price_a4'); ?>
                     </label>
                     <?php $sale_field('sale_a4', __('Angebotspreis A4', 'novemberkind-produkte'), $sale_a4, $sale_locked || !$with_a4); ?>
                     <label class="nkp-field">
                         <span class="nkp-field__label"><?php esc_html_e('Lagerbestand A4', 'novemberkind-produkte'); ?></span>
                         <input type="number" name="stock_a4" min="0" step="1" inputmode="numeric" value="<?php echo esc_attr($stock_a4); ?>" <?php disabled(!$with_a4); ?>
                                placeholder="<?php esc_attr_e('leer = nicht zählen', 'novemberkind-produkte'); ?>">
-                        <?php $field_error('stock_a4'); ?>
+                        <?php Html::field_error('stock_a4'); ?>
                     </label>
                 </div>
             <?php endif; ?>
@@ -374,14 +371,12 @@ $choice = static function (string $name, string $value, string $label, string $c
                     <span><strong><?php esc_html_e('Geplant', 'novemberkind-produkte'); ?></strong>
                     <?php esc_html_e('Geht zum gewählten Zeitpunkt automatisch online', 'novemberkind-produkte'); ?></span>
                 </label>
-                <fieldset class="nkp-field nkp-field--schedule nkp-moment" data-nkp-schedule <?php disabled(!$is_planned); ?> <?php echo $is_planned ? '' : 'hidden'; ?>>
-                    <legend class="nkp-field__label"><?php esc_html_e('Online ab', 'novemberkind-produkte'); ?></legend>
-                    <div class="nkp-moment__inputs">
-                        <input type="date" name="publish_date" value="<?php echo esc_attr($publish_at ? wp_date('Y-m-d', $publish_at) : ''); ?>" aria-label="<?php esc_attr_e('Datum', 'novemberkind-produkte'); ?>">
-                        <input type="time" name="publish_time" step="60" value="<?php echo esc_attr($publish_at ? wp_date('H:i', $publish_at) : '00:00'); ?>" aria-label="<?php esc_attr_e('Uhrzeit', 'novemberkind-produkte'); ?>">
-                    </div>
-                    <?php $field_error('publish_at'); ?>
-                </fieldset>
+                <?php
+                Html::moment('publish', __('Online ab', 'novemberkind-produkte'), $publish_at, '00:00', [
+                    'class'      => 'nkp-field--schedule',
+                    'attributes' => ['data-nkp-schedule' => true, 'disabled' => !$is_planned, 'hidden' => !$is_planned],
+                ]);
+                ?>
                 <label class="nkp-choice">
                     <input type="radio" name="status" value="publish" <?php checked($is_online); ?>>
                     <span><strong><?php esc_html_e('Online', 'novemberkind-produkte'); ?></strong>
@@ -452,5 +447,3 @@ $choice = static function (string $name, string $value, string $label, string $c
         </form>
     </dialog>
 <?php endif; ?>
-
-<div class="nkp-toast" data-nkp-toast role="status" aria-live="polite" hidden></div>

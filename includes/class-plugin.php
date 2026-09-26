@@ -35,6 +35,7 @@ final class Plugin
         (new Newsletters())->register();
         (new NewsletterSignup())->register();
         (new App())->register();
+        (new Login())->register();
         (new AdminPage())->register();
         (new Ajax())->register();
         (new Originals())->register();
@@ -43,7 +44,7 @@ final class Plugin
     }
 
     /**
-     * Die Adresse /produkte-verwalten/ funktioniert nur mit sprechenden Permalinks.
+     * Warnt im Backend, wenn sprechende Permalinks fehlen, weil /produkte-verwalten/ sonst nicht erreichbar ist.
      */
     public static function permalink_notice(): void
     {
@@ -78,15 +79,114 @@ final class Plugin
     }
 
     /**
-     * Ein Formularwert als Text. Listen wie `email[]=…` ergeben den Standardwert statt einer PHP-Warnung.
+     * Nicht öffentlicher Inhaltstyp ohne Adresse, Backend-Oberfläche, REST und Export.
+     * Rechte wie bei Produkten, damit nur Rollen mit Produktrechten an die Einträge kommen.
      *
-     * @param array<mixed> $data
+     * @param string[] $supports
      */
-    public static function input(array $data, string $key, string $default = ''): string
+    public static function register_private_post_type(string $post_type, string $label, array $supports = ['title']): void
     {
-        $value = $data[$key] ?? $default;
+        register_post_type($post_type, [
+            'label'               => $label,
+            'public'              => false,
+            'publicly_queryable'  => false,
+            'exclude_from_search' => true,
+            'show_ui'             => false,
+            'show_in_rest'        => false,
+            'show_in_nav_menus'   => false,
+            'rewrite'             => false,
+            'query_var'           => false,
+            'can_export'          => false,
+            'supports'            => $supports,
+            'capability_type'     => 'product',
+            'map_meta_cap'        => true,
+        ]);
+    }
 
-        return is_scalar($value) ? (string) $value : $default;
+    /**
+     * Einträge eines nicht öffentlichen Inhaltstyps. Typ und Status stehen fest, die übrigen Vorgaben (alle Einträge,
+     * ohne Zählung) gelten, sofern `$args` nichts anderes sagt.
+     *
+     * @param array<string, mixed> $args weitere Argumente für get_posts
+     * @return \WP_Post[]
+     */
+    public static function private_posts(string $post_type, array $args = []): array
+    {
+        return array_values(array_filter(
+            get_posts(['post_type' => $post_type, 'post_status' => 'private'] + $args + ['posts_per_page' => -1, 'no_found_rows' => true]),
+            static fn(mixed $post): bool => $post instanceof \WP_Post
+        ));
+    }
+
+    /**
+     * IDs der Einträge eines nicht öffentlichen Inhaltstyps.
+     *
+     * @param array<string, mixed> $args weitere Argumente für get_posts
+     * @return int[]
+     */
+    public static function private_post_ids(string $post_type, array $args = []): array
+    {
+        return array_map('intval', get_posts(['post_type' => $post_type, 'post_status' => 'private', 'fields' => 'ids'] + $args + ['posts_per_page' => -1, 'no_found_rows' => true]));
+    }
+
+    /**
+     * Beendet die Seite mit 403, wenn ein Recht fehlt. Die Meldung nennt den Bereich.
+     */
+    public static function require_capability(string $capability): void
+    {
+        if (current_user_can($capability)) {
+            return;
+        }
+        wp_die(
+            esc_html(match ($capability) {
+                Coupons::CAPABILITY     => __('Für Gutscheine fehlen dir die Berechtigungen.', 'novemberkind-produkte'),
+                Newsletters::CAPABILITY => __('Für den Newsletter fehlen dir die Berechtigungen.', 'novemberkind-produkte'),
+                self::CAPABILITY        => __('Für die Produktverwaltung fehlen dir die Berechtigungen.', 'novemberkind-produkte'),
+                default                 => __('Dafür fehlen dir die Berechtigungen.', 'novemberkind-produkte'),
+            }),
+            esc_html__('Keine Berechtigung', 'novemberkind-produkte'),
+            ['response' => 403, 'back_link' => true]
+        );
+    }
+
+    /**
+     * Liefert eine Datei zum Herunterladen oder Ansehen aus. Mit festem Typ und nosniff, damit der Browser
+     * den Inhalt nie als HTML ausführt.
+     */
+    public static function send_file(string $filename, string $content_type, string $body, bool $inline = false): never
+    {
+        nocache_headers();
+        header('Content-Type: ' . $content_type);
+        header('X-Content-Type-Options: nosniff');
+        header(sprintf('Content-Disposition: %s; filename="%s"', $inline ? 'inline' : 'attachment', sanitize_file_name($filename)));
+        echo $body; // phpcs:ignore WordPress.Security.EscapeOutput -- Dateiinhalt mit festem Content-Type und nosniff
+        exit;
+    }
+
+    /**
+     * Adresse einer Datei des Plugins, z. B. „assets/css/app.css“.
+     */
+    public static function asset_url(string $file): string
+    {
+        return plugin_dir_url(PLUGIN_FILE) . $file;
+    }
+
+    /**
+     * Plugin-Version plus Änderungszeit der Datei, damit Browser nach jeder Änderung die neue Fassung laden.
+     */
+    public static function asset_version(string $file): string
+    {
+        $path = dirname(PLUGIN_FILE) . '/' . $file;
+
+        return VERSION . '.' . (is_readable($path) ? (string) filemtime($path) : '0');
+    }
+
+    /**
+     * Stile der Produktverwaltung, auch für die öffentlichen Seiten zum Bestätigen und Abmelden.
+     */
+    public static function register_app_style(): void
+    {
+        wp_register_style('novemberkind-produkte-app', self::asset_url('assets/css/app.css'), [], self::asset_version('assets/css/app.css'));
     }
 
     /**

@@ -16,6 +16,7 @@ final class Coupons
 {
     // Kennzeichnet Gutscheine aus diesem Plugin; andere werden in WooCommerce bearbeitet
     public const META_OWN = '_novemberkind_produkte_coupon';
+    public const CAPABILITY = 'edit_shop_coupons';
     public const KINDS = ['percent', 'shipping'];
     public const CODE_MIN_LENGTH = 3;
     public const CODE_MAX_LENGTH = 30;
@@ -34,7 +35,7 @@ final class Coupons
 
     /**
      * Versand-Gutscheine setzen die Kosten aller Versandarten auf 0. So braucht der Shop keine eigene Versandart „Kostenloser Versand“.
-     * Ohne Typangabe, weil auch andere Plugins diesen Filter auslösen.
+     * Nimmt beliebige Werte an, weil auch andere Plugins diesen Filter auslösen.
      */
     public function free_shipping_rates(mixed $rates): mixed
     {
@@ -61,7 +62,9 @@ final class Coupons
     }
 
     /**
-     * @return array<int, array<string, mixed>> alle Gutscheine, neueste zuerst
+     * Alle Gutscheine des Shops, auch die aus WooCommerce, neueste zuerst.
+     *
+     * @return array<int, array<string, mixed>>
      * @phpstan-return array<int, Coupon>
      */
     public static function all(): array
@@ -79,6 +82,8 @@ final class Coupons
     }
 
     /**
+     * Ein Gutschein oder null, wenn die ID kein Gutschein ist.
+     *
      * @return array<string, mixed>|null
      * @phpstan-return Coupon|null
      */
@@ -92,6 +97,8 @@ final class Coupons
     }
 
     /**
+     * Werte eines Gutscheins für Liste und Formular.
+     *
      * @return array<string, mixed>
      * @phpstan-return Coupon
      */
@@ -117,6 +124,24 @@ final class Coupons
     }
 
     /**
+     * Plakette für den Zustand eines Gutscheins: aktiv, abgelaufen oder deaktiviert.
+     *
+     * @param array<string, mixed> $coupon
+     * @phpstan-param Coupon $coupon
+     * @return array{badge: string, label: string}
+     */
+    public static function badge(array $coupon): array
+    {
+        return match (true) {
+            !$coupon['active'] => ['badge' => 'draft', 'label' => __('Deaktiviert', 'novemberkind-produkte')],
+            $coupon['expired'] => ['badge' => 'draft', 'label' => __('Abgelaufen', 'novemberkind-produkte')],
+            default            => ['badge' => 'online', 'label' => __('Aktiv', 'novemberkind-produkte')],
+        };
+    }
+
+    /**
+     * Legt einen eigenen Gutschein an oder ändert ihn. Gutscheine aus WooCommerce ändert das Plugin nicht.
+     *
      * @param array<string, mixed> $data Rohdaten aus dem Formular
      * @return array<string, mixed>|\WP_Error
      * @phpstan-return Coupon|\WP_Error
@@ -129,7 +154,7 @@ final class Coupons
         }
 
         $errors = [];
-        $code   = strtoupper(trim(sanitize_text_field(wp_unslash((string) ($data['code'] ?? '')))));
+        $code   = strtoupper(Input::text($data, 'code'));
         if (!preg_match(self::CODE_PATTERN, $code)) {
             $errors['code'] = sprintf(
                 /* translators: 1: kleinste, 2: größte Anzahl Zeichen */
@@ -142,21 +167,16 @@ final class Coupons
             $errors['code'] = sprintf(__('Den Code %s gibt es schon.', 'novemberkind-produkte'), $code);
         }
 
-        $kind = (string) ($data['kind'] ?? '');
-        if (!in_array($kind, self::KINDS, true)) {
-            $kind = 'percent';
-        }
+        $kind    = Input::choice($data, 'kind', self::KINDS, 'percent');
         $percent = 0;
         if ($kind === 'percent') {
-            $raw     = trim((string) ($data['percent'] ?? ''));
-            $percent = ctype_digit($raw) ? (int) $raw : 0;
-            if ($percent < 1 || $percent > self::MAX_PERCENT) {
-                /* translators: %d: höchster erlaubter Rabatt */
-                $errors['percent'] = sprintf(__('Bitte gib einen Rabatt zwischen 1 und %d Prozent ein.', 'novemberkind-produkte'), self::MAX_PERCENT);
+            $percent = Input::percent($data, 'percent', self::MAX_PERCENT) ?? 0;
+            if ($percent === 0) {
+                $errors['percent'] = Input::percent_error(self::MAX_PERCENT);
             }
         }
 
-        $expires_raw = trim((string) ($data['expires'] ?? ''));
+        $expires_raw = Input::text($data, 'expires');
         $expires     = null;
         if ($expires_raw !== '') {
             $day = \DateTimeImmutable::createFromFormat('!Y-m-d', $expires_raw, wp_timezone());
@@ -170,7 +190,7 @@ final class Coupons
         }
 
         if ($errors !== []) {
-            return new \WP_Error('invalid', __('Bitte prüfe die markierten Felder.', 'novemberkind-produkte'), $errors);
+            return Input::invalid($errors);
         }
 
         $coupon = new \WC_Coupon($id);
@@ -188,7 +208,7 @@ final class Coupons
             $coupon->set_exclude_sale_items(true);
         }
         $coupon->set_date_expires($expires);
-        $coupon->set_usage_limit_per_user(!empty($data['once']) ? 1 : 0);
+        $coupon->set_usage_limit_per_user(Input::value($data, 'once') === '1' ? 1 : 0);
         if ($id === 0) {
             $coupon->set_status('publish');
         }

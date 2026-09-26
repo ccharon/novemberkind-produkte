@@ -7,11 +7,46 @@ namespace NovemberkindProdukte;
 defined('ABSPATH') || exit;
 
 /**
- * Eigenständige Seite unter /produkte-verwalten/ ohne WordPress-Rahmen. Adressen siehe CLAUDE.md.
+ * Eigenständige Seite unter /produkte-verwalten/ ohne WordPress-Rahmen: Adressen, Rechte und Seitenaufbau.
+ * Die Daten der einzelnen Seiten liefert Pages. Adressen siehe CLAUDE.md.
  */
 final class App
 {
     public const QUERY_VAR = 'novemberkind_produkte';
+    private const MANIFEST = 'manifest.webmanifest';
+
+    /**
+     * Adressen unter dem Pfad der Produktverwaltung: Muster => [Methode in Pages, Bereich, Skript der Seite].
+     * Gruppen im Muster werden der Methode übergeben, das nötige Recht kommt vom Bereich.
+     */
+    private const ROUTES = [
+        ''                      => ['overview', 'products', 'overview'],
+        'neu'                   => ['type_picker', 'products', ''],
+        'neu/([a-z]+)'          => ['new_product', 'products', 'product-form'],
+        '(\d+)'                 => ['edit_product', 'products', 'product-form'],
+        'aktionen'              => ['campaigns', 'campaigns', 'forms'],
+        'aktionen/(neu|\d+)'    => ['campaign_form', 'campaigns', 'forms'],
+        'gutscheine'            => ['coupons', 'coupons', 'forms'],
+        'gutscheine/(neu|\d+)'  => ['coupon_form', 'coupons', 'forms'],
+        'newsletter'            => ['newsletters', 'newsletter', 'forms'],
+        'newsletter/abonnenten' => ['subscribers', 'newsletter', 'forms'],
+        'newsletter/(neu|\d+)'  => ['newsletter_form', 'newsletter', 'newsletter-form'],
+    ];
+
+    /**
+     * Bereiche in der Kopfzeile mit Adresse, Bezeichnung und dem Recht, das sie zusätzlich verlangen.
+     *
+     * @return array<string, array{url: string, label: string, capability: string}>
+     */
+    public static function sections(): array
+    {
+        return [
+            'products'   => ['url' => self::url(), 'label' => __('Produkte', 'novemberkind-produkte'), 'capability' => ''],
+            'campaigns'  => ['url' => self::campaigns_url(), 'label' => __('Aktionen', 'novemberkind-produkte'), 'capability' => ''],
+            'coupons'    => ['url' => self::coupons_url(), 'label' => __('Gutscheine', 'novemberkind-produkte'), 'capability' => Coupons::CAPABILITY],
+            'newsletter' => ['url' => self::newsletter_url(), 'label' => __('Newsletter', 'novemberkind-produkte'), 'capability' => Newsletters::CAPABILITY],
+        ];
+    }
 
     /**
      * Pfad der Produktverwaltung ohne Schrägstriche, änderbar über den Filter `novemberkind_produkte_path`.
@@ -22,11 +57,11 @@ final class App
     }
 
     /**
-     * Adresse der Produktübersicht.
+     * Adresse der Produktübersicht oder, mit `$page` wie „aktionen/neu“, einer Unterseite.
      */
-    public static function url(): string
+    public static function url(string $page = ''): string
     {
-        return home_url('/' . self::path() . '/');
+        return home_url('/' . self::path() . '/' . ($page !== '' ? trim($page, '/') . '/' : ''));
     }
 
     /**
@@ -34,7 +69,7 @@ final class App
      */
     public static function edit_url(int $product_id): string
     {
-        return self::url() . $product_id . '/';
+        return self::url((string) $product_id);
     }
 
     /**
@@ -42,7 +77,7 @@ final class App
      */
     public static function new_url(string $type = ''): string
     {
-        return self::url() . 'neu/' . ($type !== '' ? $type . '/' : '');
+        return self::url('neu/' . $type);
     }
 
     /**
@@ -50,7 +85,7 @@ final class App
      */
     public static function campaigns_url(int|string $campaign = ''): string
     {
-        return self::url() . 'aktionen/' . ($campaign !== '' ? $campaign . '/' : '');
+        return self::url('aktionen/' . $campaign);
     }
 
     /**
@@ -58,7 +93,7 @@ final class App
      */
     public static function coupons_url(int|string $coupon = ''): string
     {
-        return self::url() . 'gutscheine/' . ($coupon !== '' ? $coupon . '/' : '');
+        return self::url('gutscheine/' . $coupon);
     }
 
     /**
@@ -66,11 +101,19 @@ final class App
      */
     public static function newsletter_url(int|string $page = ''): string
     {
-        return self::url() . 'newsletter/' . ($page !== '' ? $page . '/' : '');
+        return self::url('newsletter/' . $page);
     }
 
     /**
-     * Meldet Adressen, Seitenaufbau und Anpassungen der Login-Seite an.
+     * Adresse des Web-App-Manifests für den Home-Bildschirm.
+     */
+    public static function manifest_url(): string
+    {
+        return home_url('/' . self::path() . '/' . self::MANIFEST);
+    }
+
+    /**
+     * Meldet Adressen und Seitenaufbau an.
      */
     public function register(): void
     {
@@ -79,31 +122,19 @@ final class App
         add_action('template_redirect', [$this, 'maybe_render']);
         // Sonst hängt WordPress an manifest.webmanifest einen Schrägstrich an
         add_filter('redirect_canonical', static fn($redirect) => get_query_var(self::QUERY_VAR) !== '' ? false : $redirect);
-        add_filter('login_redirect', [$this, 'login_redirect'], 10, 3);
-        add_action('login_enqueue_scripts', [$this, 'login_style']);
-        add_filter('login_headerurl', static fn(): string => home_url('/'));
-        add_filter('login_headertext', static fn(): string => get_bloginfo('name'));
     }
 
     /**
-     * Adressen der eigenen Seiten; bei geändertem Pfad werden die Regeln einmal neu geschrieben.
+     * Legt eine Rewrite-Regel für alles unter dem Pfad an; die Seite wählt maybe_render() über ROUTES.
+     * Ändert sich die Regel, etwa über den Filter für den Pfad, schreibt WordPress die Regeln einmal neu.
      */
     public function add_rewrite_rules(): void
     {
-        $path = preg_quote(self::path(), '#');
-        add_rewrite_rule("^{$path}/?$", 'index.php?' . self::QUERY_VAR . '=overview', 'top');
-        add_rewrite_rule("^{$path}/(neu|\\d+)/?$", 'index.php?' . self::QUERY_VAR . '=$matches[1]', 'top');
-        add_rewrite_rule("^{$path}/neu/([a-z]+)/?$", 'index.php?' . self::QUERY_VAR . '=neu-$matches[1]', 'top');
-        add_rewrite_rule("^{$path}/manifest\\.webmanifest$", 'index.php?' . self::QUERY_VAR . '=manifest', 'top');
-        add_rewrite_rule("^{$path}/aktionen/?$", 'index.php?' . self::QUERY_VAR . '=aktionen', 'top');
-        add_rewrite_rule("^{$path}/aktionen/(neu|\\d+)/?$", 'index.php?' . self::QUERY_VAR . '=aktion-$matches[1]', 'top');
-        add_rewrite_rule("^{$path}/gutscheine/?$", 'index.php?' . self::QUERY_VAR . '=gutscheine', 'top');
-        add_rewrite_rule("^{$path}/gutscheine/(neu|\\d+)/?$", 'index.php?' . self::QUERY_VAR . '=gutschein-$matches[1]', 'top');
-        add_rewrite_rule("^{$path}/newsletter/?$", 'index.php?' . self::QUERY_VAR . '=newsletter', 'top');
-        add_rewrite_rule("^{$path}/newsletter/(neu|abonnenten|\\d+)/?$", 'index.php?' . self::QUERY_VAR . '=newsletter-$matches[1]', 'top');
+        $rule  = '^' . preg_quote(self::path(), '#') . '(?:/(.*?))?/?$';
+        $query = 'index.php?' . self::QUERY_VAR . '=/$matches[1]';
+        add_rewrite_rule($rule, $query, 'top');
 
-        // Regeln neu schreiben, sobald sich Pfad oder Regeln ändern
-        $signature = 'v6|' . self::path();
+        $signature = md5($rule . $query);
         if (get_option('novemberkind_produkte_rewrite') !== $signature) {
             flush_rewrite_rules(false);
             update_option('novemberkind_produkte_rewrite', $signature);
@@ -115,60 +146,63 @@ final class App
      */
     public function maybe_render(): void
     {
-        $route = (string) get_query_var(self::QUERY_VAR);
-        if ($route === '') {
+        $query = get_query_var(self::QUERY_VAR);
+        if ($query === '') {
             return;
         }
+        // Listen wie ?novemberkind_produkte[]=x gelten als unbekannte Seite
+        $query = is_string($query) ? $query : '/-';
+        $page = trim($query, '/');
 
         // Safari lädt das Manifest ohne Anmeldung; es enthält nur Name, Farben und Icons
-        if ($route === 'manifest') {
+        if ($page === self::MANIFEST) {
             $this->manifest();
         }
 
         nocache_headers();
+        $route = self::match($page);
 
         if (!is_user_logged_in()) {
-            wp_safe_redirect(wp_login_url(self::url_for_route($route)));
+            wp_safe_redirect(wp_login_url($route !== null ? self::url($page) : self::url()));
             exit;
         }
-        if (!current_user_can(Plugin::CAPABILITY)) {
-            wp_die(
-                esc_html__('Für die Produktverwaltung fehlen dir die Berechtigungen.', 'novemberkind-produkte'),
-                esc_html__('Keine Berechtigung', 'novemberkind-produkte'),
-                ['response' => 403, 'back_link' => true]
-            );
+        Plugin::require_capability(Plugin::CAPABILITY);
+        $section = $route['section'] ?? 'products';
+        $capability = self::sections()[$section]['capability'];
+        if ($capability !== '') {
+            Plugin::require_capability($capability);
         }
 
         status_header(200);
         send_frame_options_header();
-        $this->render($route);
+        $page = $route ? (new Pages())->{$route['method']}(...$route['args']) : Pages::missing(__('Diese Seite gibt es nicht.', 'novemberkind-produkte'));
+        $this->render($page + ['section' => $section, 'script' => $page['view'] === 'not-found' ? '' : (string) ($route['script'] ?? '')]);
         exit;
     }
 
     /**
-     * Plugin-Version plus Änderungszeit der Datei, damit Browser nach jeder Änderung die neue Fassung laden.
+     * Sucht die Route zu einer Adresse unter dem Pfad, z. B. „aktionen/12“.
+     *
+     * @return array{method: string, section: string, script: string, args: string[]}|null
      */
-    private static function asset_version(string $file): string
+    private static function match(string $page): ?array
     {
-        $path = dirname(PLUGIN_FILE) . '/' . $file;
+        foreach (self::ROUTES as $pattern => [$method, $section, $script]) {
+            // D: $ passt nur am Ende, nicht vor einem abschließenden Zeilenumbruch
+            if (preg_match('#^' . $pattern . '$#D', $page, $found)) {
+                return ['method' => $method, 'section' => $section, 'script' => $script, 'args' => array_slice($found, 1)];
+            }
+        }
 
-        return VERSION . '.' . (is_readable($path) ? (string) filemtime($path) : '0');
-    }
-
-    /**
-     * Adresse des Web-App-Manifests für den Home-Bildschirm.
-     */
-    public static function manifest_url(): string
-    {
-        return self::url() . 'manifest.webmanifest';
+        return null;
     }
 
     /**
      * Web-App-Manifest, damit die Seite auf dem Home-Bildschirm wie eine eigene App startet.
      */
-    private function manifest(): void
+    private function manifest(): never
     {
-        $icons = plugin_dir_url(PLUGIN_FILE) . 'assets/icons/';
+        $icons = Plugin::asset_url('assets/icons/');
         $home  = (string) wp_parse_url(home_url('/'), PHP_URL_PATH);
 
         status_header(200);
@@ -194,389 +228,70 @@ final class App
     }
 
     /**
-     * Shop-Manager landen nach dem Login direkt in der Produktverwaltung, Administratoren im Backend.
-     * Ohne Typangaben, weil auch andere Plugins diesen Filter auslösen; ein Typfehler würde die Anmeldung abbrechen.
+     * @param array{view: string, title: string, data: array<string, mixed>, section: string, script: string} $page
      */
-    public function login_redirect(mixed $redirect_to, mixed $requested = '', mixed $user = null): mixed
+    private function render(array $page): void
     {
-        if (!is_string($requested) || !$user instanceof \WP_User || $user->has_cap('manage_options') || !$user->has_cap(Plugin::CAPABILITY)) {
-            return $redirect_to;
-        }
-        if ($requested === '' || untrailingslashit($requested) === untrailingslashit(admin_url())) {
-            return self::url();
-        }
+        $this->register_assets();
 
-        return $redirect_to;
+        $view    = $page['view'];
+        $title   = $page['title'];
+        $section = $page['section'];
+        $scripts = [...($page['script'] !== '' ? ['novemberkind-produkte-' . $page['script']] : []), 'novemberkind-produkte-vine'];
+        extract($page['data'], EXTR_SKIP); // phpcs:ignore WordPress.PHP.DontExtract -- Variablen für das Template
+        include __DIR__ . '/../templates/app.php';
     }
 
     /**
-     * Gestaltet die WordPress-Login-Seite wie die Produktverwaltung.
+     * Skripte und Stile der Seite. Gemeinsame Werte und Texte stehen in `novemberkindConfig`,
+     * die übrigen im Objekt des jeweiligen Skripts.
      */
-    public function login_style(): void
+    private function register_assets(): void
     {
-        wp_enqueue_style('novemberkind-produkte-login', plugin_dir_url(PLUGIN_FILE) . 'assets/css/login.css', [], self::asset_version('assets/css/login.css'));
-    }
-
-    private static function url_for_route(string $route): string
-    {
-        return match (true) {
-            $route === 'overview'           => self::url(),
-            $route === 'aktionen'           => self::campaigns_url(),
-            $route === 'aktion-neu'         => self::campaigns_url('neu'),
-            str_starts_with($route, 'aktion-') => self::campaigns_url((int) substr($route, 7)),
-            $route === 'gutscheine'         => self::coupons_url(),
-            $route === 'gutschein-neu'      => self::coupons_url('neu'),
-            str_starts_with($route, 'gutschein-') => self::coupons_url((int) substr($route, 10)),
-            $route === 'newsletter'         => self::newsletter_url(),
-            str_starts_with($route, 'newsletter-') => self::newsletter_url(substr($route, 11)),
-            $route === 'neu'                => self::new_url(),
-            str_starts_with($route, 'neu-') => self::new_url(substr($route, 4)),
-            default                         => self::edit_url((int) $route),
+        $script = static function (string $handle, string $file, array $deps = []): void {
+            wp_register_script('novemberkind-produkte-' . $handle, Plugin::asset_url($file), $deps, Plugin::asset_version($file), true);
         };
-    }
+        Plugin::register_app_style();
+        $script('images', 'assets/js/images.js');
+        $script('common', 'assets/js/common.js', ['novemberkind-produkte-images']);
+        $script('overview', 'assets/js/overview.js', ['novemberkind-produkte-common']);
+        $script('product-form', 'assets/js/product-form.js', ['novemberkind-produkte-common']);
+        $script('forms', 'assets/js/forms.js', ['novemberkind-produkte-common']);
+        $script('newsletter-form', 'assets/js/newsletter-form.js', ['novemberkind-produkte-forms']);
+        $script('vine', 'assets/js/vine.js', ['novemberkind-produkte-common']);
 
-    private function render(string $route): void
-    {
-        $base = plugin_dir_url(PLUGIN_FILE);
-        wp_register_style('novemberkind-produkte-app', $base . 'assets/css/app.css', [], self::asset_version('assets/css/app.css'));
-        wp_register_script('novemberkind-produkte-images', $base . 'assets/js/images.js', [], self::asset_version('assets/js/images.js'), true);
-        wp_register_script('novemberkind-produkte-app', $base . 'assets/js/app.js', ['novemberkind-produkte-images'], self::asset_version('assets/js/app.js'), true);
-        wp_register_script('novemberkind-produkte-vine', $base . 'assets/js/vine.js', [], self::asset_version('assets/js/vine.js'), true);
-        wp_register_script('novemberkind-produkte-forms', $base . 'assets/js/forms.js', ['novemberkind-produkte-images'], self::asset_version('assets/js/forms.js'), true);
-        wp_localize_script('novemberkind-produkte-app', 'novemberkindProdukte', [
+        wp_localize_script('novemberkind-produkte-common', 'novemberkindConfig', [
             'ajaxUrl'        => admin_url('admin-ajax.php'),
             'nonce'          => wp_create_nonce(Ajax::NONCE),
             'appUrl'         => self::url(),
             'maxUploadBytes' => wp_max_upload_size(),
             'maxWidth'       => ImageProcessor::MAX_WIDTH,
-            'suggestions'    => Suggestions::is_available(),
             'i18n'           => [
-                'saving'         => __('Wird gespeichert …', 'novemberkind-produkte'),
-                'save'           => __('Speichern', 'novemberkind-produkte'),
-                'waitForUpload'  => __('Einen Moment noch, die Fotos werden gerade hochgeladen.', 'novemberkind-produkte'),
-                'unreadable'     => __('Dieses Foto kann der Browser nicht öffnen. Bitte als JPEG oder PNG versuchen.', 'novemberkind-produkte'),
-                'networkError'   => __('Keine Verbindung zum Shop. Bitte prüfe die Internetverbindung und versuche es noch einmal.', 'novemberkind-produkte'),
-                'loggedOut'      => __('Du bist inzwischen abgemeldet. Bitte lade die Seite neu und melde dich wieder an.', 'novemberkind-produkte'),
-                'unsaved'        => __('Es gibt ungespeicherte Änderungen.', 'novemberkind-produkte'),
-                'suggesting'     => __('Claude denkt nach …', 'novemberkind-produkte'),
-                'suggest'        => __('Vorschlag holen', 'novemberkind-produkte'),
-                'modeNew'        => __('Die Beschreibung war noch unvollständig. Claude hat sie nach der Vorlage neu geschrieben.', 'novemberkind-produkte'),
-                'modeImproved'   => __('Claude hat deine Beschreibung behutsam überarbeitet.', 'novemberkind-produkte'),
-                'view'           => __('Ansehen', 'novemberkind-produkte'),
-                'download'       => __('Herunterladen', 'novemberkind-produkte'),
-                'resetText'      => __('Deine Änderungen an der Beschreibung gehen dabei verloren. Trotzdem neu erstellen?', 'novemberkind-produkte'),
-            ],
-        ]);
-
-        wp_localize_script('novemberkind-produkte-forms', 'novemberkindFormulare', [
-            'ajaxUrl'        => admin_url('admin-ajax.php'),
-            'nonce'          => wp_create_nonce(Ajax::NONCE),
-            'maxUploadBytes' => wp_max_upload_size(),
-            'maxWidth'       => ImageProcessor::MAX_WIDTH,
-            'i18n'           => [
-                'saving'       => __('Wird gespeichert …', 'novemberkind-produkte'),
-                'save'         => __('Speichern', 'novemberkind-produkte'),
-                'networkError' => __('Keine Verbindung zum Shop. Bitte prüfe die Internetverbindung und versuche es noch einmal.', 'novemberkind-produkte'),
-                'loggedOut'    => __('Du bist inzwischen abgemeldet. Bitte lade die Seite neu und melde dich wieder an.', 'novemberkind-produkte'),
-                'unsaved'      => __('Es gibt ungespeicherte Änderungen.', 'novemberkind-produkte'),
-                'testSending'  => __('Wird verschickt …', 'novemberkind-produkte'),
-                'linkPrompt'   => __('Adresse des Links, z. B. https://novemberkind.art/shop/', 'novemberkind-produkte'),
-                'unreadable'   => __('Dieses Foto kann der Browser nicht öffnen. Bitte als JPEG oder PNG versuchen.', 'novemberkind-produkte'),
+                'saving'        => __('Wird gespeichert …', 'novemberkind-produkte'),
+                'save'          => __('Speichern', 'novemberkind-produkte'),
                 'waitForUpload' => __('Einen Moment noch, die Fotos werden gerade hochgeladen.', 'novemberkind-produkte'),
+                'unreadable'    => __('Dieses Foto kann der Browser nicht öffnen. Bitte als JPEG oder PNG versuchen.', 'novemberkind-produkte'),
+                'networkError'  => __('Keine Verbindung zum Shop. Bitte prüfe die Internetverbindung und versuche es noch einmal.', 'novemberkind-produkte'),
+                'loggedOut'     => __('Du bist inzwischen abgemeldet. Bitte lade die Seite neu und melde dich wieder an.', 'novemberkind-produkte'),
+                'unsaved'       => __('Es gibt ungespeicherte Änderungen.', 'novemberkind-produkte'),
             ],
         ]);
-
-        $title = __('Meine Produkte', 'novemberkind-produkte');
-        $view  = 'product-form';
-        if ($route === 'aktionen') {
-            $view  = 'campaigns';
-            $title = __('Aktionen', 'novemberkind-produkte');
-            $data  = ['campaigns' => Campaigns::all()];
-        } elseif (str_starts_with($route, 'aktion-')) {
-            $view     = 'campaign-form';
-            $campaign = $route === 'aktion-neu' ? null : Campaigns::get((int) substr($route, 7));
-            $data     = $route === 'aktion-neu' || $campaign ? $this->campaign_form_data($campaign) : null;
-            $title    = $campaign ? $campaign['name'] : __('Neue Aktion', 'novemberkind-produkte');
-        } elseif ($route === 'gutscheine') {
-            $this->require_coupon_rights();
-            $view  = 'coupons';
-            $title = __('Gutscheine', 'novemberkind-produkte');
-            $data  = ['coupons' => Coupons::all()];
-        } elseif (str_starts_with($route, 'gutschein-')) {
-            $this->require_coupon_rights();
-            $view   = 'coupon-form';
-            $coupon = $route === 'gutschein-neu' ? null : Coupons::get((int) substr($route, 10));
-            if ($coupon && !$coupon['own']) {
-                // Gutscheine aus WooCommerce mit anderen Einstellungen bleiben in der WooCommerce-Maske
-                wp_safe_redirect($coupon['edit_url']);
-                exit;
-            }
-            $data  = $route === 'gutschein-neu' || $coupon ? ['coupon' => $coupon] : null;
-            $title = $coupon ? $coupon['code'] : __('Neuer Gutschein', 'novemberkind-produkte');
-        } elseif ($route === 'newsletter') {
-            $this->require_newsletter_rights();
-            (new Newsletters())->resume_stalled();
-            $view  = 'newsletters';
-            $title = __('Newsletter', 'novemberkind-produkte');
-            $data  = ['issues' => Newsletters::all(), 'counts' => Subscribers::counts()];
-        } elseif ($route === 'newsletter-abonnenten') {
-            $this->require_newsletter_rights();
-            (new Subscribers())->cleanup();
-            $view  = 'subscribers';
-            $title = __('Abonnenten', 'novemberkind-produkte');
-            $data  = ['subscribers' => Subscribers::all()];
-        } elseif (str_starts_with($route, 'newsletter-')) {
-            $this->require_newsletter_rights();
-            $view  = 'newsletter-form';
-            $issue = $route === 'newsletter-neu' ? null : Newsletters::get((int) substr($route, 11));
-            $data  = $route === 'newsletter-neu' || $issue ? $this->newsletter_form_data($issue) : null;
-            $title = $issue ? $issue['subject'] : __('Neuer Newsletter', 'novemberkind-produkte');
-        } elseif ($route === 'overview') {
-            $view = 'overview';
-            $data = $this->overview_data();
-        } elseif ($route === 'neu') {
-            $view  = 'type-picker';
-            $title = __('Neues Produkt', 'novemberkind-produkte');
-            $data  = ['types' => ProductType::all()];
-        } elseif (str_starts_with($route, 'neu-')) {
-            $type = ProductType::get(substr($route, 4));
-            $data = $type ? $this->form_data($type) : null;
-            /* translators: %s: Produktart, z. B. Button */
-            $title = $type ? sprintf(__('Neu: %s', 'novemberkind-produkte'), $type->label()) : $title;
-        } else {
-            $product = wc_get_product((int) $route);
-            $type    = $product ? ProductType::detect($product) : null;
-            if ($product && !$type && current_user_can('edit_post', $product->get_id())) {
-                // Produkte ohne Vorlage werden in der WooCommerce-Maske bearbeitet
-                wp_safe_redirect((string) get_edit_post_link($product->get_id(), 'raw'));
-                exit;
-            }
-            $data  = $product && $type ? $this->form_data($type, $product) : null;
-            $title = $product ? $product->get_name() : $title;
-        }
-
-        if ($data === null) {
-            status_header(404);
-            $data = ['missing' => match ($view) {
-                'campaign-form' => __('Diese Aktion gibt es nicht mehr.', 'novemberkind-produkte'),
-                'coupon-form'   => __('Diesen Gutschein gibt es nicht mehr.', 'novemberkind-produkte'),
-                'newsletter-form' => __('Diesen Newsletter gibt es nicht mehr.', 'novemberkind-produkte'),
-                default         => __('Dieses Produkt gibt es nicht mehr.', 'novemberkind-produkte'),
-            }];
-            $view = 'not-found';
-        }
-
-        extract($data, EXTR_SKIP); // phpcs:ignore WordPress.PHP.DontExtract -- Variablen für das Template
-        include __DIR__ . '/../templates/app.php';
-    }
-
-    /**
-     * @return array{products: \WC_Product[]}
-     */
-    private function overview_data(): array
-    {
-        $products = wc_get_products([
-            'status'  => ['publish', 'future', 'draft', 'pending', 'private'],
-            'limit'   => -1,
-            'orderby' => 'modified',
-            'order'   => 'DESC',
+        wp_localize_script('novemberkind-produkte-product-form', 'novemberkindProdukte', [
+            'i18n' => [
+                'suggesting'   => __('Claude denkt nach …', 'novemberkind-produkte'),
+                'suggest'      => __('Vorschlag holen', 'novemberkind-produkte'),
+                'modeNew'      => __('Die Beschreibung war noch unvollständig. Claude hat sie nach der Vorlage neu geschrieben.', 'novemberkind-produkte'),
+                'modeImproved' => __('Claude hat deine Beschreibung behutsam überarbeitet.', 'novemberkind-produkte'),
+                'view'         => __('Ansehen', 'novemberkind-produkte'),
+                'download'     => __('Herunterladen', 'novemberkind-produkte'),
+                'resetText'    => __('Deine Änderungen an der Beschreibung gehen dabei verloren. Trotzdem neu erstellen?', 'novemberkind-produkte'),
+            ],
         ]);
-
-        $groups = [];
-        foreach ($products as $product) {
-            $category = self::group_category($product);
-            $key      = $category ? $category->slug : '';
-            $groups[$key] ??= ['name' => $category ? $category->name : __('Ohne Kategorie', 'novemberkind-produkte'), 'products' => []];
-            $groups[$key]['products'][] = $product;
-        }
-        uasort($groups, static fn(array $a, array $b): int => strcasecmp($a['name'], $b['name']));
-
-        return ['products' => $products, 'groups' => $groups];
-    }
-
-    /**
-     * Die genaueste Kategorie eines Produkts, z. B. „Buttons“ statt „Physische Produkte“.
-     * Bei mehreren zählt die Kategorie der Produktart, sonst die alphabetisch erste.
-     */
-    private static function group_category(\WC_Product $product): ?\WP_Term
-    {
-        $terms   = wc_get_object_terms($product->get_id(), 'product_cat');
-        $parents = wp_list_pluck($terms, 'parent');
-        $leaves  = array_values(array_filter($terms, static fn(\WP_Term $term): bool => !in_array($term->term_id, $parents, true)));
-        if ($leaves === []) {
-            return null;
-        }
-
-        $type_category = ProductType::detect($product)?->config('category');
-        foreach ($leaves as $leaf) {
-            if ($type_category && $leaf->name === end($type_category)) {
-                return $leaf;
-            }
-        }
-        usort($leaves, static fn(\WP_Term $a, \WP_Term $b): int => strcasecmp($a->name, $b->name));
-
-        return $leaves[0];
-    }
-
-    /**
-     * @return array<string, mixed>|null
-     */
-    private function form_data(ProductType $type, ?\WC_Product $product = null): ?array
-    {
-        if ($product && !current_user_can('edit_post', $product->get_id())) {
-            return null;
-        }
-
-        $service = new ProductService();
-        $back_images = !$type->is_variable() ? [] : ($product ? $service->variation_images_of($type, $product) : $service->variation_image_ids($type));
-
-        $context = $product ? $type->context_from_product($product) : self::default_context($type);
-
-        $data = [
-            'type'        => $type,
-            'product'     => $product,
-            'context'     => $context,
-            'description' => $product ? wp_kses_post($product->get_description()) : $type->description($context),
-            'custom_description' => $product && $type->has_custom_description($product),
-            'motif_tags'  => $product ? ProductService::motif_tags($product, $type) : [],
-            'price'       => $product ? self::current_price($product) : (string) $type->config('price'),
-            'stock'       => $product && $product->managing_stock() ? (string) $product->get_stock_quantity() : '',
-            'price_a4'    => (string) $type->config('price_a4'),
-            'stock_a4'    => '',
-            'gallery_ids' => $product ? array_values(array_filter(
-                array_map('intval', $product->get_gallery_image_ids()),
-                static fn(int $id): bool => !$service->is_variation_image($type, $id)
-            )) : [],
-            'back_images' => $back_images,
-            'backups'     => $product ? (new Backups())->summary($product->get_id()) : [],
-        ];
-        if ($product && $type->has_field('a4')) {
-            $data = array_merge($data, CardSizes::values($product, (string) $type->config('price_a4')));
-        }
-        $data += $product ? ProductService::sale_state($product) : ['sale' => '', 'sale_a4' => '', 'sale_locked' => false];
-
-        return $data;
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    private static function default_context(ProductType $type): array
-    {
-        $context = ['motif' => ''];
-        foreach ($type->fields() as $field) {
-            match ($field) {
-                'format'         => $context['format'] = 'quer',
-                'bookmark_width' => $context['width'] = '7',
-                'year'           => $context['year'] = gmdate('Y'),
-                'size'           => $context += ['width' => '', 'height' => ''],
-                default          => $context[$field] = '',
-            };
-        }
-
-        return $context;
-    }
-
-    private function require_newsletter_rights(): void
-    {
-        if (!current_user_can(Newsletters::CAPABILITY)) {
-            wp_die(
-                esc_html__('Für den Newsletter fehlen dir die Berechtigungen.', 'novemberkind-produkte'),
-                esc_html__('Keine Berechtigung', 'novemberkind-produkte'),
-                ['response' => 403, 'back_link' => true]
-            );
-        }
-    }
-
-    /**
-     * Daten für das Formular einer Ausgabe: Produkte aus dem Shop und die Zahl der Empfänger.
-     *
-     * @param array<string, mixed>|null $issue
-     * @return array<string, mixed>
-     */
-    private function newsletter_form_data(?array $issue): array
-    {
-        $products = array_map(static fn(\WC_Product $product): array => [
-            'id'   => $product->get_id(),
-            'name' => $product->get_name(),
-            'sku'  => $product->get_sku(),
-        ], wc_get_products([
-            'status'  => 'publish',
-            'limit'   => -1,
-            'orderby' => 'title',
-            'order'   => 'ASC',
-        ]));
-
-        return [
-            'issue'      => $issue,
-            'products'   => $products,
-            'recipients' => Subscribers::counts()['confirmed'],
-            'remaining'  => $issue ? Newsletters::remaining($issue['id']) : 0,
-            'from'       => NewsletterMail::from_label(),
-            'test_email' => Newsletters::test_email(wp_get_current_user()),
-        ];
-    }
-
-    private function require_coupon_rights(): void
-    {
-        if (!current_user_can('edit_shop_coupons')) {
-            wp_die(
-                esc_html__('Für Gutscheine fehlen dir die Berechtigungen.', 'novemberkind-produkte'),
-                esc_html__('Keine Berechtigung', 'novemberkind-produkte'),
-                ['response' => 403, 'back_link' => true]
-            );
-        }
-    }
-
-    /**
-     * Daten für das Formular einer Aktion: Kategorien als eingerückte Liste, Produkte nach Name.
-     *
-     * @param array<string, mixed>|null $campaign
-     * @return array<string, mixed>
-     */
-    private function campaign_form_data(?array $campaign): array
-    {
-        $terms = get_terms(['taxonomy' => 'product_cat', 'hide_empty' => false, 'orderby' => 'name']);
-        $terms = is_array($terms) ? $terms : [];
-        $categories = [];
-        $add = static function (int $parent, int $depth) use (&$add, &$categories, $terms): void {
-            foreach ($terms as $term) {
-                if ($term instanceof \WP_Term && $term->parent === $parent) {
-                    $categories[] = ['id' => $term->term_id, 'parent' => $term->parent, 'name' => $term->name, 'depth' => $depth, 'count' => (int) $term->count];
-                    $add($term->term_id, $depth + 1);
-                }
-            }
-        };
-        $add(0, 0);
-
-        $products = array_map(static fn(\WC_Product $product): array => [
-            'id'      => $product->get_id(),
-            'name'    => $product->get_name(),
-            'sku'     => $product->get_sku(),
-            'own_sale' => !$product instanceof \WC_Product_Variable && $product->is_on_sale('edit'),
-        ], wc_get_products([
-            'status'  => ['publish', 'future', 'draft', 'pending', 'private'],
-            'limit'   => -1,
-            'orderby' => 'title',
-            'order'   => 'ASC',
-        ]));
-
-        return [
-            'campaign'   => $campaign,
-            'categories' => $categories,
-            'products'   => $products,
-            'conflicts'  => $campaign ? Campaigns::conflicts($campaign) : ['overlaps' => [], 'reference' => []],
-        ];
-    }
-
-    private static function current_price(\WC_Product $product): string
-    {
-        $price = $product->get_regular_price('edit');
-        if ($product instanceof \WC_Product_Variable) {
-            $first = wc_get_product($product->get_children()[0] ?? 0);
-            $price = $first ? $first->get_regular_price('edit') : '';
-        }
-
-        return (string) $price;
+        wp_localize_script('novemberkind-produkte-newsletter-form', 'novemberkindNewsletter', [
+            'i18n' => [
+                'testSending' => __('Wird verschickt …', 'novemberkind-produkte'),
+                'linkPrompt'  => __('Adresse des Links, z. B. https://novemberkind.art/shop/', 'novemberkind-produkte'),
+            ],
+        ]);
     }
 }

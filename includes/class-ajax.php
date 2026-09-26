@@ -7,7 +7,9 @@ namespace NovemberkindProdukte;
 defined('ABSPATH') || exit;
 
 /**
- * AJAX-Aktionen für das Produktformular. Jede Aktion prüft Nonce und Rechte.
+ * AJAX-Aktionen der Produktverwaltung. Jede Aktion prüft Nonce und Rechte.
+ *
+ * phpcs:disable WordPress.Security.NonceVerification.Missing -- in run() über authorize() geprüft
  */
 final class Ajax
 {
@@ -16,281 +18,167 @@ final class Ajax
     private const SUGGESTION_TIME_LIMIT = 120;
 
     /**
+     * AJAX-Aktionen mit den Rechten, die sie zusätzlich zu Plugin::CAPABILITY verlangen.
+     *
+     * @return array<string, string[]>
+     */
+    private static function actions(): array
+    {
+        return [
+            'save'              => [],
+            'upload'            => ['upload_files'],
+            'preview'           => [],
+            'suggest'           => [],
+            'save_campaign'     => [],
+            'end_campaign'      => [],
+            'save_coupon'       => [Coupons::CAPABILITY],
+            'toggle_coupon'     => [Coupons::CAPABILITY],
+            'save_newsletter'   => [Newsletters::CAPABILITY],
+            'test_newsletter'   => [Newsletters::CAPABILITY],
+            'remove_subscriber' => [Newsletters::CAPABILITY],
+        ];
+    }
+
+    /**
      * Meldet alle AJAX-Aktionen an; alle verlangen eine Anmeldung.
      */
     public function register(): void
     {
-        add_action('wp_ajax_novemberkind_produkte_save', [$this, 'save']);
-        add_action('wp_ajax_novemberkind_produkte_upload', [$this, 'upload']);
-        add_action('wp_ajax_novemberkind_produkte_preview', [$this, 'preview']);
-        add_action('wp_ajax_novemberkind_produkte_suggest', [$this, 'suggest']);
-        add_action('wp_ajax_novemberkind_produkte_save_campaign', [$this, 'save_campaign']);
-        add_action('wp_ajax_novemberkind_produkte_end_campaign', [$this, 'end_campaign']);
-        add_action('wp_ajax_novemberkind_produkte_save_coupon', [$this, 'save_coupon']);
-        add_action('wp_ajax_novemberkind_produkte_toggle_coupon', [$this, 'toggle_coupon']);
-        add_action('wp_ajax_novemberkind_produkte_save_newsletter', [$this, 'save_newsletter']);
-        add_action('wp_ajax_novemberkind_produkte_test_newsletter', [$this, 'test_newsletter']);
-        add_action('wp_ajax_novemberkind_produkte_remove_subscriber', [$this, 'remove_subscriber']);
+        foreach (self::actions() as $action => $caps) {
+            add_action('wp_ajax_novemberkind_produkte_' . $action, fn() => $this->run($action, $caps));
+        }
     }
 
     /**
-     * Speichert eine Newsletter-Ausgabe, plant sie oder startet den Versand.
+     * Prüft Nonce und Rechte und führt die Aktion aus. Eine Ausnahme, etwa von WooCommerce beim Speichern,
+     * landet im Log; der Browser bekommt eine lesbare Meldung statt einer abgebrochenen Antwort.
+     *
+     * @param string[] $caps
      */
-    public function save_newsletter(): void
+    private function run(string $action, array $caps): void
     {
-        $this->authorize(Newsletters::CAPABILITY);
+        $this->authorize($caps);
+        try {
+            $this->{$action}();
+        } catch (\Throwable $error) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Details für den Betrieb, die Nutzerin sieht eine allgemeine Meldung
+            error_log(sprintf('novemberkind-produkte: AJAX %s: %s in %s:%d', $action, str_replace(["\r", "\n"], ' ', $error->getMessage()), $error->getFile(), $error->getLine()));
+            wp_send_json_error(['message' => __('Das hat nicht geklappt. Bitte lade die Seite neu und versuche es noch einmal.', 'novemberkind-produkte')], 500);
+        }
+    }
 
-        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
-        $result = (new Newsletters())->save($_POST, absint($_POST['id'] ?? 0));
+    /**
+     * @param string[] $caps
+     */
+    private function authorize(array $caps): void
+    {
+        if (!check_ajax_referer(self::NONCE, 'nonce', false)) {
+            wp_send_json_error(['message' => __('Die Sitzung ist abgelaufen. Bitte lade die Seite neu.', 'novemberkind-produkte')], 403);
+        }
+
+        foreach ([Plugin::CAPABILITY, ...$caps] as $cap) {
+            if (!current_user_can($cap)) {
+                self::deny();
+            }
+        }
+    }
+
+    /**
+     * Antwortet mit der Meldung eines Fehlers und, falls vorhanden, den Meldungen je Feld.
+     */
+    private static function fail(\WP_Error $error, int $status = 422): never
+    {
+        $fields = $error->get_error_data();
+        wp_send_json_error([
+            'message' => $error->get_error_message(),
+            'fields'  => is_array($fields) && $fields !== [] ? $fields : new \stdClass(),
+        ], $status);
+    }
+
+    /**
+     * Antwort für Formulare, nach denen die Liste des Bereichs mit einer Meldung erscheint.
+     * Ein Fehler geht mit seinen Meldungen je Feld zurück an das Formular.
+     *
+     * @param array<string, mixed>|\WP_Error          $result
+     * @param callable(array<string, mixed>): string $message
+     */
+    private static function back_to_list(array|\WP_Error $result, string $url, callable $message): never
+    {
         if (is_wp_error($result)) {
-            wp_send_json_error([
-                'message' => $result->get_error_message(),
-                'fields'  => $result->get_error_data() ?: new \stdClass(),
-            ], 422);
+            self::fail($result);
         }
+        wp_send_json_success(['id' => $result['id'] ?? 0, 'url' => $url, 'message' => $message($result)]);
+    }
 
-        wp_send_json_success([
-            'id'      => $result['id'],
-            'url'     => App::newsletter_url(),
-            'message' => match ($result['status']) {
-                'sending'   => sprintf(
-                    /* translators: %d: Anzahl der Empfänger */
-                    _n('Der Newsletter wird jetzt an %d Empfänger verschickt.', 'Der Newsletter wird jetzt an %d Empfänger verschickt.', $result['recipients'], 'novemberkind-produkte'),
-                    $result['recipients']
-                ),
-                'scheduled' => sprintf(
-                    /* translators: 1: Datum, 2: Uhrzeit */
-                    __('Gespeichert. Der Newsletter geht am %1$s um %2$s Uhr raus.', 'novemberkind-produkte'),
-                    wp_date('d.m.Y', $result['scheduled']),
-                    wp_date('H:i', $result['scheduled'])
-                ),
-                default     => __('Als Entwurf gespeichert.', 'novemberkind-produkte'),
-            },
-        ]);
+    private static function deny(): never
+    {
+        wp_send_json_error(['message' => __('Dafür fehlen dir die Berechtigungen.', 'novemberkind-produkte')], 403);
     }
 
     /**
-     * Schickt den aktuellen Stand des Formulars an die Adresse aus dem Feld „Testmail an“ und merkt sie sich.
+     * Meldung mit Datum und Uhrzeit, z. B. „… am 01.10.2026 um 18:00 Uhr …“.
+     *
+     * @param string $message Text mit %1$s für das Datum und %2$s für die Uhrzeit
      */
-    public function test_newsletter(): void
+    private static function at(string $message, int $timestamp): string
     {
-        $this->authorize(Newsletters::CAPABILITY);
-
-        $user = wp_get_current_user();
-        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
-        $email = strtolower(trim(sanitize_email(wp_unslash(Plugin::input($_POST, 'test_email', Newsletters::test_email($user))))));
-        if (!is_email($email)) {
-            wp_send_json_error([
-                'message' => __('Bitte prüfe die markierten Felder.', 'novemberkind-produkte'),
-                'fields'  => ['test_email' => __('Bitte gib eine gültige E-Mail-Adresse ein.', 'novemberkind-produkte')],
-            ], 422);
-        }
-
-        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
-        $result = (new Newsletters())->send_test($_POST, $email);
-        if (is_wp_error($result)) {
-            wp_send_json_error([
-                'message' => $result->get_error_message(),
-                'fields'  => $result->get_error_data() ?: new \stdClass(),
-            ], 422);
-        }
-        update_user_meta($user->ID, Newsletters::META_TEST_EMAIL, $email);
-
-        /* translators: %s: E-Mail-Adresse */
-        wp_send_json_success(['message' => sprintf(__('Die Testmail ist an %s unterwegs.', 'novemberkind-produkte'), $email)]);
+        return sprintf($message, wp_date('d.m.Y', $timestamp), wp_date('H:i', $timestamp));
     }
 
     /**
-     * Trägt einen Abonnenten aus und löscht seine Adresse.
+     * Produktart aus dem Formular; eine unbekannte beendet die Anfrage.
      */
-    public function remove_subscriber(): void
+    private static function requested_type(): ProductType
     {
-        $this->authorize(Newsletters::CAPABILITY);
-
-        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
-        if (!(new Subscribers())->remove(absint($_POST['id'] ?? 0))) {
-            wp_send_json_error(['message' => __('Diese Adresse ist nicht mehr angemeldet.', 'novemberkind-produkte')], 422);
+        $type = ProductType::get(sanitize_key(Input::value($_POST, 'type')));
+        if (!$type) {
+            wp_send_json_error(['message' => __('Unbekannte Produktart.', 'novemberkind-produkte')], 400);
         }
 
-        wp_send_json_success([
-            'url'     => App::newsletter_url('abonnenten'),
-            'message' => __('Ausgetragen. Die Adresse ist gelöscht.', 'novemberkind-produkte'),
-        ]);
-    }
-
-    /**
-     * Legt einen Gutschein an oder ändert ihn.
-     */
-    public function save_coupon(): void
-    {
-        $this->authorize('edit_shop_coupons');
-
-        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
-        $result = (new Coupons())->save($_POST, absint($_POST['id'] ?? 0));
-        if (is_wp_error($result)) {
-            wp_send_json_error([
-                'message' => $result->get_error_message(),
-                'fields'  => $result->get_error_data() ?: new \stdClass(),
-            ], 422);
-        }
-
-        wp_send_json_success([
-            'id'      => $result['id'],
-            'url'     => App::coupons_url(),
-            'message' => $result['active']
-                /* translators: %s: Gutscheincode */
-                ? sprintf(__('Gespeichert. Der Code %s ist im Shop einlösbar.', 'novemberkind-produkte'), $result['code'])
-                : __('Gespeichert. Der Gutschein bleibt deaktiviert.', 'novemberkind-produkte'),
-        ]);
-    }
-
-    /**
-     * Deaktiviert einen Gutschein oder aktiviert ihn wieder (`value` = on oder off).
-     */
-    public function toggle_coupon(): void
-    {
-        $this->authorize('edit_shop_coupons');
-
-        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
-        $active = sanitize_key(wp_unslash($_POST['value'] ?? '')) === 'on';
-        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
-        $result = (new Coupons())->set_active(absint($_POST['id'] ?? 0), $active);
-        if (is_wp_error($result)) {
-            wp_send_json_error(['message' => $result->get_error_message()], 422);
-        }
-
-        wp_send_json_success([
-            'id'      => $result['id'],
-            'url'     => App::coupons_url(),
-            'message' => $active
-                ? __('Der Gutschein ist wieder einlösbar.', 'novemberkind-produkte')
-                : __('Der Gutschein ist deaktiviert und im Shop nicht mehr einlösbar.', 'novemberkind-produkte'),
-        ]);
-    }
-
-    /**
-     * Legt eine Rabattaktion an oder ändert sie.
-     */
-    public function save_campaign(): void
-    {
-        $this->authorize();
-
-        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
-        $result = (new Campaigns())->save($_POST, absint($_POST['id'] ?? 0));
-        if (is_wp_error($result)) {
-            wp_send_json_error([
-                'message' => $result->get_error_message(),
-                'fields'  => $result->get_error_data() ?: new \stdClass(),
-            ], 422);
-        }
-
-        wp_send_json_success([
-            'id'      => $result['id'],
-            'url'     => App::campaigns_url(),
-            'message' => match (Campaigns::status($result)) {
-                'running' => __('Gespeichert. Die Aktion läuft, die Preise im Shop sind gesenkt.', 'novemberkind-produkte'),
-                default   => sprintf(
-                    /* translators: 1: Datum, 2: Uhrzeit */
-                    __('Gespeichert. Die Aktion beginnt am %1$s um %2$s Uhr.', 'novemberkind-produkte'),
-                    wp_date('d.m.Y', $result['start']),
-                    wp_date('H:i', $result['start'])
-                ),
-            },
-        ]);
-    }
-
-    /**
-     * Beendet eine laufende Aktion sofort oder sagt eine geplante ab.
-     */
-    public function end_campaign(): void
-    {
-        $this->authorize();
-
-        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
-        $result = (new Campaigns())->end(absint($_POST['id'] ?? 0));
-        if (is_wp_error($result)) {
-            wp_send_json_error(['message' => $result->get_error_message()], 422);
-        }
-
-        wp_send_json_success([
-            'id'      => $result['id'],
-            'url'     => App::campaigns_url(),
-            'message' => __('Die Aktion ist beendet. Im Shop gelten wieder die normalen Preise.', 'novemberkind-produkte'),
-        ]);
+        return $type;
     }
 
     /**
      * Speichert das Produktformular und antwortet mit dem neuen Stand für die Seite.
      */
-    public function save(): void
+    private function save(): void
     {
-        $this->authorize();
-
-        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
-        $product_id = absint($_POST['product_id'] ?? 0);
+        $product_id = Input::id($_POST, 'product_id');
         if ($product_id && !current_user_can('edit_post', $product_id)) {
-            wp_send_json_error(['message' => __('Dafür fehlen dir die Berechtigungen.', 'novemberkind-produkte')], 403);
+            self::deny();
         }
-
-        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
-        $type = ProductType::get(sanitize_key($_POST['type'] ?? ''));
-        if (!$type) {
-            wp_send_json_error(['message' => __('Unbekannte Produktart.', 'novemberkind-produkte')], 400);
-        }
-
-        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
-        $status = sanitize_key(wp_unslash($_POST['status'] ?? ''));
-        if (in_array($status, ['publish', 'future'], true) && !current_user_can('publish_products')) {
+        $type = self::requested_type();
+        // Derselbe Wert, den ProductService speichert, damit die Prüfung nicht an einer anderen Lesart vorbeigeht
+        if (Input::choice($_POST, 'status', ProductService::STATUSES, 'draft') !== 'draft' && !current_user_can('publish_products')) {
             wp_send_json_error(['message' => __('Du darfst Produkte nur als Entwurf speichern.', 'novemberkind-produkte')], 403);
         }
 
-        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
         $result = (new ProductService())->save($type, $_POST, $product_id);
         if (is_wp_error($result)) {
-            wp_send_json_error([
-                'message' => $result->get_error_message(),
-                'fields'  => $result->get_error_data() ?: new \stdClass(),
-            ], 422);
+            self::fail($result);
         }
 
         wp_send_json_success([
             'id'      => $result->get_id(),
             'name'    => $result->get_name(),
             'status'  => $result->get_status(),
-            'message' => self::saved_message($result),
+            'message' => match ($result->get_status()) {
+                'publish' => __('Gespeichert. Das Produkt ist jetzt im Shop zu sehen.', 'novemberkind-produkte'),
+                /* translators: 1: Datum, 2: Uhrzeit */
+                'future'  => self::at(__('Gespeichert. Das Produkt geht am %1$s um %2$s Uhr online.', 'novemberkind-produkte'), (int) $result->get_date_created()?->getTimestamp()),
+                default   => __('Als Entwurf gespeichert.', 'novemberkind-produkte'),
+            },
             'viewUrl' => get_permalink($result->get_id()),
             'backups' => (new Backups())->summary($result->get_id()),
         ]);
     }
 
-    private static function saved_message(\WC_Product $product): string
-    {
-        return match ($product->get_status()) {
-            'publish' => __('Gespeichert. Das Produkt ist jetzt im Shop zu sehen.', 'novemberkind-produkte'),
-            'future'  => sprintf(
-                /* translators: 1: Datum, 2: Uhrzeit */
-                __('Gespeichert. Das Produkt geht am %1$s um %2$s Uhr online.', 'novemberkind-produkte'),
-                wp_date('d.m.Y', $product->get_date_created()?->getTimestamp()),
-                wp_date('H:i', $product->get_date_created()?->getTimestamp())
-            ),
-            default   => __('Als Entwurf gespeichert.', 'novemberkind-produkte'),
-        };
-    }
-
     /**
      * Beschreibung aus der Vorlage zu den aktuellen Formularwerten, auch wenn noch nicht alles ausgefüllt ist.
      */
-    public function preview(): void
+    private function preview(): void
     {
-        $this->authorize();
-
-        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
-        $type = ProductType::get(sanitize_key($_POST['type'] ?? ''));
-        if (!$type) {
-            wp_send_json_error(['message' => __('Unbekannte Produktart.', 'novemberkind-produkte')], 400);
-        }
-
-        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
+        $type      = self::requested_type();
         [$context] = $type->parse($_POST);
         wp_send_json_success(['html' => $type->description($context)]);
     }
@@ -298,24 +186,16 @@ final class Ajax
     /**
      * Vorschlag von Claude für Titel, Beschreibung und Schlagwörter. Speichert nichts.
      */
-    public function suggest(): void
+    private function suggest(): void
     {
-        $this->authorize();
-
-        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
-        $type = ProductType::get(sanitize_key($_POST['type'] ?? ''));
-        if (!$type) {
-            wp_send_json_error(['message' => __('Unbekannte Produktart.', 'novemberkind-produkte')], 400);
-        }
-
+        $type = self::requested_type();
         if (function_exists('set_time_limit')) {
             set_time_limit(self::SUGGESTION_TIME_LIMIT);
         }
 
-        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
         $result = (new Suggestions())->suggest($type, $_POST);
         if (is_wp_error($result)) {
-            wp_send_json_error(['message' => $result->get_error_message()], 502);
+            self::fail($result, 502);
         }
 
         wp_send_json_success($result);
@@ -324,16 +204,13 @@ final class Ajax
     /**
      * Nimmt ein im Browser verkleinertes Foto an und legt es als WebP in der Mediathek ab.
      */
-    public function upload(): void
+    private function upload(): void
     {
-        $this->authorize('upload_files');
-
-        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
-        if (empty($_FILES['file'])) {
+        if (empty($_FILES['file']) || !is_array($_FILES['file'])) {
             wp_send_json_error(['message' => __('Es wurde kein Foto übertragen.', 'novemberkind-produkte')], 400);
         }
 
-        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput, WordPress.Security.NonceVerification.Missing -- wp_handle_upload prüft die Datei, authorize() die Nonce
+        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- wp_handle_upload prüft die Datei
         $result = (new ImageProcessor())->handle_upload($_FILES['file']);
         if (is_wp_error($result)) {
             wp_send_json_error([
@@ -352,16 +229,94 @@ final class Ajax
         ]);
     }
 
-    private function authorize(string ...$extra_caps): void
+    /**
+     * Legt eine Rabattaktion an oder ändert sie.
+     */
+    private function save_campaign(): void
     {
-        if (!check_ajax_referer(self::NONCE, 'nonce', false)) {
-            wp_send_json_error(['message' => __('Die Sitzung ist abgelaufen. Bitte lade die Seite neu.', 'novemberkind-produkte')], 403);
+        self::back_to_list((new Campaigns())->save($_POST, Input::id($_POST, 'id')), App::campaigns_url(), static fn(array $campaign): string => Campaigns::status($campaign) === 'running'
+            ? __('Gespeichert. Die Aktion läuft, die Preise im Shop sind gesenkt.', 'novemberkind-produkte')
+            /* translators: 1: Datum, 2: Uhrzeit */
+            : self::at(__('Gespeichert. Die Aktion beginnt am %1$s um %2$s Uhr.', 'novemberkind-produkte'), $campaign['start']));
+    }
+
+    /**
+     * Beendet eine laufende Aktion sofort oder sagt eine geplante ab.
+     */
+    private function end_campaign(): void
+    {
+        self::back_to_list((new Campaigns())->end(Input::id($_POST, 'id')), App::campaigns_url(), static fn(): string => __('Die Aktion ist beendet. Im Shop gelten wieder die normalen Preise.', 'novemberkind-produkte'));
+    }
+
+    /**
+     * Legt einen Gutschein an oder ändert ihn.
+     */
+    private function save_coupon(): void
+    {
+        self::back_to_list((new Coupons())->save($_POST, Input::id($_POST, 'id')), App::coupons_url(), static fn(array $coupon): string => $coupon['active']
+            /* translators: %s: Gutscheincode */
+            ? sprintf(__('Gespeichert. Der Code %s ist im Shop einlösbar.', 'novemberkind-produkte'), $coupon['code'])
+            : __('Gespeichert. Der Gutschein bleibt deaktiviert.', 'novemberkind-produkte'));
+    }
+
+    /**
+     * Deaktiviert einen Gutschein oder aktiviert ihn wieder (`value` = on oder off).
+     */
+    private function toggle_coupon(): void
+    {
+        $active = Input::text($_POST, 'value') === 'on';
+        self::back_to_list((new Coupons())->set_active(Input::id($_POST, 'id'), $active), App::coupons_url(), static fn(): string => $active
+            ? __('Der Gutschein ist wieder einlösbar.', 'novemberkind-produkte')
+            : __('Der Gutschein ist deaktiviert und im Shop nicht mehr einlösbar.', 'novemberkind-produkte'));
+    }
+
+    /**
+     * Speichert eine Newsletter-Ausgabe, plant sie oder startet den Versand.
+     */
+    private function save_newsletter(): void
+    {
+        self::back_to_list((new Newsletters())->save($_POST, Input::id($_POST, 'id')), App::newsletter_url(), static fn(array $issue): string => match ($issue['status']) {
+            'sending'   => sprintf(
+                /* translators: %d: Anzahl der Empfänger */
+                _n('Der Newsletter wird jetzt an %d Empfänger verschickt.', 'Der Newsletter wird jetzt an %d Empfänger verschickt.', $issue['recipients'], 'novemberkind-produkte'),
+                $issue['recipients']
+            ),
+            /* translators: 1: Datum, 2: Uhrzeit */
+            'scheduled' => self::at(__('Gespeichert. Der Newsletter geht am %1$s um %2$s Uhr raus.', 'novemberkind-produkte'), $issue['scheduled']),
+            default     => __('Als Entwurf gespeichert.', 'novemberkind-produkte'),
+        });
+    }
+
+    /**
+     * Schickt den aktuellen Stand des Formulars an die Adresse aus dem Feld „Testmail an“ und merkt sie sich.
+     */
+    private function test_newsletter(): void
+    {
+        $user  = wp_get_current_user();
+        $email = strtolower(trim(sanitize_email(wp_unslash(Input::value($_POST, 'test_email', Newsletters::test_email($user))))));
+        if (!is_email($email)) {
+            self::fail(Input::invalid(['test_email' => __('Bitte gib eine gültige E-Mail-Adresse ein.', 'novemberkind-produkte')]));
         }
 
-        foreach ([Plugin::CAPABILITY, ...$extra_caps] as $cap) {
-            if (!current_user_can($cap)) {
-                wp_send_json_error(['message' => __('Dafür fehlen dir die Berechtigungen.', 'novemberkind-produkte')], 403);
-            }
+        $result = (new Newsletters())->send_test($_POST, $email);
+        if (is_wp_error($result)) {
+            self::fail($result);
         }
+        update_user_meta($user->ID, Newsletters::META_TEST_EMAIL, $email);
+
+        /* translators: %s: E-Mail-Adresse */
+        wp_send_json_success(['message' => sprintf(__('Die Testmail ist an %s unterwegs.', 'novemberkind-produkte'), $email)]);
+    }
+
+    /**
+     * Trägt einen Abonnenten aus und löscht seine Adresse.
+     */
+    private function remove_subscriber(): void
+    {
+        if (!(new Subscribers())->remove(Input::id($_POST, 'id'))) {
+            wp_send_json_error(['message' => __('Diese Adresse ist nicht mehr angemeldet.', 'novemberkind-produkte')], 422);
+        }
+
+        self::back_to_list([], App::newsletter_url('abonnenten'), static fn(): string => __('Ausgetragen. Die Adresse ist gelöscht.', 'novemberkind-produkte'));
     }
 }

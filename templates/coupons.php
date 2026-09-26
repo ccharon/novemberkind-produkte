@@ -34,18 +34,12 @@ $describe = static function (array $coupon): string {
     return implode(' · ', $parts);
 };
 ?>
-<header class="nkp-header">
-    <h1><?php esc_html_e('Gutscheine', 'novemberkind-produkte'); ?></h1>
-    <div class="nkp-header__actions">
-        <a class="nkp-button nkp-button--primary" href="<?php echo esc_url(App::coupons_url('neu')); ?>">
-            <?php esc_html_e('+ Neuer Gutschein', 'novemberkind-produkte'); ?>
-        </a>
-    </div>
-</header>
-
-<p class="nkp-note nkp-note--intro">
-    <?php esc_html_e('Kundinnen und Kunden geben den Code im Warenkorb ein. Ein Prozent-Gutschein gilt nicht für Produkte, die schon reduziert sind. Ein Versand-Gutschein macht Brief und Päckchen kostenlos.', 'novemberkind-produkte'); ?>
-</p>
+<?php
+$list_title   = __('Gutscheine', 'novemberkind-produkte');
+$list_buttons = [['url' => App::coupons_url('neu'), 'label' => __('+ Neuer Gutschein', 'novemberkind-produkte'), 'primary' => true]];
+$list_intro   = [__('Kundinnen und Kunden geben den Code im Warenkorb ein. Ein Prozent-Gutschein gilt nicht für Produkte, die schon reduziert sind. Ein Versand-Gutschein macht Brief und Päckchen kostenlos.', 'novemberkind-produkte')];
+include __DIR__ . '/list-header.php';
+?>
 
 <?php if (!Coupons::enabled()) : ?>
     <p class="nkp-note nkp-note--warning">
@@ -56,30 +50,24 @@ $describe = static function (array $coupon): string {
 <?php if ($coupons === []) : ?>
     <p class="nkp-empty"><?php esc_html_e('Noch keine Gutscheine angelegt.', 'novemberkind-produkte'); ?></p>
 <?php else : ?>
-    <ul class="nkp-campaigns">
+    <ul class="nkp-entries">
         <?php foreach ($coupons as $coupon) : ?>
             <?php
-            $state = match (true) {
-                !$coupon['active'] => ['draft', __('Deaktiviert', 'novemberkind-produkte')],
-                $coupon['expired'] => ['draft', __('Abgelaufen', 'novemberkind-produkte')],
-                default            => ['online', __('Aktiv', 'novemberkind-produkte')],
-            };
+            $state = Coupons::badge($coupon);
             $url = $coupon['own'] ? App::coupons_url($coupon['id']) : $coupon['edit_url'];
             ?>
-            <li class="nkp-campaign<?php echo $state[0] === 'online' ? '' : ' nkp-campaign--ended'; ?>">
-                <a class="nkp-campaign__link nkp-coupon__link" href="<?php echo esc_url($url); ?>">
+            <li class="nkp-entry<?php echo $state['badge'] === 'online' ? '' : ' nkp-entry--ended'; ?>">
+                <a class="nkp-entry__link nkp-coupon__link" href="<?php echo esc_url($url); ?>">
                     <span class="nkp-coupon__code"><?php echo esc_html($coupon['code']); ?></span>
-                    <span class="nkp-campaign__main">
-                        <span class="nkp-campaign__meta"><?php echo esc_html($describe($coupon)); ?></span>
+                    <span class="nkp-entry__main">
+                        <span class="nkp-entry__meta"><?php echo esc_html($describe($coupon)); ?></span>
                         <?php if (!$coupon['own']) : ?>
-                            <span class="nkp-campaign__note"><?php esc_html_e('Bearbeiten in WooCommerce', 'novemberkind-produkte'); ?></span>
+                            <span class="nkp-entry__note"><?php esc_html_e('Bearbeiten in WooCommerce', 'novemberkind-produkte'); ?></span>
                         <?php endif; ?>
                     </span>
-                    <span class="nkp-badge nkp-badge--<?php echo esc_attr($state[0]); ?>"><?php echo esc_html($state[1]); ?></span>
+                    <?php Html::badge($state); ?>
                 </a>
             </li>
         <?php endforeach; ?>
     </ul>
 <?php endif; ?>
-
-<div class="nkp-toast" data-nkp-toast role="status" aria-live="polite" hidden></div>

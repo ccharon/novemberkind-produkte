@@ -3,7 +3,7 @@
 /**
  * Plugin Name:          Novemberkind Produkte
  * Description:          Einfache Produktverwaltung für WooCommerce: Übersicht, Anlegen und Bearbeiten mit automatischer Bildverkleinerung.
- * Version:              0.5.1
+ * Version:              0.5.2
  * Requires at least:    6.5
  * Requires PHP:         8.1
  * Requires Plugins:     woocommerce
@@ -22,7 +22,7 @@ namespace NovemberkindProdukte;
 
 defined('ABSPATH') || exit;
 
-const VERSION = '0.5.1';
+const VERSION = '0.5.2';
 const PLUGIN_FILE = __FILE__;
 
 // Anthropic-SDK für Vorschläge; ohne vendor/ läuft das Plugin ohne diese Funktion
@@ -38,7 +38,10 @@ require_once __DIR__ . '/includes/class-backups.php';
 require_once __DIR__ . '/includes/class-campaigns.php';
 require_once __DIR__ . '/includes/class-coupons.php';
 require_once __DIR__ . '/includes/class-card-sizes.php';
+require_once __DIR__ . '/includes/class-html.php';
 require_once __DIR__ . '/includes/class-image-processor.php';
+require_once __DIR__ . '/includes/class-input.php';
+require_once __DIR__ . '/includes/class-login.php';
 require_once __DIR__ . '/includes/class-newsletter-mail.php';
 require_once __DIR__ . '/includes/class-newsletter-signup.php';
 require_once __DIR__ . '/includes/class-newsletters.php';
@@ -46,6 +49,7 @@ require_once __DIR__ . '/includes/class-product-service.php';
 require_once __DIR__ . '/includes/class-product-type.php';
 require_once __DIR__ . '/includes/class-shop-data.php';
 require_once __DIR__ . '/includes/class-originals.php';
+require_once __DIR__ . '/includes/class-pages.php';
 require_once __DIR__ . '/includes/class-subscribers.php';
 require_once __DIR__ . '/includes/class-suggestions.php';
 require_once __DIR__ . '/includes/class-updater.php';

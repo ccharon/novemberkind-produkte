@@ -143,7 +143,7 @@ final class NewsletterMail
     }
 
     /**
-     * Textfassung und Umschlag-Absender, damit Unzustellbar-Meldungen beim Absender landen.
+     * Setzt Textfassung und Umschlag-Absender, damit Unzustellbar-Meldungen beim Absender landen.
      */
     public static function prepare_mailer(\PHPMailer\PHPMailer\PHPMailer $mailer): void
     {

@@ -32,6 +32,9 @@ final class Campaigns
     /** @var array<int, int[]> genaueste Kategorien je Produkt-ID */
     private static array $categories = [];
 
+    /** @var array<string, int[]> Produkte je Umfang einer Aktion in dieser Anfrage */
+    private static array $product_ids = [];
+
     /**
      * Meldet den Inhaltstyp und die Preisfilter an.
      */
@@ -47,6 +50,8 @@ final class Campaigns
         add_filter('woocommerce_get_variation_prices_hash', [$this, 'prices_hash']);
         add_filter('woocommerce_get_price_html', [$this, 'range_price_html'], self::FILTER_PRIORITY, 2);
         add_action('save_post_' . self::POST_TYPE, [self::class, 'flush']);
+        // Kategorien und Umfang hängen auch an den Produkten
+        add_action('save_post_product', [self::class, 'flush']);
     }
 
     /**
@@ -54,21 +59,7 @@ final class Campaigns
      */
     public function register_post_type(): void
     {
-        register_post_type(self::POST_TYPE, [
-            'label'               => __('Rabattaktionen', 'novemberkind-produkte'),
-            'public'              => false,
-            'publicly_queryable'  => false,
-            'exclude_from_search' => true,
-            'show_ui'             => false,
-            'show_in_rest'        => false,
-            'show_in_nav_menus'   => false,
-            'rewrite'             => false,
-            'query_var'           => false,
-            'can_export'          => false,
-            'supports'            => ['title'],
-            'capability_type'     => 'product',
-            'map_meta_cap'        => true,
-        ]);
+        Plugin::register_private_post_type(self::POST_TYPE, __('Rabattaktionen', 'novemberkind-produkte'));
     }
 
     /**
@@ -79,23 +70,20 @@ final class Campaigns
         self::$cache      = null;
         self::$discounts  = [];
         self::$categories = [];
+        self::$product_ids = [];
     }
 
     /**
-     * @return array<int, array<string, mixed>> alle Aktionen, zuletzt gestartete zuerst
+     * Alle Aktionen, zuletzt gestartete zuerst, für die Dauer der Anfrage zwischengespeichert.
+     *
+     * @return array<int, array<string, mixed>>
      * @phpstan-return array<int, Campaign>
      */
     public static function all(): array
     {
         if (self::$cache === null) {
             self::$cache = [];
-            $posts = get_posts([
-                'post_type'      => self::POST_TYPE,
-                'post_status'    => 'private',
-                'posts_per_page' => -1,
-                'no_found_rows'  => true,
-            ]);
-            foreach ($posts as $post) {
+            foreach (Plugin::private_posts(self::POST_TYPE) as $post) {
                 $campaign = self::from_post($post);
                 if ($campaign !== null) {
                     self::$cache[$campaign['id']] = $campaign;
@@ -110,6 +98,8 @@ final class Campaigns
     }
 
     /**
+     * Eine Aktion oder null, wenn es sie nicht gibt.
+     *
      * @phpstan-return Campaign|null
      * @return array<string, mixed>|null
      */
@@ -119,6 +109,8 @@ final class Campaigns
     }
 
     /**
+     * Status einer Aktion zum Zeitpunkt `$now`, ohne Angabe jetzt. Eine Aktion mit Ende vor dem Beginn gilt als beendet.
+     *
      * @phpstan-param Campaign $campaign
      * @param array<string, mixed> $campaign
      * @return string planned, running oder ended
@@ -135,6 +127,22 @@ final class Campaigns
     }
 
     /**
+     * Plakette für den Status einer Aktion.
+     *
+     * @return array{badge: string, label: string}
+     */
+    public static function badge(string $status): array
+    {
+        return match ($status) {
+            'running' => ['badge' => 'campaign-running', 'label' => __('Läuft gerade', 'novemberkind-produkte')],
+            'planned' => ['badge' => 'campaign-planned', 'label' => __('Geplant', 'novemberkind-produkte')],
+            default   => ['badge' => 'campaign-ended', 'label' => __('Beendet', 'novemberkind-produkte')],
+        };
+    }
+
+    /**
+     * Aktionen, die gerade laufen.
+     *
      * @return array<int, array<string, mixed>>
      * @phpstan-return array<int, Campaign>
      */
@@ -161,7 +169,7 @@ final class Campaigns
         }
 
         $errors = [];
-        $name   = trim(sanitize_text_field(wp_unslash((string) ($data['name'] ?? ''))));
+        $name   = Input::text($data, 'name');
         if ($name === '') {
             $errors['name'] = __('Bitte gib der Aktion einen Namen, z. B. Herbstaktion.', 'novemberkind-produkte');
         } elseif (mb_strlen($name) > self::NAME_MAX_LENGTH) {
@@ -169,15 +177,13 @@ final class Campaigns
             $errors['name'] = sprintf(__('Der Name darf höchstens %d Zeichen lang sein.', 'novemberkind-produkte'), self::NAME_MAX_LENGTH);
         }
 
-        $percent_raw = trim((string) ($data['percent'] ?? ''));
-        $percent     = ctype_digit($percent_raw) ? (int) $percent_raw : 0;
-        if ($percent < 1 || $percent > self::MAX_PERCENT) {
-            /* translators: %d: höchster erlaubter Rabatt */
-            $errors['percent'] = sprintf(__('Bitte gib einen Rabatt zwischen 1 und %d Prozent ein.', 'novemberkind-produkte'), self::MAX_PERCENT);
+        $percent = Input::percent($data, 'percent', self::MAX_PERCENT);
+        if ($percent === null) {
+            $errors['percent'] = Input::percent_error(self::MAX_PERCENT);
         }
 
-        $start = ProductService::parse_local_datetime((string) ($data['start_date'] ?? ''), (string) ($data['start_time'] ?? ''));
-        $end   = ProductService::parse_local_datetime((string) ($data['end_date'] ?? ''), (string) ($data['end_time'] ?? ''), '23:59');
+        $start = Input::datetime($data, 'start');
+        $end   = Input::datetime($data, 'end', '23:59');
         if ($start === null) {
             $errors['start'] = __('Bitte wähle, wann die Aktion beginnt.', 'novemberkind-produkte');
         }
@@ -189,15 +195,12 @@ final class Campaigns
             $errors['end'] = __('Das Ende liegt in der Vergangenheit.', 'novemberkind-produkte');
         }
 
-        $scope = (string) ($data['scope'] ?? '');
-        if (!in_array($scope, self::SCOPES, true)) {
-            $scope = 'all';
-        }
+        $scope      = Input::choice($data, 'scope', self::SCOPES, 'all');
         $categories = [];
         $products   = [];
         if ($scope === 'categories') {
             $categories = array_values(array_filter(
-                array_unique(array_map('absint', (array) ($data['categories'] ?? []))),
+                Input::ids($data, 'categories'),
                 static fn(int $term_id): bool => term_exists($term_id, 'product_cat') !== null
             ));
             if ($categories === []) {
@@ -205,7 +208,7 @@ final class Campaigns
             }
         } elseif ($scope === 'products') {
             $products = array_values(array_filter(
-                array_unique(array_map('absint', (array) ($data['products'] ?? []))),
+                Input::ids($data, 'products'),
                 static fn(int $product_id): bool => get_post_type($product_id) === 'product'
             ));
             if ($products === []) {
@@ -214,7 +217,7 @@ final class Campaigns
         }
 
         if ($errors !== []) {
-            return new \WP_Error('invalid', __('Bitte prüfe die markierten Felder.', 'novemberkind-produkte'), $errors);
+            return Input::invalid($errors);
         }
 
         $post_id = wp_insert_post([
@@ -269,9 +272,13 @@ final class Campaigns
      */
     public static function product_ids(array $campaign): array
     {
-        $args = ['limit' => -1, 'return' => 'ids', 'status' => ['publish', 'future', 'draft', 'pending', 'private']];
+        $key = md5((string) wp_json_encode([$campaign['scope'], $campaign['categories'], $campaign['products']]));
+        if (isset(self::$product_ids[$key])) {
+            return self::$product_ids[$key];
+        }
+        $args = ['limit' => -1, 'return' => 'ids', 'status' => ProductService::LISTED_STATUSES];
 
-        return match ($campaign['scope']) {
+        return self::$product_ids[$key] = match ($campaign['scope']) {
             'products'   => $campaign['products'],
             'categories' => array_values(array_filter(
                 array_map('intval', wc_get_products($args + ['category' => self::category_slugs($campaign['categories'])])),
@@ -366,7 +373,7 @@ final class Campaigns
 
     /**
      * Senkt Preis und Angebotspreis beim Auslesen. Grundlage ist immer der normale Preis.
-     * Ohne Typangaben, weil auch andere Plugins diese Filter auslösen.
+     * Nimmt beliebige Werte an, weil auch andere Plugins diese Filter auslösen.
      */
     public function filter_price(mixed $price, mixed $product = null): mixed
     {
@@ -420,7 +427,8 @@ final class Campaigns
     }
 
     /**
-     * Damit WooCommerce zwischengespeicherte Preisspannen bei Start, Ende oder Änderung einer Aktion neu berechnet.
+     * Nimmt die laufenden Aktionen in den Hash der Preisspannen auf, damit WooCommerce sie bei Start, Ende oder Änderung
+     * einer Aktion neu berechnet.
      *
      * @param array<int|string, mixed> $hash
      * @return array<int|string, mixed>
@@ -449,23 +457,11 @@ final class Campaigns
     }
 
     /**
-     * Die genauesten Kategorien eines Produkts: Ein Button in „Physische Produkte“ und „Buttons“ zählt zu „Buttons“,
-     * ein Produkt nur in „Physische Produkte“ zu dieser Oberkategorie.
-     *
      * @return int[]
      */
     private static function leaf_categories(int $product_id): array
     {
-        if (!isset(self::$categories[$product_id])) {
-            $assigned  = array_map('intval', wc_get_product_term_ids($product_id, 'product_cat'));
-            $ancestors = [];
-            foreach ($assigned as $term_id) {
-                $ancestors = [...$ancestors, ...array_map('intval', get_ancestors($term_id, 'product_cat', 'taxonomy'))];
-            }
-            self::$categories[$product_id] = array_values(array_diff($assigned, $ancestors));
-        }
-
-        return self::$categories[$product_id];
+        return self::$categories[$product_id] ??= ShopData::leaf_categories($product_id);
     }
 
     /**

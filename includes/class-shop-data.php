@@ -46,6 +46,23 @@ final class ShopData
     }
 
     /**
+     * Die genauesten Kategorien eines Produkts: Ein Button in „Physische Produkte“ und „Buttons“ zählt zu „Buttons“,
+     * ein Produkt nur in „Physische Produkte“ zu dieser Oberkategorie. Gilt für die Gruppen der Übersicht und für Aktionen.
+     *
+     * @return int[]
+     */
+    public static function leaf_categories(int $product_id): array
+    {
+        $assigned  = array_map('intval', wc_get_product_term_ids($product_id, 'product_cat'));
+        $ancestors = [];
+        foreach ($assigned as $term_id) {
+            $ancestors = [...$ancestors, ...array_map('intval', get_ancestors($term_id, 'product_cat', 'taxonomy'))];
+        }
+
+        return array_values(array_diff($assigned, $ancestors));
+    }
+
+    /**
      * ID einer Versandklasse über ihren Namen, 0 wenn es sie nicht gibt.
      */
     public static function shipping_class_id(string $name): int
@@ -77,7 +94,8 @@ final class ShopData
         if ($file_name === '') {
             return 0;
         }
-        if (empty($cache[$file_name])) {
+        // Auch fehlende Fotos merken, sonst fragt jeder Aufruf erneut die Datenbank
+        if (!array_key_exists($file_name, $cache)) {
             $ids = get_posts([
                 'post_type'      => 'attachment',
                 'post_status'    => 'inherit',
@@ -103,7 +121,9 @@ final class ShopData
     public static function next_sku(): string
     {
         $highest = 0;
-        $ids     = wc_get_products(['limit' => -1, 'status' => 'any', 'type' => ['simple', 'variable', 'grouped', 'external'], 'return' => 'ids']);
+        $ids     = array_map('intval', wc_get_products(['limit' => -1, 'status' => 'any', 'type' => ['simple', 'variable', 'grouped', 'external'], 'return' => 'ids']));
+        // Beiträge, Metadaten und Kategorien gesammelt laden statt einzeln je Produkt
+        _prime_post_caches($ids, true, true);
         foreach ($ids as $id) {
             $product = wc_get_product($id);
             if ($product && preg_match(ProductService::SKU_PATTERN, $product->get_sku('edit'), $match)) {

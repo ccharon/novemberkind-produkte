@@ -3,8 +3,10 @@
 /**
  * Seitenrahmen der Produktverwaltung: eigenes HTML-Dokument ohne WordPress-Oberfläche.
  *
- * @var string $view  Name des Templates für den Inhalt
- * @var string $title Seitentitel
+ * @var string   $view    Name des Templates für den Inhalt
+ * @var string   $title   Seitentitel
+ * @var string   $section Bereich für den aktiven Eintrag in der Kopfzeile, siehe App::sections()
+ * @var string[] $scripts Skripte der Seite
  */
 
 declare(strict_types=1);
@@ -27,9 +29,9 @@ $shop_name = get_bloginfo('name');
     <meta name="apple-mobile-web-app-title" content="<?php esc_attr_e('Produkte', 'novemberkind-produkte'); ?>">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <link rel="manifest" href="<?php echo esc_url(App::manifest_url()); ?>">
-    <link rel="apple-touch-icon" href="<?php echo esc_url(plugin_dir_url(PLUGIN_FILE) . 'assets/icons/app-icon-180.png'); ?>">
+    <link rel="apple-touch-icon" href="<?php echo esc_url(Plugin::asset_url('assets/icons/app-icon-180.png')); ?>">
     <title><?php echo esc_html($title . ' · ' . $shop_name); ?></title>
-    <link rel="icon" href="<?php echo esc_url(has_site_icon() ? get_site_icon_url(64) : plugin_dir_url(PLUGIN_FILE) . 'assets/icons/app-icon-192.png'); ?>">
+    <link rel="icon" href="<?php echo esc_url(has_site_icon() ? get_site_icon_url(64) : Plugin::asset_url('assets/icons/app-icon-192.png')); ?>">
     <?php wp_print_styles('novemberkind-produkte-app'); ?>
 </head>
 <body class="nkp-page">
@@ -41,14 +43,11 @@ $shop_name = get_bloginfo('name');
                 <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 19c8 0 13-5 14-14-9 1-14 6-14 14Zm0 0 7-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 <span class="screen-reader-text"><?php esc_html_e('Ranke', 'novemberkind-produkte'); ?></span>
             </button>
-            <a href="<?php echo esc_url(App::url()); ?>" <?php echo in_array($view, ['overview', 'type-picker', 'product-form'], true) ? 'aria-current="page"' : ''; ?>><?php esc_html_e('Produkte', 'novemberkind-produkte'); ?></a>
-            <a href="<?php echo esc_url(App::campaigns_url()); ?>" <?php echo str_starts_with($view, 'campaign') ? 'aria-current="page"' : ''; ?>><?php esc_html_e('Aktionen', 'novemberkind-produkte'); ?></a>
-            <?php if (current_user_can('edit_shop_coupons')) : ?>
-                <a href="<?php echo esc_url(App::coupons_url()); ?>" <?php echo str_starts_with($view, 'coupon') ? 'aria-current="page"' : ''; ?>><?php esc_html_e('Gutscheine', 'novemberkind-produkte'); ?></a>
-            <?php endif; ?>
-            <?php if (current_user_can(Newsletters::CAPABILITY)) : ?>
-                <a href="<?php echo esc_url(App::newsletter_url()); ?>" <?php echo in_array($view, ['newsletters', 'newsletter-form', 'subscribers'], true) ? 'aria-current="page"' : ''; ?>><?php esc_html_e('Newsletter', 'novemberkind-produkte'); ?></a>
-            <?php endif; ?>
+            <?php foreach (App::sections() as $nav_key => $nav) : ?>
+                <?php if ($nav['capability'] === '' || current_user_can($nav['capability'])) : ?>
+                    <a href="<?php echo esc_url($nav['url']); ?>" <?php echo $nav_key === $section ? 'aria-current="page"' : ''; ?>><?php echo esc_html($nav['label']); ?></a>
+                <?php endif; ?>
+            <?php endforeach; ?>
             <a href="<?php echo esc_url(wc_get_page_permalink('shop')); ?>" target="_blank" rel="noopener"><?php esc_html_e('Zum Shop', 'novemberkind-produkte'); ?></a>
             <a href="<?php echo esc_url(wp_logout_url(App::url())); ?>"><?php esc_html_e('Abmelden', 'novemberkind-produkte'); ?></a>
         </nav>
@@ -63,7 +62,8 @@ $shop_name = get_bloginfo('name');
         <?php endif; ?>
     </main>
 
-    <?php $simple = str_starts_with($view, 'campaign') || str_starts_with($view, 'coupon') || str_starts_with($view, 'newsletter') || $view === 'subscribers'; ?>
-    <?php wp_print_scripts([$simple ? 'novemberkind-produkte-forms' : 'novemberkind-produkte-app', 'novemberkind-produkte-vine']); ?>
+    <div class="nkp-toast" data-nkp-toast role="status" aria-live="polite" hidden></div>
+
+    <?php wp_print_scripts($scripts); ?>
 </body>
 </html>

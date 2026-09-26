@@ -18,11 +18,24 @@ body.nkp-page {
 	--nkp-online-text: #2f5a34;
 	--nkp-draft-bg: #f5ead5;
 	--nkp-draft-text: #74500f;
+	--nkp-planned-bg: #e4e9f1;
+	--nkp-planned-text: #3b4f6b;
+	--nkp-ended-bg: #ece6df;
+	--nkp-on-dark: #fff;
+	--nkp-field-bg: #fff;
+	--nkp-placeholder: #a59a8e;
+	--nkp-photo-empty: linear-gradient(135deg, #f4ece2, #ebdfd1);
+	--nkp-leaf: #7a8c6e;
+	/* Durchscheinende Fassungen: Flächen über der Ranke, Abdunklung hinter Knöpfen auf Fotos */
+	--nkp-surface-glass: rgb(255 253 249 / 80%);
+	--nkp-bg-glass: rgb(246 241 234 / 85%);
+	--nkp-overlay: rgb(46 40 35 / 70%);
 	--nkp-error: #b3261e;
 	--nkp-radius: 16px;
 	--nkp-radius-small: 10px;
 	--nkp-shadow: 0 1px 2px rgb(60 40 20 / 5%), 0 6px 20px rgb(60 40 20 / 6%);
 	--nkp-shadow-raised: 0 2px 4px rgb(60 40 20 / 7%), 0 12px 32px rgb(60 40 20 / 10%);
+	--nkp-shadow-accent: 0 2px 8px rgb(176 85 58 / 25%);
 	--nkp-font-heading: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
 	--nkp-font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
 	background: var(--nkp-bg);
@@ -178,14 +191,14 @@ body.nkp-page {
 
 .nkp-button--primary {
 	background: var(--nkp-accent);
-	box-shadow: 0 2px 8px rgb(176 85 58 / 25%);
-	color: #fff;
+	box-shadow: var(--nkp-shadow-accent);
+	color: var(--nkp-on-dark);
 }
 
 .nkp-button--primary:hover:not(:disabled),
 .nkp-button--primary:focus {
 	background: var(--nkp-accent-dark);
-	color: #fff;
+	color: var(--nkp-on-dark);
 }
 
 .nkp-button--primary:hover:not(:disabled) {
@@ -261,8 +274,8 @@ body.nkp-page {
 
 .nkp-card__image--placeholder {
 	align-items: center;
-	background: linear-gradient(135deg, #f4ece2, #ebdfd1);
-	color: #a59a8e;
+	background: var(--nkp-photo-empty);
+	color: var(--nkp-placeholder);
 	display: flex;
 	font-size: 14px;
 	justify-content: center;
@@ -436,7 +449,7 @@ body.nkp-page {
 }
 
 .nkp-field input::placeholder {
-	color: #a59a8e;
+	color: var(--nkp-placeholder);
 }
 
 .nkp-field input:focus,
@@ -526,10 +539,10 @@ body.nkp-page {
 
 .nkp-photo__remove {
 	align-items: center;
-	background: rgb(46 40 35 / 70%);
+	background: var(--nkp-overlay);
 	border: 0;
 	border-radius: 50%;
-	color: #fff;
+	color: var(--nkp-on-dark);
 	cursor: pointer;
 	display: none;
 	font-size: 18px;
@@ -668,7 +681,7 @@ body.nkp-page {
 	border-radius: 12px;
 	bottom: 24px;
 	box-shadow: var(--nkp-shadow-raised);
-	color: #fff;
+	color: var(--nkp-on-dark);
 	font-size: 15px;
 	left: 50%;
 	max-width: min(520px, calc(100vw - 32px));
@@ -806,7 +819,7 @@ body.nkp-page {
 /* Verkaufte Unikate */
 
 .nkp-badge--sold {
-	background: #ece6df;
+	background: var(--nkp-ended-bg);
 	color: var(--nkp-text-muted);
 }
 
@@ -1018,6 +1031,7 @@ body.nkp-page {
 }
 
 .nkp-dialog::backdrop {
+	/* Fester Wert, weil ::backdrop in älteren Safari-Versionen keine Variablen erbt */
 	background: rgb(46 40 35 / 45%);
 }
 
@@ -1154,7 +1168,7 @@ body.nkp-page {
 .nkp-topbar__brand,
 .nkp-topbar__nav a,
 .nkp-vine-toggle {
-	background: rgb(246 241 234 / 85%);
+	background: var(--nkp-bg-glass);
 	border-radius: 999px;
 }
 
@@ -1173,7 +1187,7 @@ body.nkp-page {
 .nkp-panel,
 .nkp-card,
 .nkp-type {
-	background: rgb(255 253 249 / 80%);
+	background: var(--nkp-surface-glass);
 }
 
 .nkp-vine-toggle {
@@ -1191,7 +1205,7 @@ body.nkp-page {
 }
 
 .nkp-vine-toggle[aria-pressed="true"] {
-	color: #7a8c6e;
+	color: var(--nkp-leaf);
 }
 
 .nkp-vine-toggle:hover,
@@ -1299,7 +1313,7 @@ body.nkp-page {
 /* Listenansicht: dieselben Einträge als Tabellenzeilen mit festen Spalten */
 
 .nkp-overview--list .nkp-grid {
-	background: rgb(255 253 249 / 80%);
+	background: var(--nkp-surface-glass);
 	border: 1px solid var(--nkp-border);
 	border-radius: var(--nkp-radius);
 	box-shadow: var(--nkp-shadow);
@@ -1504,8 +1518,8 @@ body.nkp-page {
 }
 
 .nkp-badge--future {
-	background: #e4e9f1;
-	color: #3b4f6b;
+	background: var(--nkp-planned-bg);
+	color: var(--nkp-planned-text);
 }
 
 /* Aktionen */
@@ -1524,16 +1538,16 @@ body.nkp-page {
 	color: var(--nkp-draft-text);
 }
 
-.nkp-campaign-group + .nkp-campaign-group {
+.nkp-entry-group + .nkp-entry-group {
 	margin-top: 32px;
 }
 
-.nkp-campaign-group .nkp-group__title {
+.nkp-entry-group .nkp-group__title {
 	margin-bottom: 14px;
 }
 
-.nkp-campaigns {
-	background: rgb(255 253 249 / 80%);
+.nkp-entries {
+	background: var(--nkp-surface-glass);
 	border: 1px solid var(--nkp-border);
 	border-radius: var(--nkp-radius);
 	box-shadow: var(--nkp-shadow);
@@ -1543,11 +1557,11 @@ body.nkp-page {
 	padding: 0;
 }
 
-.nkp-campaign + .nkp-campaign {
+.nkp-entry + .nkp-entry {
 	border-top: 1px solid var(--nkp-border);
 }
 
-.nkp-campaign__link {
+.nkp-entry__link {
 	align-items: center;
 	color: inherit;
 	display: grid;
@@ -1557,17 +1571,17 @@ body.nkp-page {
 	text-decoration: none;
 }
 
-.nkp-campaign__link:hover {
+.nkp-entry__link:hover {
 	background: var(--nkp-surface-soft);
 	color: inherit;
 }
 
-.nkp-campaign__link:focus-visible {
+.nkp-entry__link:focus-visible {
 	outline: 3px solid var(--nkp-accent);
 	outline-offset: -3px;
 }
 
-.nkp-campaign__percent {
+.nkp-entry__percent {
 	color: var(--nkp-accent-dark);
 	font-family: var(--nkp-font-heading);
 	font-size: 22px;
@@ -1575,36 +1589,36 @@ body.nkp-page {
 	white-space: nowrap;
 }
 
-.nkp-campaign--ended .nkp-campaign__percent {
+.nkp-entry--ended .nkp-entry__percent {
 	color: var(--nkp-text-muted);
 }
 
-.nkp-campaign__main {
+.nkp-entry__main {
 	display: grid;
 	gap: 3px;
 }
 
-.nkp-campaign__name {
+.nkp-entry__name {
 	font-size: 16px;
 }
 
-.nkp-campaign__meta,
-.nkp-campaign__note {
+.nkp-entry__meta,
+.nkp-entry__note {
 	color: var(--nkp-text-muted);
 	font-size: 14px;
 }
 
-.nkp-campaign__note--warning {
+.nkp-entry__note--warning {
 	color: var(--nkp-draft-text);
 }
 
-.nkp-campaign-form {
+.nkp-simple-form {
 	display: grid;
 	gap: 22px;
 	max-width: 760px;
 }
 
-.nkp-campaign-form__fields {
+.nkp-simple-form__fields {
 	border: 0;
 	display: grid;
 	gap: 22px;
@@ -1613,11 +1627,11 @@ body.nkp-page {
 	padding: 0;
 }
 
-.nkp-campaign-form__fields:disabled {
+.nkp-simple-form__fields:disabled {
 	opacity: 0.7;
 }
 
-.nkp-campaign-form__actions {
+.nkp-simple-form__actions {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 12px;
@@ -1630,12 +1644,12 @@ body.nkp-page {
 }
 
 .nkp-badge--campaign-planned {
-	background: #e4e9f1;
-	color: #3b4f6b;
+	background: var(--nkp-planned-bg);
+	color: var(--nkp-planned-text);
 }
 
 .nkp-badge--campaign-ended {
-	background: #ece6df;
+	background: var(--nkp-ended-bg);
 	color: var(--nkp-text-muted);
 }
 
@@ -1660,7 +1674,7 @@ body.nkp-page {
 }
 
 .nkp-picker__filter {
-	background: #fff;
+	background: var(--nkp-field-bg);
 	border: 1px solid var(--nkp-border-strong);
 	border-radius: var(--nkp-radius-small);
 	font: inherit;
@@ -1691,7 +1705,7 @@ body.nkp-page {
 	letter-spacing: 0.06em;
 }
 
-.nkp-campaign--ended .nkp-coupon__code {
+.nkp-entry--ended .nkp-coupon__code {
 	color: var(--nkp-text-muted);
 }
 
@@ -1716,7 +1730,7 @@ body.nkp-page {
 		grid-template-columns: minmax(0, 1fr) auto;
 	}
 
-	.nkp-coupon__link .nkp-campaign__main {
+	.nkp-coupon__link .nkp-entry__main {
 		grid-column: 1 / -1;
 		grid-row: 2;
 	}
@@ -1773,7 +1787,7 @@ body.nkp-page {
 	padding: 12px 18px;
 }
 
-.nkp-subscriber .nkp-campaign__main {
+.nkp-subscriber .nkp-entry__main {
 	min-width: 0;
 	overflow-wrap: anywhere;
 }

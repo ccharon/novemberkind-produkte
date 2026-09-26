@@ -48,42 +48,25 @@ final class Newsletters
      */
     public function register_post_type(): void
     {
-        register_post_type(self::POST_TYPE, [
-            'label'               => __('Newsletter', 'novemberkind-produkte'),
-            'public'              => false,
-            'publicly_queryable'  => false,
-            'exclude_from_search' => true,
-            'show_ui'             => false,
-            'show_in_rest'        => false,
-            'show_in_nav_menus'   => false,
-            'rewrite'             => false,
-            'query_var'           => false,
-            'can_export'          => false,
-            'supports'            => ['title'],
-            'capability_type'     => 'product',
-            'map_meta_cap'        => true,
-        ]);
+        Plugin::register_private_post_type(self::POST_TYPE, __('Newsletter', 'novemberkind-produkte'));
     }
 
     /**
-     * @return array<int, array<string, mixed>> alle Ausgaben, zuletzt geänderte zuerst
+     * Alle Ausgaben, zuletzt geänderte zuerst.
+     *
+     * @return array<int, array<string, mixed>>
      * @phpstan-return array<int, Issue>
      */
     public static function all(): array
     {
-        $posts = get_posts([
-            'post_type'      => self::POST_TYPE,
-            'post_status'    => 'private',
-            'posts_per_page' => -1,
-            'orderby'        => 'modified',
-            'order'          => 'DESC',
-            'no_found_rows'  => true,
-        ]);
+        $posts = Plugin::private_posts(self::POST_TYPE, ['orderby' => 'modified', 'order' => 'DESC']);
 
         return array_values(array_filter(array_map([self::class, 'from_post'], $posts)));
     }
 
     /**
+     * Eine Ausgabe oder null, wenn es sie nicht gibt.
+     *
      * @return array<string, mixed>|null
      * @phpstan-return Issue|null
      */
@@ -95,13 +78,28 @@ final class Newsletters
     }
 
     /**
-     * Ob eine Ausgabe noch geändert werden darf. Laufende und versendete bleiben als Nachweis unverändert.
+     * Ob eine Ausgabe gesperrt ist. Laufende und versendete bleiben als Nachweis unverändert.
      *
      * @param array<string, mixed> $issue
      */
     public static function is_locked(array $issue): bool
     {
         return in_array($issue['status'], ['sending', 'sent'], true);
+    }
+
+    /**
+     * Plakette für den Status einer Ausgabe.
+     *
+     * @return array{badge: string, label: string}
+     */
+    public static function badge(string $status): array
+    {
+        return match ($status) {
+            'scheduled' => ['badge' => 'campaign-planned', 'label' => __('Geplant', 'novemberkind-produkte')],
+            'sending'   => ['badge' => 'campaign-running', 'label' => __('Wird verschickt', 'novemberkind-produkte')],
+            'sent'      => ['badge' => 'campaign-ended', 'label' => __('Verschickt', 'novemberkind-produkte')],
+            default     => ['badge' => 'draft', 'label' => __('Entwurf', 'novemberkind-produkte')],
+        };
     }
 
     /**
@@ -114,7 +112,7 @@ final class Newsletters
     {
         $errors  = [];
         // sanitize_text_field macht aus einem einzelnen < ein &lt;, das im Posteingang sichtbar wäre
-        $subject = trim(wp_specialchars_decode(sanitize_text_field(wp_unslash(Plugin::input($data, 'subject'))), ENT_QUOTES));
+        $subject = wp_specialchars_decode(Input::text($data, 'subject'), ENT_QUOTES);
         if ($subject === '') {
             $errors['subject'] = __('Bitte gib einen Betreff ein.', 'novemberkind-produkte');
         } elseif (mb_strlen($subject) > self::SUBJECT_MAX_LENGTH) {
@@ -122,16 +120,16 @@ final class Newsletters
             $errors['subject'] = sprintf(__('Der Betreff darf höchstens %d Zeichen lang sein.', 'novemberkind-produkte'), self::SUBJECT_MAX_LENGTH);
         }
 
-        $preheader = trim(wp_specialchars_decode(sanitize_text_field(wp_unslash(Plugin::input($data, 'preheader'))), ENT_QUOTES));
+        $preheader = wp_specialchars_decode(Input::text($data, 'preheader'), ENT_QUOTES);
         if (mb_strlen($preheader) > self::PREHEADER_MAX_LENGTH) {
             /* translators: %d: größte Anzahl Zeichen */
             $errors['preheader'] = sprintf(__('Die Vorschauzeile darf höchstens %d Zeichen lang sein.', 'novemberkind-produkte'), self::PREHEADER_MAX_LENGTH);
         }
 
         // Offene Elemente würden in der Mail den Fuß mit dem Abmeldelink umschließen
-        $content  = trim(force_balance_tags(wp_kses_post(wp_unslash(Plugin::input($data, 'content')))));
+        $content  = trim(force_balance_tags(Input::html($data, 'content')));
         $products = array_values(array_filter(
-            array_unique(array_map('absint', (array) ($data['products'] ?? []))),
+            Input::ids($data, 'products'),
             static fn(int $product_id): bool => get_post_type($product_id) === 'product'
         ));
         if (trim(wp_strip_all_tags($content)) === '' && $products === []) {
@@ -139,7 +137,7 @@ final class Newsletters
         }
 
         if ($errors !== []) {
-            return new \WP_Error('invalid', __('Bitte prüfe die markierten Felder.', 'novemberkind-produkte'), $errors);
+            return Input::invalid($errors);
         }
 
         return ['subject' => $subject, 'preheader' => $preheader, 'content' => $content, 'products' => $products];
@@ -185,13 +183,10 @@ final class Newsletters
         $values = $this->parse($data);
         $errors = is_wp_error($values) ? (array) $values->get_error_data() : [];
 
-        $mode = Plugin::input($data, 'send', 'draft');
-        if (!in_array($mode, self::SEND_MODES, true)) {
-            $mode = 'draft';
-        }
+        $mode = Input::choice($data, 'send', self::SEND_MODES, 'draft');
         $scheduled = 0;
         if ($mode === 'scheduled') {
-            $scheduled = (int) ProductService::parse_local_datetime(Plugin::input($data, 'send_date'), Plugin::input($data, 'send_time'));
+            $scheduled = (int) Input::datetime($data, 'send');
             if ($scheduled === 0) {
                 $errors['send'] = __('Bitte wähle, wann der Newsletter verschickt wird.', 'novemberkind-produkte');
             } elseif ($scheduled <= time()) {
@@ -203,7 +198,7 @@ final class Newsletters
         }
 
         if ($errors !== [] || is_wp_error($values)) {
-            return new \WP_Error('invalid', __('Bitte prüfe die markierten Felder.', 'novemberkind-produkte'), $errors);
+            return Input::invalid($errors);
         }
 
         $post_id = wp_insert_post([
@@ -437,19 +432,10 @@ final class Newsletters
      */
     private function store(int $id, array $values): void
     {
+        $meta = self::normalize($values);
+        unset($meta['id'], $meta['modified']);
         // update_post_meta entfernt Backslashes, deshalb vorher wp_slash
-        update_post_meta($id, self::META, wp_slash([
-            'subject'    => (string) ($values['subject'] ?? ''),
-            'preheader'  => (string) ($values['preheader'] ?? ''),
-            'content'    => (string) ($values['content'] ?? ''),
-            'products'   => array_map('intval', (array) ($values['products'] ?? [])),
-            'status'     => in_array($values['status'] ?? '', self::STATUSES, true) ? (string) $values['status'] : 'draft',
-            'scheduled'  => (int) ($values['scheduled'] ?? 0),
-            'recipients' => (int) ($values['recipients'] ?? 0),
-            'sent'       => (int) ($values['sent'] ?? 0),
-            'failed'     => (int) ($values['failed'] ?? 0),
-            'finished'   => (int) ($values['finished'] ?? 0),
-        ]));
+        update_post_meta($id, self::META, wp_slash($meta));
     }
 
     /**
@@ -463,20 +449,36 @@ final class Newsletters
             return null;
         }
 
-        return [
-            'id'         => $post->ID,
+        return self::normalize([
+            'id'       => $post->ID,
             // Der Betreff steht in den Metadaten, weil WordPress im Titel & zu &amp; macht
-            'subject'    => (string) ($meta['subject'] ?? $post->post_title),
-            'preheader'  => (string) ($meta['preheader'] ?? ''),
-            'content'    => (string) ($meta['content'] ?? ''),
-            'products'   => array_map('intval', (array) ($meta['products'] ?? [])),
-            'status'     => in_array($meta['status'] ?? '', self::STATUSES, true) ? (string) $meta['status'] : 'draft',
-            'scheduled'  => (int) ($meta['scheduled'] ?? 0),
-            'recipients' => (int) ($meta['recipients'] ?? 0),
-            'sent'       => (int) ($meta['sent'] ?? 0),
-            'failed'     => (int) ($meta['failed'] ?? 0),
-            'finished'   => (int) ($meta['finished'] ?? 0),
-            'modified'   => (int) get_post_modified_time('U', true, $post),
+            'subject'  => $meta['subject'] ?? $post->post_title,
+            'modified' => get_post_modified_time('U', true, $post),
+        ] + $meta);
+    }
+
+    /**
+     * Gespeicherte oder neue Werte einer Ausgabe mit festen Typen und gültigem Status.
+     *
+     * @param array<string, mixed> $values
+     * @return array<string, mixed>
+     * @phpstan-return Issue
+     */
+    private static function normalize(array $values): array
+    {
+        return [
+            'id'         => (int) ($values['id'] ?? 0),
+            'subject'    => (string) ($values['subject'] ?? ''),
+            'preheader'  => (string) ($values['preheader'] ?? ''),
+            'content'    => (string) ($values['content'] ?? ''),
+            'products'   => array_map('intval', (array) ($values['products'] ?? [])),
+            'status'     => in_array($values['status'] ?? '', self::STATUSES, true) ? (string) $values['status'] : 'draft',
+            'scheduled'  => (int) ($values['scheduled'] ?? 0),
+            'recipients' => (int) ($values['recipients'] ?? 0),
+            'sent'       => (int) ($values['sent'] ?? 0),
+            'failed'     => (int) ($values['failed'] ?? 0),
+            'finished'   => (int) ($values['finished'] ?? 0),
+            'modified'   => (int) ($values['modified'] ?? 0),
         ];
     }
 }

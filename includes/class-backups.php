@@ -32,26 +32,11 @@ final class Backups
      */
     public function register_post_type(): void
     {
-        register_post_type(self::POST_TYPE, [
-            'label'               => __('Produkt-Sicherungen', 'novemberkind-produkte'),
-            'public'              => false,
-            'publicly_queryable'  => false,
-            'exclude_from_search' => true,
-            'show_ui'             => false,
-            'show_in_rest'        => false,
-            'show_in_nav_menus'   => false,
-            'rewrite'             => false,
-            'query_var'           => false,
-            'can_export'          => false,
-            'supports'            => [],
-            // Rechte wie bei Produkten, damit nur Rollen mit Produktrechten an Sicherungen kommen
-            'capability_type'     => 'product',
-            'map_meta_cap'        => true,
-        ]);
+        Plugin::register_private_post_type(self::POST_TYPE, __('Produkt-Sicherungen', 'novemberkind-produkte'), []);
     }
 
     /**
-     * Legt eine Sicherung des aktuellen Stands an und behält danach nur die neuesten drei.
+     * Legt eine Sicherung des aktuellen Stands an und behält danach nur die neuesten (Backups::KEEP).
      */
     public function create(\WC_Product $product): int|\WP_Error
     {
@@ -95,17 +80,13 @@ final class Backups
     }
 
     /**
-     * @return \WP_Post[] neueste zuerst
+     * Sicherungen eines Produkts, neueste zuerst.
+     *
+     * @return \WP_Post[]
      */
     public function for_product(int $product_id): array
     {
-        return get_posts([
-            'post_type'      => self::POST_TYPE,
-            'post_status'    => 'private',
-            'post_parent'    => $product_id,
-            'posts_per_page' => -1,
-            'orderby'        => ['date' => 'DESC', 'ID' => 'DESC'],
-        ]);
+        return Plugin::private_posts(self::POST_TYPE, ['post_parent' => $product_id, 'orderby' => ['date' => 'DESC', 'ID' => 'DESC']]);
     }
 
     /**
@@ -153,12 +134,7 @@ final class Backups
         $filename = sprintf('%s-sicherung-%s.json', $product ? $product->get_sku() : 'produkt', get_post_time('Y-m-d-His', false, $backup));
         $inline   = sanitize_key(wp_unslash($_GET['inline'] ?? '')) === '1'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- oben geprüft
 
-        nocache_headers();
-        header('Content-Type: application/json; charset=utf-8');
-        header('X-Content-Type-Options: nosniff');
-        header(sprintf('Content-Disposition: %s; filename="%s"', $inline ? 'inline' : 'attachment', sanitize_file_name($filename)));
-        echo self::snapshot($backup->ID); // phpcs:ignore WordPress.Security.EscapeOutput -- JSON mit Content-Type application/json und nosniff
-        exit;
+        Plugin::send_file($filename, 'application/json; charset=utf-8', self::snapshot($backup->ID), $inline);
     }
 
     /**

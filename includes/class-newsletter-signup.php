@@ -59,7 +59,7 @@ final class NewsletterSignup
      */
     public function shortcode(): string
     {
-        wp_enqueue_style('novemberkind-produkte-newsletter', plugin_dir_url(PLUGIN_FILE) . 'assets/css/newsletter.css', [], VERSION);
+        wp_enqueue_style('novemberkind-produkte-newsletter', Plugin::asset_url('assets/css/newsletter.css'), [], Plugin::asset_version('assets/css/newsletter.css'));
 
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- nur Anzeige der Rückmeldung
         $status = sanitize_key(wp_unslash($_GET[self::STATUS_ARG] ?? ''));
@@ -130,7 +130,7 @@ final class NewsletterSignup
     }
 
     /**
-     * Formulare, die noch an admin-post.php senden. Zurück geht es über den Referer.
+     * Nimmt Formulare aus Seiten-Caches an, die an admin-post.php senden, und leitet über den Referer zurück.
      */
     public function handle_signup(): void
     {
@@ -144,8 +144,8 @@ final class NewsletterSignup
     private function process_signup(string $back): never
     {
         // phpcs:disable WordPress.Security.NonceVerification.Missing -- öffentliches Formular, siehe oben
-        $email = sanitize_email(wp_unslash(Plugin::input($_POST, 'email')));
-        $bot   = trim(sanitize_text_field(wp_unslash(Plugin::input($_POST, self::HONEYPOT)))) !== '';
+        $email = sanitize_email(wp_unslash(Input::value($_POST, 'email')));
+        $bot   = trim(sanitize_text_field(wp_unslash(Input::value($_POST, self::HONEYPOT)))) !== '';
         // phpcs:enable
 
         $ip     = sanitize_text_field(wp_unslash((string) ($_SERVER['REMOTE_ADDR'] ?? '')));
@@ -209,7 +209,8 @@ final class NewsletterSignup
     }
 
     /**
-     * Ohne Typangaben, weil auch andere Plugins diesen Hook auslösen, teils mit anderen Argumenten.
+     * Meldet die Adresse einer Bestellung an, wenn der Haken an der klassischen Kasse gesetzt ist.
+     * Nimmt beliebige Werte an, weil auch andere Plugins diesen Hook auslösen, teils mit anderen Argumenten.
      */
     public function classic_checkout_processed(mixed $order_id = 0, mixed $posted = [], mixed $order = null): void
     {
@@ -235,6 +236,10 @@ final class NewsletterSignup
         ]);
     }
 
+    /**
+     * Meldet die Adresse einer Bestellung an, wenn der Haken an der Block-Kasse gesetzt ist.
+     * Nimmt beliebige Werte an, weil auch andere Plugins diesen Hook auslösen.
+     */
     public function block_checkout_processed(mixed $order = null): void
     {
         if (!$order instanceof \WC_Order) {
@@ -271,7 +276,7 @@ final class NewsletterSignup
     {
         // phpcs:disable WordPress.Security.NonceVerification -- das Token aus der Mail ist der Nachweis
         $action = sanitize_key(wp_unslash($_GET[self::QUERY_ARG] ?? ''));
-        $token  = (string) preg_replace('/[^A-Za-z0-9]/', '', sanitize_text_field(wp_unslash(Plugin::input($_GET, 't'))));
+        $token  = (string) preg_replace('/[^A-Za-z0-9]/', '', sanitize_text_field(wp_unslash(Input::value($_GET, 't'))));
         // phpcs:enable
         if (!in_array($action, ['bestaetigen', 'abmelden'], true)) {
             return;
@@ -328,7 +333,7 @@ final class NewsletterSignup
         $button = $state !== 'ask' ? '' : ($action === 'abmelden' ? __('Abmelden', 'novemberkind-produkte') : __('Anmeldung bestätigen', 'novemberkind-produkte'));
         $shop   = get_bloginfo('name');
 
-        wp_register_style('novemberkind-produkte-app', plugin_dir_url(PLUGIN_FILE) . 'assets/css/app.css', [], VERSION);
+        Plugin::register_app_style();
         include __DIR__ . '/../templates/newsletter-page.php';
     }
 
