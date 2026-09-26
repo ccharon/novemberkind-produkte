@@ -786,6 +786,8 @@ check('Entwurf gespeichert, Betreff unverändert', $draft['status'] === 'draft' 
 check('Inhalt ohne Skript', !str_contains($draft['content'], 'script') && str_contains($draft['content'], '<strong>du</strong>'));
 $rendered = NewsletterMail::render($draft);
 check('Mail mit Vorschauzeile, Produkt und Abmeldelink', str_contains($rendered['html'], 'Neue Sticker') && str_contains($rendered['html'], 'Sticker: Newslettertest') && str_contains($rendered['html'], 'nkp-newsletter=abmelden&#038;t=' . NewsletterMail::TOKEN_PLACEHOLDER));
+$logo_url = (string) wp_get_attachment_image_url((int) get_option('site_logo'), 'medium');
+check('Mail mit dem Logo des Shops im Kopf', $logo_url !== '' && str_contains($rendered['html'], 'src="' . $logo_url . '"'));
 check('Textfassung mit Link und Preis', str_contains($rendered['text'], 'hier entlang (https://example.org/neu/)') && str_contains($rendered['text'], '2,50'));
 
 $angle = $newsletters->parse(['subject' => 'Herz <3 & mehr', 'preheader' => 'a < b', 'content' => '<p>x</p>']);
