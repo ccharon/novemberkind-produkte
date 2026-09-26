@@ -46,6 +46,23 @@ final class ShopData
     }
 
     /**
+     * Die genauesten Kategorien eines Produkts: Ein Button in „Physische Produkte“ und „Buttons“ zählt zu „Buttons“,
+     * ein Produkt nur in „Physische Produkte“ zu dieser Oberkategorie. Gilt für die Gruppen der Übersicht und für Aktionen.
+     *
+     * @return int[]
+     */
+    public static function leaf_categories(int $product_id): array
+    {
+        $assigned  = array_map('intval', wc_get_product_term_ids($product_id, 'product_cat'));
+        $ancestors = [];
+        foreach ($assigned as $term_id) {
+            $ancestors = [...$ancestors, ...array_map('intval', get_ancestors($term_id, 'product_cat', 'taxonomy'))];
+        }
+
+        return array_values(array_diff($assigned, $ancestors));
+    }
+
+    /**
      * ID einer Versandklasse über ihren Namen, 0 wenn es sie nicht gibt.
      */
     public static function shipping_class_id(string $name): int

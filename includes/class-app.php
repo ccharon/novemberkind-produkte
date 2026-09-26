@@ -522,9 +522,10 @@ final class App
      */
     private static function group_category(\WC_Product $product): ?\WP_Term
     {
-        $terms   = wc_get_object_terms($product->get_id(), 'product_cat');
-        $parents = wp_list_pluck($terms, 'parent');
-        $leaves  = array_values(array_filter($terms, static fn(\WP_Term $term): bool => !in_array($term->term_id, $parents, true)));
+        $leaves = array_values(array_filter(array_map(
+            static fn(int $term_id): mixed => get_term($term_id, 'product_cat'),
+            ShopData::leaf_categories($product->get_id())
+        ), static fn(mixed $term): bool => $term instanceof \WP_Term));
         if ($leaves === []) {
             return null;
         }

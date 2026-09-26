@@ -618,6 +618,24 @@ check('sofort online statt geplant', get_post_status($planned->get_id()) === 'pu
 check('keine Veröffentlichung mehr eingeplant', wp_next_scheduled('publish_future_post', [$planned->get_id()]) === false);
 update_option('timezone_string', $old_timezone);
 
+section('Genaueste Kategorie');
+[$top_id, $middle_id, $bottom_id] = ShopData::category_ids(['Testober', 'Testmitte', 'Testunten']);
+$leaf_product = new WC_Product_Simple();
+$leaf_product->set_name('Kategorietest');
+$leaf_product->set_category_ids([$top_id, $bottom_id]);
+$leaf_product->save();
+check('Oberkategorie zählt nicht, auch ohne die Ebene dazwischen', ShopData::leaf_categories($leaf_product->get_id()) === [$bottom_id]);
+$only_top = new WC_Product_Simple();
+$only_top->set_name('Nur oben');
+$only_top->set_category_ids([$top_id]);
+$only_top->save();
+check('nur Oberkategorie zählt als genaueste', ShopData::leaf_categories($only_top->get_id()) === [$top_id]);
+$leaf_product->delete(true);
+$only_top->delete(true);
+foreach ([$bottom_id, $middle_id, $top_id] as $term_id) {
+    wp_delete_term($term_id, 'product_cat');
+}
+
 section('Rabattaktionen');
 $campaigns = new Campaigns();
 $when = static fn(string $key, int $timestamp): array => ["{$key}_date" => wp_date('Y-m-d', $timestamp), "{$key}_time" => wp_date('H:i', $timestamp)];

@@ -440,23 +440,11 @@ final class Campaigns
     }
 
     /**
-     * Die genauesten Kategorien eines Produkts: Ein Button in „Physische Produkte“ und „Buttons“ zählt zu „Buttons“,
-     * ein Produkt nur in „Physische Produkte“ zu dieser Oberkategorie.
-     *
      * @return int[]
      */
     private static function leaf_categories(int $product_id): array
     {
-        if (!isset(self::$categories[$product_id])) {
-            $assigned  = array_map('intval', wc_get_product_term_ids($product_id, 'product_cat'));
-            $ancestors = [];
-            foreach ($assigned as $term_id) {
-                $ancestors = [...$ancestors, ...array_map('intval', get_ancestors($term_id, 'product_cat', 'taxonomy'))];
-            }
-            self::$categories[$product_id] = array_values(array_diff($assigned, $ancestors));
-        }
-
-        return self::$categories[$product_id];
+        return self::$categories[$product_id] ??= ShopData::leaf_categories($product_id);
     }
 
     /**
