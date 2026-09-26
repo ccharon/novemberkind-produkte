@@ -812,7 +812,9 @@ as_unschedule_all_actions(Newsletters::HOOK_START, ['id' => $draft['id']], 'nove
 $newsletters->save(wp_slash($issue_data), $draft['id']);
 check('zurück zum Entwurf ohne Aufgabe', Newsletters::get($draft['id'])['status'] === 'draft' && as_next_scheduled_action(Newsletters::HOOK_START, ['id' => $draft['id']], 'novemberkind-produkte') === false);
 
-// 30 bestätigte Empfänger für zwei Päckchen
+check('Versand bleibt unter der Grenze des Shops von 250 Mails pro Stunde', Newsletters::batch_size() * HOUR_IN_SECONDS / Newsletters::BATCH_INTERVAL <= 250);
+
+// 30 bestätigte Empfänger für mehrere Päckchen
 for ($i = 1; $i <= 30; $i++) {
     $confirm_new("test-abo-{$i}@example.org");
 }
@@ -839,8 +841,8 @@ $newsletters->send_batch($sending['id']);
 $after_first = Newsletters::get($sending['id']);
 $next_batch = as_next_scheduled_action(Newsletters::HOOK_BATCH, ['id' => $sending['id']], 'novemberkind-produkte');
 check('nächstes Päckchen etwa eine Minute später geplant', is_int($next_batch) && $next_batch >= time() + Newsletters::BATCH_INTERVAL - 10);
-check('erstes Päckchen mit 25 Mails, Rest geplant', count($mails) === Newsletters::BATCH_SIZE && $after_first['sent'] === Newsletters::BATCH_SIZE && $after_first['status'] === 'sending' && as_next_scheduled_action(Newsletters::HOOK_BATCH, ['id' => $sending['id']], 'novemberkind-produkte') !== false);
-// Eine Testadresse aus dem zweiten Päckchen meldet sich zwischendurch ab
+check('erstes Päckchen mit 4 Mails, Rest geplant', count($mails) === Newsletters::batch_size() && $after_first['sent'] === Newsletters::batch_size() && $after_first['status'] === 'sending' && as_next_scheduled_action(Newsletters::HOOK_BATCH, ['id' => $sending['id']], 'novemberkind-produkte') !== false);
+// Eine Testadresse aus einem späteren Päckchen meldet sich zwischendurch ab
 $queued = array_values(array_intersect((array) get_post_meta($sending['id'], Newsletters::META_QUEUE, true), $test_subscribers));
 $leaving = Subscribers::get((int) ($queued[0] ?? 0));
 $first_mail = $mails[0];
@@ -849,9 +851,14 @@ check('Mail mit persönlichem Abmeldelink und Ein-Klick-Kopfzeilen', str_contain
     && in_array('List-Unsubscribe-Post: List-Unsubscribe=One-Click', $first_mail['headers'], true) && in_array('List-Unsubscribe: <' . NewsletterSignup::url('abmelden', $first_token) . '>', $first_mail['headers'], true));
 check('Absender und Antwortadresse gesetzt', (bool) preg_grep('/^From: .*<' . preg_quote($from['email'], '/') . '>$/', $first_mail['headers']) && in_array('Reply-To: ' . $from['email'], $first_mail['headers'], true));
 check('Abmelden über das Token löscht die Adresse', $leaving !== null && $subscribers->unsubscribe($leaving['token']) && Subscribers::get($leaving['id']) === null);
-$newsletters->send_batch($sending['id']);
+$batches = 1;
+while ($batches < 50 && Newsletters::get($sending['id'])['status'] === 'sending') {
+    $newsletters->send_batch($sending['id']);
+    $batches++;
+}
 $sent_issue = Newsletters::get($sending['id']);
-check('zweites Päckchen ohne die abgemeldete Adresse, dann verschickt', $sent_issue['status'] === 'sent' && $sent_issue['sent'] === $recipients - 1 && count($mails) === $recipients - 1 && !in_array($leaving['email'], array_column($mails, 'to'), true));
+check('so viele Päckchen wie nötig', $batches === (int) ceil($recipients / Newsletters::batch_size()));
+check('restliche Päckchen ohne die abgemeldete Adresse, dann verschickt', $sent_issue['status'] === 'sent' && $sent_issue['sent'] === $recipients - 1 && count($mails) === $recipients - 1 && !in_array($leaving['email'], array_column($mails, 'to'), true));
 check('verschickter Newsletter bleibt unverändert', is_wp_error($newsletters->save(wp_slash($issue_data), $sending['id'])) && Newsletters::remaining($sending['id']) === 0);
 
 $limit_keys = ['novemberkind_produkte_signup_all', 'novemberkind_produkte_signup_ip_' . substr(wp_hash('198.51.100.7'), 0, 32), 'novemberkind_produkte_signup_ip_' . substr(wp_hash('198.51.100.8'), 0, 32)];
@@ -982,6 +989,9 @@ require_once ABSPATH . 'wp-admin/includes/user.php';
 wp_delete_user($product_only);
 remove_role('nkp_test_produkte');
 wp_set_current_user(get_user_by('login', 'shop')->ID);
+
+define('NOVEMBERKIND_PRODUKTE_NEWSLETTER_PER_MINUTE', '500');
+check('Mails pro Minute aus der wp-config.php, nach oben begrenzt', Newsletters::batch_size() === 100);
 
 remove_filter('pre_wp_mail', $catch_mail, 10);
 foreach ($issue_ids as $issue_id) {

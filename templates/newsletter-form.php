@@ -67,7 +67,7 @@ $badge = ['draft' => 'draft', 'scheduled' => 'campaign-planned', 'sending' => 'c
                 __('Bisher %1$d von %2$d verschickt. Es gehen %3$d Mails pro Minute raus, die Seite muss dafür nicht offen bleiben.', 'novemberkind-produkte'),
                 $issue['recipients'] - $remaining,
                 $issue['recipients'],
-                Newsletters::BATCH_SIZE
+                Newsletters::batch_size()
             ));
             ?>
         </p>

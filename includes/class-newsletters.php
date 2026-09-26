@@ -21,9 +21,10 @@ final class Newsletters
     public const SEND_MODES = ['draft', 'now', 'scheduled'];
     public const SUBJECT_MAX_LENGTH = 150;
     public const PREHEADER_MAX_LENGTH = 150;
-    // Hoster begrenzen die Zahl der Mails pro Stunde, deshalb in kleinen Päckchen
-    public const BATCH_SIZE = 25;
+    // Der Shop darf 250 Mails pro Stunde verschicken, 4 pro Minute ergeben höchstens 240
+    public const BATCH_SIZE = 4;
     public const BATCH_INTERVAL = 60;
+    private const BATCH_SIZE_MAX = 100;
     // Der Action Scheduler übergibt ['id' => …] als benanntes Argument, der Parameter muss $id heißen
     public const HOOK_START = 'novemberkind_produkte_newsletter_start';
     public const HOOK_BATCH = 'novemberkind_produkte_newsletter_batch';
@@ -305,7 +306,7 @@ final class Newsletters
         }
 
         $queue = array_map('intval', (array) get_post_meta($id, self::META_QUEUE, true));
-        $batch = array_splice($queue, 0, self::BATCH_SIZE);
+        $batch = array_splice($queue, 0, self::batch_size());
         update_post_meta($id, self::META_QUEUE, $queue);
         if ($queue !== []) {
             as_schedule_single_action(time() + self::BATCH_INTERVAL, self::HOOK_BATCH, ['id' => $id], self::GROUP);
@@ -355,6 +356,19 @@ final class Newsletters
                 as_enqueue_async_action(self::HOOK_START, $args, self::GROUP);
             }
         }
+    }
+
+    /**
+     * Mails pro Minute: NOVEMBERKIND_PRODUKTE_NEWSLETTER_PER_MINUTE aus der wp-config.php, sonst BATCH_SIZE.
+     */
+    public static function batch_size(): int
+    {
+        if (!defined('NOVEMBERKIND_PRODUKTE_NEWSLETTER_PER_MINUTE')) {
+            return self::BATCH_SIZE;
+        }
+        $value = constant('NOVEMBERKIND_PRODUKTE_NEWSLETTER_PER_MINUTE');
+
+        return is_numeric($value) ? max(1, min(self::BATCH_SIZE_MAX, (int) $value)) : self::BATCH_SIZE;
     }
 
     /**
