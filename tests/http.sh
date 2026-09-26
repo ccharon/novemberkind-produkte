@@ -59,6 +59,10 @@ check 'Produkt ohne Vorlage öffnet WooCommerce' "$(location -b "$JAR" "$APP/$mu
 check 'unbekanntes Produkt liefert 404' "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$APP/999999/")" 404
 check 'unbekannte Unterseite liefert 404' "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$APP/gibt-es-nicht/")" 404
 check 'unbekannte Unterseite ohne Login zur Anmeldung mit der Übersicht als Ziel' "$(location "$APP/gibt-es-nicht/" | grep -c 'redirect_to=.*produkte-verwalten%2F$')" 1
+check 'Adresse mit Zeilenumbruch am Ende liefert 404' "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$APP/?novemberkind_produkte=/$card_id%0A")" 404
+check 'Liste statt Adresse liefert 404 ohne PHP-Warnung' "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$BASE/?novemberkind_produkte[]=x")" 404
+check 'fremder Host im Pfad führt nicht weg' "$(location "$APP//evil.example/" | grep -c 'redirect_to=http%3A%2F%2Flocalhost%3A8888%2Fprodukte-verwalten%2F$')" 1
+check 'Zeilenumbruch im Pfad setzt keine Kopfzeile' "$(curl -s -D - -o /dev/null "$APP/neu/card%0D%0ASet-Cookie:nkp=1/" | grep -ci '^set-cookie: nkp')" 0
 check 'Menüeintrag im Backend leitet weiter' "$(location -b "$JAR" "$BASE/wp-admin/admin.php?page=novemberkind-produkte")" "$APP/"
 
 ADMIN_JAR=$TMP/admin-cookies

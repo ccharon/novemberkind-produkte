@@ -62,7 +62,7 @@ final class Ajax
             $this->{$action}();
         } catch (\Throwable $error) {
             // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Details für den Betrieb, die Nutzerin sieht eine allgemeine Meldung
-            error_log(sprintf('novemberkind-produkte: AJAX %s: %s in %s:%d', $action, $error->getMessage(), $error->getFile(), $error->getLine()));
+            error_log(sprintf('novemberkind-produkte: AJAX %s: %s in %s:%d', $action, str_replace(["\r", "\n"], ' ', $error->getMessage()), $error->getFile(), $error->getLine()));
             wp_send_json_error(['message' => __('Das hat nicht geklappt. Bitte lade die Seite neu und versuche es noch einmal.', 'novemberkind-produkte')], 500);
         }
     }
@@ -133,7 +133,8 @@ final class Ajax
             self::deny();
         }
         $type = self::requested_type();
-        if (in_array(Input::text($_POST, 'status'), ['publish', 'future'], true) && !current_user_can('publish_products')) {
+        // Derselbe Wert, den ProductService speichert, damit die Prüfung nicht an einer anderen Lesart vorbeigeht
+        if (Input::choice($_POST, 'status', ProductService::STATUSES, 'draft') !== 'draft' && !current_user_can('publish_products')) {
             wp_send_json_error(['message' => __('Du darfst Produkte nur als Entwurf speichern.', 'novemberkind-produkte')], 403);
         }
 

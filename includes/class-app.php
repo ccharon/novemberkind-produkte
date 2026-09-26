@@ -134,10 +134,12 @@ final class App
      */
     public function maybe_render(): void
     {
-        $query = (string) get_query_var(self::QUERY_VAR);
+        $query = get_query_var(self::QUERY_VAR);
         if ($query === '') {
             return;
         }
+        // Listen wie ?novemberkind_produkte[]=x gelten als unbekannte Seite
+        $query = is_string($query) ? $query : '/-';
         $page = trim($query, '/');
 
         // Safari lädt das Manifest ohne Anmeldung; es enthält nur Name, Farben und Icons
@@ -171,7 +173,8 @@ final class App
     private static function match(string $page): ?array
     {
         foreach (self::ROUTES as $pattern => [$method, $capability]) {
-            if (preg_match('#^' . $pattern . '$#', $page, $found)) {
+            // D: $ passt nur am Ende, nicht vor einem abschließenden Zeilenumbruch
+            if (preg_match('#^' . $pattern . '$#D', $page, $found)) {
                 return ['method' => $method, 'capability' => $capability, 'args' => array_slice($found, 1)];
             }
         }

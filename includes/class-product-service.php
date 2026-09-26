@@ -11,7 +11,7 @@ defined('ABSPATH') || exit;
  */
 final class ProductService
 {
-    private const STATUSES = ['draft', 'publish', 'future'];
+    public const STATUSES = ['draft', 'publish', 'future'];
     // Alle Produkte, die in der Verwaltung erscheinen, also ohne Papierkorb
     public const LISTED_STATUSES = ['publish', 'future', 'draft', 'pending', 'private'];
 
