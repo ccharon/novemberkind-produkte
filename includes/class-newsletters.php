@@ -108,7 +108,7 @@ final class Newsletters
     public function parse(array $data): array|\WP_Error
     {
         $errors  = [];
-        $subject = trim(sanitize_text_field(wp_unslash((string) ($data['subject'] ?? ''))));
+        $subject = trim(sanitize_text_field(wp_unslash(Plugin::input($data, 'subject'))));
         if ($subject === '') {
             $errors['subject'] = __('Bitte gib einen Betreff ein.', 'novemberkind-produkte');
         } elseif (mb_strlen($subject) > self::SUBJECT_MAX_LENGTH) {
@@ -116,13 +116,14 @@ final class Newsletters
             $errors['subject'] = sprintf(__('Der Betreff darf höchstens %d Zeichen lang sein.', 'novemberkind-produkte'), self::SUBJECT_MAX_LENGTH);
         }
 
-        $preheader = trim(sanitize_text_field(wp_unslash((string) ($data['preheader'] ?? ''))));
+        $preheader = trim(sanitize_text_field(wp_unslash(Plugin::input($data, 'preheader'))));
         if (mb_strlen($preheader) > self::PREHEADER_MAX_LENGTH) {
             /* translators: %d: größte Anzahl Zeichen */
             $errors['preheader'] = sprintf(__('Die Vorschauzeile darf höchstens %d Zeichen lang sein.', 'novemberkind-produkte'), self::PREHEADER_MAX_LENGTH);
         }
 
-        $content  = trim(wp_kses_post(wp_unslash((string) ($data['content'] ?? ''))));
+        // Offene Elemente würden in der Mail den Fuß mit dem Abmeldelink umschließen
+        $content  = trim(force_balance_tags(wp_kses_post(wp_unslash(Plugin::input($data, 'content')))));
         $products = array_values(array_filter(
             array_unique(array_map('absint', (array) ($data['products'] ?? []))),
             static fn(int $product_id): bool => get_post_type($product_id) === 'product'
@@ -158,13 +159,13 @@ final class Newsletters
         $values = $this->parse($data);
         $errors = is_wp_error($values) ? (array) $values->get_error_data() : [];
 
-        $mode = (string) ($data['send'] ?? 'draft');
+        $mode = Plugin::input($data, 'send', 'draft');
         if (!in_array($mode, self::SEND_MODES, true)) {
             $mode = 'draft';
         }
         $scheduled = 0;
         if ($mode === 'scheduled') {
-            $scheduled = (int) ProductService::parse_local_datetime((string) ($data['send_date'] ?? ''), (string) ($data['send_time'] ?? ''));
+            $scheduled = (int) ProductService::parse_local_datetime(Plugin::input($data, 'send_date'), Plugin::input($data, 'send_time'));
             if ($scheduled === 0) {
                 $errors['send'] = __('Bitte wähle, wann der Newsletter verschickt wird.', 'novemberkind-produkte');
             } elseif ($scheduled <= time()) {

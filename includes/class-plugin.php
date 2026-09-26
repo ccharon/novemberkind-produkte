@@ -66,6 +66,18 @@ final class Plugin
     }
 
     /**
+     * Ein Formularwert als Text. Listen wie `email[]=…` ergeben den Standardwert statt einer PHP-Warnung.
+     *
+     * @param array<mixed> $data
+     */
+    public static function input(array $data, string $key, string $default = ''): string
+    {
+        $value = $data[$key] ?? $default;
+
+        return is_scalar($value) ? (string) $value : $default;
+    }
+
+    /**
      * Entfernt beim Deaktivieren die eigenen Aufgaben aus WP-Cron.
      */
     public static function deactivate(): void

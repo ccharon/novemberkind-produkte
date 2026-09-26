@@ -707,6 +707,10 @@ $confirm_new = static function (string $email) use ($subscribers, &$test_subscri
     return $subscribers->confirm($subscriber['token']);
 };
 
+if (Subscribers::counts()['confirmed'] === 0) {
+    $nobody = $newsletters->save(['subject' => 'Leer', 'content' => '<p>x</p>', 'send' => 'now']);
+    check('„Jetzt verschicken“ ohne bestätigte Empfänger wird abgelehnt', is_wp_error($nobody) && array_keys($nobody->get_error_data()) === ['send']);
+}
 check('ungültige Adresse wird abgelehnt', is_wp_error($invalid_mail = $subscribers->subscribe('keine-adresse', 'form')) && $invalid_mail->get_error_code() === 'email');
 $subscribers->subscribe(' Test-Abo@Example.org ', 'checkout');
 $pending = Subscribers::find('test-abo@example.org');
@@ -720,11 +724,20 @@ $confirmed = $subscribers->confirm($pending['token']);
 check('Bestätigung über das Token', $confirmed !== null && $confirmed['status'] === 'confirmed' && $confirmed['confirmed'] > 0);
 $subscribers->subscribe('test-abo@example.org', 'form');
 check('bestätigte Adresse bekommt keine weitere Mail', count($mails) === 1 && Subscribers::find('test-abo@example.org')['status'] === 'confirmed');
+$long_ago = time() - 30 * DAY_IN_SECONDS;
+update_post_meta($pending['id'], Subscribers::META, ['status' => 'confirmed', 'created' => $long_ago, 'confirmed' => $long_ago, 'source' => 'checkout']);
+$subscribers->subscribe('test-abo@example.org', 'form');
+check('auch nach Wochen keine neue Bestätigungsmail für bestätigte Adressen', count($mails) === 1 && Subscribers::find('test-abo@example.org')['status'] === 'confirmed');
 $subscribers->subscribe('test-alt@example.org', 'form');
 $old = Subscribers::find('test-alt@example.org');
 update_post_meta($old['id'], Subscribers::META, ['status' => 'pending', 'created' => time() - 8 * DAY_IN_SECONDS, 'confirmed' => 0, 'source' => 'form']);
 $subscribers->cleanup();
 check('unbestätigte Anmeldung verfällt nach 7 Tagen', Subscribers::get($old['id']) === null);
+$subscribers->subscribe('test-frisch@example.org', 'form');
+$fresh = Subscribers::find('test-frisch@example.org');
+$test_subscribers[] = $fresh['id'];
+$subscribers->cleanup();
+check('Aufräumen lässt frische und alte bestätigte Adressen stehen', Subscribers::get($fresh['id']) !== null && Subscribers::find('test-abo@example.org') !== null);
 check('Aufräumen läuft täglich über WP-Cron', wp_get_schedule(Subscribers::CLEANUP_HOOK) === 'daily');
 check('CSV mit bestätigter Adresse', str_contains(Subscribers::csv(), '"test-abo@example.org";') && !str_contains(Subscribers::csv(), 'test-alt@'));
 $formula = $confirm_new('=1+1@example.org');
@@ -773,8 +786,12 @@ $issue_ids[] = $sending['id'];
 $recipients = count(Subscribers::confirmed());
 check('„Jetzt verschicken“ legt die Empfänger fest', $sending['status'] === 'sending' && $sending['recipients'] === $recipients && Newsletters::remaining($sending['id']) === $recipients);
 check('laufender Newsletter lässt sich nicht ändern', is_wp_error($newsletters->save(wp_slash($issue_data), $sending['id'])));
+// Die Aufgabe vom Start zählt nicht, geprüft wird das vom Päckchen geplante nächste
+as_unschedule_all_actions(Newsletters::HOOK_BATCH, ['id' => $sending['id']], 'novemberkind-produkte');
 $newsletters->send_batch($sending['id']);
 $after_first = Newsletters::get($sending['id']);
+$next_batch = as_next_scheduled_action(Newsletters::HOOK_BATCH, ['id' => $sending['id']], 'novemberkind-produkte');
+check('nächstes Päckchen etwa eine Minute später geplant', is_int($next_batch) && $next_batch >= time() + Newsletters::BATCH_INTERVAL - 10);
 check('erstes Päckchen mit 25 Mails, Rest geplant', count($mails) === Newsletters::BATCH_SIZE && $after_first['sent'] === Newsletters::BATCH_SIZE && $after_first['status'] === 'sending' && as_next_scheduled_action(Newsletters::HOOK_BATCH, ['id' => $sending['id']], 'novemberkind-produkte') !== false);
 // Eine Testadresse aus dem zweiten Päckchen meldet sich zwischendurch ab
 $queued = array_values(array_intersect((array) get_post_meta($sending['id'], Newsletters::META_QUEUE, true), $test_subscribers));
@@ -830,6 +847,11 @@ $letter_product->set_post_password('geheim');
 $letter_product->save();
 check('passwortgeschützte Produkte erscheinen nicht in der Mail', !str_contains(NewsletterMail::render($draft)['html'], 'Sticker: Newslettertest'));
 
+$open_link = NewsletterMail::render($newsletters->parse(['subject' => 'x', 'content' => '<p style="color:red">Text <a href="https://example.org/">offen']) + ['products' => []]);
+check('offener Link im Text umschließt nicht den Abmeldelink', str_contains($open_link['text'], 'Vom Newsletter abmelden (' . NewsletterSignup::url('abmelden', NewsletterMail::TOKEN_PLACEHOLDER) . ')'));
+check('Stile aus dem Text überschreiben die Gestaltung nicht', !str_contains($open_link['html'], 'color:red'));
+check('Listen statt Text in Formularfeldern ergeben leeren Text', NovemberkindProdukte\Plugin::input(['email' => ['a@b.de']], 'email') === '');
+
 $form = do_shortcode('[novemberkind_newsletter]');
 check('Anmeldeformular per Shortcode mit verstecktem Feld', str_contains($form, 'admin-post.php') && str_contains($form, 'name="nkp_website"') && str_contains($form, 'type="email"'));
 ob_start();
@@ -839,6 +861,8 @@ check('Haken an der klassischen Kasse, nicht vorausgewählt', str_contains($chec
 $order = wc_create_order();
 $order->set_billing_email('test-kasse@example.org');
 $order->save();
+(new NewsletterSignup())->classic_checkout_processed($order->get_id(), [], $order);
+check('Kasse ohne Haken meldet niemanden an', Subscribers::find('test-kasse@example.org') === null);
 $_POST['nkp_newsletter'] = '1';
 (new NewsletterSignup())->classic_checkout_processed($order->get_id(), [], $order);
 unset($_POST['nkp_newsletter']);
@@ -846,6 +870,40 @@ $from_checkout = Subscribers::find('test-kasse@example.org');
 $test_subscribers[] = $from_checkout['id'] ?? 0;
 check('Haken an der Kasse startet die Anmeldung', $from_checkout !== null && $from_checkout['status'] === 'pending' && $from_checkout['source'] === 'checkout');
 $order->delete(true);
+
+// CSV-Export für ein Konto ohne manage_woocommerce; liefert der Export trotzdem aus, endet das Skript mit exit
+add_role('nkp_test_produkte', 'Nur Produkte', ['read' => true, 'edit_products' => true]);
+$product_only = wp_insert_user(['user_login' => 'nkp-test-produkte', 'user_pass' => wp_generate_password(), 'role' => 'nkp_test_produkte']);
+wp_set_current_user($product_only);
+$_REQUEST['_wpnonce'] = wp_create_nonce(Subscribers::CSV_ACTION);
+$csv_guard = true;
+register_shutdown_function(static function () use (&$csv_guard): void {
+    if ($csv_guard) {
+        ob_end_clean();
+        echo "  ✗ CSV-Export ohne Newsletter-Rechte ausgeliefert\n";
+        exit(1);
+    }
+});
+$die_handler = static fn() => static function (): void {
+    throw new RuntimeException('wp_die');
+};
+add_filter('wp_die_handler', $die_handler);
+ob_start();
+try {
+    (new Subscribers())->download_csv();
+    $csv_blocked = false;
+} catch (RuntimeException $e) {
+    $csv_blocked = true;
+}
+ob_end_clean();
+$csv_guard = false;
+remove_filter('wp_die_handler', $die_handler);
+unset($_REQUEST['_wpnonce']);
+check('CSV-Export nur mit Newsletter-Rechten', $csv_blocked);
+require_once ABSPATH . 'wp-admin/includes/user.php';
+wp_delete_user($product_only);
+remove_role('nkp_test_produkte');
+wp_set_current_user(get_user_by('login', 'shop')->ID);
 
 remove_filter('pre_wp_mail', $catch_mail, 10);
 foreach ($issue_ids as $issue_id) {

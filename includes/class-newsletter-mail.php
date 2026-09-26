@@ -226,6 +226,8 @@ final class NewsletterMail
             'a'      => "color:{$colors['link']};font-weight:bold;font-style:italic;text-decoration:none;",
             'strong' => 'font-weight:bold;',
         ];
+        // Nur die Gestaltung der Mail, Stile aus dem Text würden sie überschreiben
+        $html = (string) preg_replace('/\sstyle\s*=\s*("[^"]*"|\'[^\']*\')/i', '', $html);
         foreach ($styles as $tag => $style) {
             $html = (string) preg_replace('/<' . $tag . '(\s[^>]*)?>/i', '<' . $tag . '$1 style="' . $style . '">', $html);
         }

@@ -164,6 +164,19 @@ mail_text() {
 subscriber_status() {
   bin/wp eval "\$s = NovemberkindProdukte\Subscribers::find('$1'); echo \$s ? \$s['status'] : 'weg';"
 }
+# Konto mit Produktrechten, aber ohne manage_woocommerce: kein Zugang zum Newsletter
+bin/wp role create nkp_nur_produkte 'Nur Produkte' >/dev/null 2>&1
+for cap in read edit_products upload_files; do bin/wp cap add nkp_nur_produkte "$cap" >/dev/null; done
+bin/wp user get nurprodukte >/dev/null 2>&1 || bin/wp user create nurprodukte nurprodukte@example.org --role=nkp_nur_produkte --user_pass=password >/dev/null
+LIMITED_JAR=$TMP/limited-cookies
+curl -s -c "$LIMITED_JAR" -b "$LIMITED_JAR" -o /dev/null "$BASE/wp-login.php"
+curl -s -c "$LIMITED_JAR" -b "$LIMITED_JAR" -o /dev/null -d 'log=nurprodukte&pwd=password&testcookie=1' "$BASE/wp-login.php"
+check 'Newsletter-Seiten ohne manage_woocommerce gesperrt' "$(curl -s -b "$LIMITED_JAR" -o /dev/null -w '%{http_code}' "$APP/newsletter/")" 403
+limited_nonce=$(curl -s -b "$LIMITED_JAR" "$APP/neu/button/" | grep -oP 'var novemberkindProdukte = .*?"nonce":"\K[a-f0-9]+')
+check 'Newsletter speichern ohne manage_woocommerce abgelehnt' "$(curl -s -b "$LIMITED_JAR" -o /dev/null -w '%{http_code}' -d action=novemberkind_produkte_save_newsletter -d "nonce=$limited_nonce" -d subject=x --data-urlencode 'content=<p>x</p>' "$BASE/wp-admin/admin-ajax.php")" 403
+bin/wp user delete nurprodukte --yes >/dev/null
+bin/wp role delete nkp_nur_produkte >/dev/null
+
 # Reste eines abgebrochenen Laufs
 bin/wp eval 'foreach (["http-abo", "http-bot", "http-csv", "http-kasse", "http-voll", "http-a&b"] as $n) { $s = NovemberkindProdukte\Subscribers::find("$n@example.org"); $s && (new NovemberkindProdukte\Subscribers())->remove($s["id"]); }' >/dev/null
 reset_signup_limits() {
@@ -185,6 +198,9 @@ curl -s -o /dev/null -d action=novemberkind_produkte_newsletter_signup --data-ur
 check 'Adresse mit & bleibt bei Besuchern unverändert' "$(bin/wp eval '$s = NovemberkindProdukte\Subscribers::find("http-a&b@example.org"); echo $s ? $s["email"] : "fehlt";')" 'http-a&b@example.org'
 bin/wp eval '$s = NovemberkindProdukte\Subscribers::find("http-a&b@example.org"); $s && (new NovemberkindProdukte\Subscribers())->remove($s["id"]);' >/dev/null
 curl -s -o /dev/null -d action=novemberkind_produkte_newsletter_signup -d email=http-bot@example.org -d nkp_website=spam "$BASE/wp-admin/admin-post.php"
+curl -s -o /dev/null -d action=novemberkind_produkte_newsletter_signup -d 'email[]=http-liste@example.org' "$BASE/wp-admin/admin-post.php"
+curl -s -o /dev/null "$BASE/?nkp-newsletter=abmelden&t[]=x"
+check 'Listen statt Text erzeugen keine PHP-Warnung' "$(docker compose exec -T wordpress sh -c 'grep -c "Array to string" wp-content/debug.log 2>/dev/null || true' | tr -d '\r')" 0
 check 'Bot mit ausgefülltem Feld wird nicht angemeldet' "$(subscriber_status http-bot@example.org)" weg
 confirm_url=$(mail_text http-abo@example.org | grep -oE 'http[^ )]*nkp-newsletter=bestaetigen&t=[A-Za-z0-9]+' | head -1)
 check 'Bestätigungsmail mit Link angekommen' "$([ -n "$confirm_url" ] && echo ja)" ja
