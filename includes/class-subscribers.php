@@ -65,14 +65,7 @@ final class Subscribers
      */
     public static function all(): array
     {
-        $posts = get_posts([
-            'post_type'      => self::POST_TYPE,
-            'post_status'    => 'private',
-            'posts_per_page' => -1,
-            'orderby'        => 'date',
-            'order'          => 'DESC',
-            'no_found_rows'  => true,
-        ]);
+        $posts = Plugin::private_posts(self::POST_TYPE, ['orderby' => 'date', 'order' => 'DESC']);
 
         return array_values(array_filter(array_map([self::class, 'from_post'], $posts)));
     }
@@ -128,17 +121,12 @@ final class Subscribers
      */
     private static function ids_for_email(string $email): array
     {
-        return array_map('intval', get_posts([
-            'post_type'      => self::POST_TYPE,
-            'post_status'    => 'private',
-            'meta_key'       => self::META_EMAIL, // phpcs:ignore WordPress.DB.SlowDBQuery -- wenige Einträge
-            'meta_value'     => strtolower(trim($email)), // phpcs:ignore WordPress.DB.SlowDBQuery -- wenige Einträge
-            'posts_per_page' => -1,
-            'orderby'        => 'ID',
-            'order'          => 'ASC',
-            'fields'         => 'ids',
-            'no_found_rows'  => true,
-        ]));
+        return Plugin::private_post_ids(self::POST_TYPE, [
+            'meta_key'   => self::META_EMAIL, // phpcs:ignore WordPress.DB.SlowDBQuery -- wenige Einträge
+            'meta_value' => strtolower(trim($email)), // phpcs:ignore WordPress.DB.SlowDBQuery -- wenige Einträge
+            'orderby'    => 'ID',
+            'order'      => 'ASC',
+        ]);
     }
 
     /**
@@ -150,13 +138,10 @@ final class Subscribers
         if (strlen($token) !== self::TOKEN_LENGTH || !ctype_alnum($token)) {
             return null;
         }
-        $posts = get_posts([
-            'post_type'      => self::POST_TYPE,
-            'post_status'    => 'private',
+        $posts = Plugin::private_posts(self::POST_TYPE, [
             'meta_key'       => self::META_TOKEN, // phpcs:ignore WordPress.DB.SlowDBQuery -- wenige Einträge
             'meta_value'     => $token, // phpcs:ignore WordPress.DB.SlowDBQuery -- wenige Einträge
             'posts_per_page' => 1,
-            'no_found_rows'  => true,
         ]);
         $subscriber = $posts ? self::from_post($posts[0]) : null;
 

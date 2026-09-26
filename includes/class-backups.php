@@ -84,13 +84,7 @@ final class Backups
      */
     public function for_product(int $product_id): array
     {
-        return get_posts([
-            'post_type'      => self::POST_TYPE,
-            'post_status'    => 'private',
-            'post_parent'    => $product_id,
-            'posts_per_page' => -1,
-            'orderby'        => ['date' => 'DESC', 'ID' => 'DESC'],
-        ]);
+        return Plugin::private_posts(self::POST_TYPE, ['post_parent' => $product_id, 'orderby' => ['date' => 'DESC', 'ID' => 'DESC']]);
     }
 
     /**

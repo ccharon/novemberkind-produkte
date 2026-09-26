@@ -53,14 +53,10 @@ include __DIR__ . '/list-header.php';
     <ul class="nkp-entries">
         <?php foreach ($coupons as $coupon) : ?>
             <?php
-            $state = match (true) {
-                !$coupon['active'] => ['draft', __('Deaktiviert', 'novemberkind-produkte')],
-                $coupon['expired'] => ['draft', __('Abgelaufen', 'novemberkind-produkte')],
-                default            => ['online', __('Aktiv', 'novemberkind-produkte')],
-            };
+            $state = Coupons::badge($coupon);
             $url = $coupon['own'] ? App::coupons_url($coupon['id']) : $coupon['edit_url'];
             ?>
-            <li class="nkp-entry<?php echo $state[0] === 'online' ? '' : ' nkp-entry--ended'; ?>">
+            <li class="nkp-entry<?php echo $state['badge'] === 'online' ? '' : ' nkp-entry--ended'; ?>">
                 <a class="nkp-entry__link nkp-coupon__link" href="<?php echo esc_url($url); ?>">
                     <span class="nkp-coupon__code"><?php echo esc_html($coupon['code']); ?></span>
                     <span class="nkp-entry__main">
@@ -69,7 +65,7 @@ include __DIR__ . '/list-header.php';
                             <span class="nkp-entry__note"><?php esc_html_e('Bearbeiten in WooCommerce', 'novemberkind-produkte'); ?></span>
                         <?php endif; ?>
                     </span>
-                    <span class="nkp-badge nkp-badge--<?php echo esc_attr($state[0]); ?>"><?php echo esc_html($state[1]); ?></span>
+                    <?php Html::badge($state); ?>
                 </a>
             </li>
         <?php endforeach; ?>

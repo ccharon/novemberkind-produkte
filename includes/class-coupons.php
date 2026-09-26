@@ -118,6 +118,22 @@ final class Coupons
     }
 
     /**
+     * Plakette für den Zustand eines Gutscheins: aktiv, abgelaufen oder deaktiviert.
+     *
+     * @param array<string, mixed> $coupon
+     * @phpstan-param Coupon $coupon
+     * @return array{badge: string, label: string}
+     */
+    public static function badge(array $coupon): array
+    {
+        return match (true) {
+            !$coupon['active'] => ['badge' => 'draft', 'label' => __('Deaktiviert', 'novemberkind-produkte')],
+            $coupon['expired'] => ['badge' => 'draft', 'label' => __('Abgelaufen', 'novemberkind-produkte')],
+            default            => ['badge' => 'online', 'label' => __('Aktiv', 'novemberkind-produkte')],
+        };
+    }
+
+    /**
      * @param array<string, mixed> $data Rohdaten aus dem Formular
      * @return array<string, mixed>|\WP_Error
      * @phpstan-return Coupon|\WP_Error

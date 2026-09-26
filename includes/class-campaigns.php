@@ -81,13 +81,7 @@ final class Campaigns
     {
         if (self::$cache === null) {
             self::$cache = [];
-            $posts = get_posts([
-                'post_type'      => self::POST_TYPE,
-                'post_status'    => 'private',
-                'posts_per_page' => -1,
-                'no_found_rows'  => true,
-            ]);
-            foreach ($posts as $post) {
+            foreach (Plugin::private_posts(self::POST_TYPE) as $post) {
                 $campaign = self::from_post($post);
                 if ($campaign !== null) {
                     self::$cache[$campaign['id']] = $campaign;
@@ -123,6 +117,20 @@ final class Campaigns
             $campaign['end'] <= $now || $campaign['end'] <= $campaign['start'] => 'ended',
             $campaign['start'] > $now                                          => 'planned',
             default                                                            => 'running',
+        };
+    }
+
+    /**
+     * Plakette für den Status einer Aktion.
+     *
+     * @return array{badge: string, label: string}
+     */
+    public static function badge(string $status): array
+    {
+        return match ($status) {
+            'running' => ['badge' => 'campaign-running', 'label' => __('Läuft gerade', 'novemberkind-produkte')],
+            'planned' => ['badge' => 'campaign-planned', 'label' => __('Geplant', 'novemberkind-produkte')],
+            default   => ['badge' => 'campaign-ended', 'label' => __('Beendet', 'novemberkind-produkte')],
         };
     }
 

@@ -15,27 +15,13 @@ defined('ABSPATH') || exit;
 $is_new = $coupon === null;
 $kind   = $coupon['kind'] ?? 'percent';
 
-$field_error = static function (string $field): void {
-    printf('<span class="nkp-field__error" data-error-for="%s" hidden></span>', esc_attr($field));
-};
+$form_back_url   = App::coupons_url();
+$form_back_label = __('← Alle Gutscheine', 'novemberkind-produkte');
+$form_eyebrow    = __('Gutschein', 'novemberkind-produkte');
+$form_title      = $is_new ? __('Neuer Gutschein', 'novemberkind-produkte') : $coupon['code'];
+$form_badge      = $is_new ? null : Coupons::badge($coupon);
+include __DIR__ . '/form-header.php';
 ?>
-<a class="nkp-back" href="<?php echo esc_url(App::coupons_url()); ?>"><?php esc_html_e('← Alle Gutscheine', 'novemberkind-produkte'); ?></a>
-
-<header class="nkp-header">
-    <div>
-        <p class="nkp-eyebrow"><?php esc_html_e('Gutschein', 'novemberkind-produkte'); ?></p>
-        <h1><?php echo $is_new ? esc_html__('Neuer Gutschein', 'novemberkind-produkte') : esc_html($coupon['code']); ?></h1>
-    </div>
-    <?php if (!$is_new) : ?>
-        <?php if (!$coupon['active']) : ?>
-            <span class="nkp-badge nkp-badge--draft"><?php esc_html_e('Deaktiviert', 'novemberkind-produkte'); ?></span>
-        <?php elseif ($coupon['expired']) : ?>
-            <span class="nkp-badge nkp-badge--draft"><?php esc_html_e('Abgelaufen', 'novemberkind-produkte'); ?></span>
-        <?php else : ?>
-            <span class="nkp-badge nkp-badge--online"><?php esc_html_e('Aktiv', 'novemberkind-produkte'); ?></span>
-        <?php endif; ?>
-    <?php endif; ?>
-</header>
 
 <form class="nkp-simple-form" data-nkp-simple-form data-nkp-save="novemberkind_produkte_save_coupon" novalidate>
     <input type="hidden" name="id" value="<?php echo esc_attr((string) ($coupon['id'] ?? 0)); ?>">
@@ -58,7 +44,7 @@ $field_error = static function (string $field): void {
                 <button type="button" class="nkp-button nkp-button--secondary" data-nkp-generate-code><?php esc_html_e('Zufällig', 'novemberkind-produkte'); ?></button>
             </div>
             <span class="nkp-field__hint"><?php esc_html_e('Den gibt die Kundschaft im Warenkorb ein. Groß- und Kleinschreibung spielt keine Rolle.', 'novemberkind-produkte'); ?></span>
-            <?php $field_error('code'); ?>
+            <?php Html::field_error('code'); ?>
         </div>
     </section>
 
@@ -79,7 +65,7 @@ $field_error = static function (string $field): void {
         <label class="nkp-field nkp-field--narrow" data-nkp-show-for="kind:percent" <?php echo $kind === 'percent' ? '' : 'hidden'; ?>>
             <span class="nkp-field__label"><?php esc_html_e('Rabatt in Prozent', 'novemberkind-produkte'); ?></span>
             <input type="number" name="percent" min="1" max="<?php echo esc_attr((string) Coupons::MAX_PERCENT); ?>" step="1" inputmode="numeric" value="<?php echo esc_attr($kind === 'percent' && $coupon ? (string) $coupon['percent'] : ''); ?>" placeholder="10">
-            <?php $field_error('percent'); ?>
+            <?php Html::field_error('percent'); ?>
         </label>
     </section>
 
@@ -89,7 +75,7 @@ $field_error = static function (string $field): void {
             <span class="nkp-field__label"><?php esc_html_e('Gültig bis einschließlich', 'novemberkind-produkte'); ?></span>
             <input type="date" name="expires" value="<?php echo esc_attr($coupon['expires'] ?? ''); ?>">
             <span class="nkp-field__hint"><?php esc_html_e('Leer lassen, wenn der Gutschein unbegrenzt gilt.', 'novemberkind-produkte'); ?></span>
-            <?php $field_error('expires'); ?>
+            <?php Html::field_error('expires'); ?>
         </label>
         <label class="nkp-check">
             <input type="checkbox" name="once" value="1" <?php checked($coupon['once'] ?? false); ?>>

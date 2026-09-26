@@ -57,14 +57,7 @@ final class Newsletters
      */
     public static function all(): array
     {
-        $posts = get_posts([
-            'post_type'      => self::POST_TYPE,
-            'post_status'    => 'private',
-            'posts_per_page' => -1,
-            'orderby'        => 'modified',
-            'order'          => 'DESC',
-            'no_found_rows'  => true,
-        ]);
+        $posts = Plugin::private_posts(self::POST_TYPE, ['orderby' => 'modified', 'order' => 'DESC']);
 
         return array_values(array_filter(array_map([self::class, 'from_post'], $posts)));
     }
@@ -88,6 +81,21 @@ final class Newsletters
     public static function is_locked(array $issue): bool
     {
         return in_array($issue['status'], ['sending', 'sent'], true);
+    }
+
+    /**
+     * Plakette für den Status einer Ausgabe.
+     *
+     * @return array{badge: string, label: string}
+     */
+    public static function badge(string $status): array
+    {
+        return match ($status) {
+            'scheduled' => ['badge' => 'campaign-planned', 'label' => __('Geplant', 'novemberkind-produkte')],
+            'sending'   => ['badge' => 'campaign-running', 'label' => __('Wird verschickt', 'novemberkind-produkte')],
+            'sent'      => ['badge' => 'campaign-ended', 'label' => __('Verschickt', 'novemberkind-produkte')],
+            default     => ['badge' => 'draft', 'label' => __('Entwurf', 'novemberkind-produkte')],
+        };
     }
 
     /**

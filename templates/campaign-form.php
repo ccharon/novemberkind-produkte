@@ -19,28 +19,14 @@ $is_new          = $campaign === null;
 $campaign_status = $is_new ? 'new' : Campaigns::status($campaign);
 $is_ended        = $campaign_status === 'ended';
 $scope           = $campaign['scope'] ?? 'all';
-$local           = static fn(?int $timestamp, string $format): string => $timestamp ? wp_date($format, $timestamp) : '';
 
-$field_error = static function (string $field): void {
-    printf('<span class="nkp-field__error" data-error-for="%s" hidden></span>', esc_attr($field));
-};
-$status_labels = [
-    'running' => __('Läuft gerade', 'novemberkind-produkte'),
-    'planned' => __('Geplant', 'novemberkind-produkte'),
-    'ended'   => __('Beendet', 'novemberkind-produkte'),
-];
+$form_back_url   = App::campaigns_url();
+$form_back_label = __('← Alle Aktionen', 'novemberkind-produkte');
+$form_eyebrow    = __('Aktion', 'novemberkind-produkte');
+$form_title      = $is_new ? __('Neue Aktion', 'novemberkind-produkte') : $campaign['name'];
+$form_badge      = $is_new ? null : Campaigns::badge($campaign_status);
+include __DIR__ . '/form-header.php';
 ?>
-<a class="nkp-back" href="<?php echo esc_url(App::campaigns_url()); ?>"><?php esc_html_e('← Alle Aktionen', 'novemberkind-produkte'); ?></a>
-
-<header class="nkp-header">
-    <div>
-        <p class="nkp-eyebrow"><?php esc_html_e('Aktion', 'novemberkind-produkte'); ?></p>
-        <h1><?php echo $is_new ? esc_html__('Neue Aktion', 'novemberkind-produkte') : esc_html($campaign['name']); ?></h1>
-    </div>
-    <?php if (!$is_new) : ?>
-        <span class="nkp-badge nkp-badge--campaign-<?php echo esc_attr($campaign_status); ?>"><?php echo esc_html($status_labels[$campaign_status]); ?></span>
-    <?php endif; ?>
-</header>
 
 <form class="nkp-simple-form" data-nkp-simple-form data-nkp-save="novemberkind_produkte_save_campaign" novalidate>
     <input type="hidden" name="id" value="<?php echo esc_attr((string) ($campaign['id'] ?? 0)); ?>">
@@ -72,14 +58,14 @@ $status_labels = [
                 <input type="text" name="name" required autocomplete="off" maxlength="<?php echo esc_attr((string) Campaigns::NAME_MAX_LENGTH); ?>" value="<?php echo esc_attr($campaign['name'] ?? ''); ?>"
                        placeholder="<?php esc_attr_e('z. B. Herbstaktion', 'novemberkind-produkte'); ?>">
                 <span class="nkp-field__hint"><?php esc_html_e('Nur für dich, im Shop erscheint der Name nicht.', 'novemberkind-produkte'); ?></span>
-                <?php $field_error('name'); ?>
+                <?php Html::field_error('name'); ?>
             </label>
 
             <label class="nkp-field nkp-field--narrow">
                 <span class="nkp-field__label"><?php esc_html_e('Rabatt in Prozent', 'novemberkind-produkte'); ?></span>
                 <input type="number" name="percent" required min="1" max="<?php echo esc_attr((string) Campaigns::MAX_PERCENT); ?>" step="1" inputmode="numeric"
                        value="<?php echo esc_attr((string) ($campaign['percent'] ?? '')); ?>" placeholder="20">
-                <?php $field_error('percent'); ?>
+                <?php Html::field_error('percent'); ?>
             </label>
 
             <?php
@@ -87,19 +73,10 @@ $status_labels = [
                 'start' => [__('Beginn', 'novemberkind-produkte'), $campaign['start'] ?? time(), ''],
                 'end'   => [__('Ende', 'novemberkind-produkte'), $campaign['end'] ?? null, '23:59'],
             ];
-            foreach ($moments as $key => [$label, $timestamp, $default_time]) :
-                ?>
-                <fieldset class="nkp-field nkp-moment">
-                    <legend class="nkp-field__label"><?php echo esc_html($label); ?></legend>
-                    <div class="nkp-moment__inputs">
-                        <input type="date" name="<?php echo esc_attr($key); ?>_date" required value="<?php echo esc_attr($local($timestamp, 'Y-m-d')); ?>"
-                               aria-label="<?php echo esc_attr(sprintf(/* translators: %s: Beginn oder Ende */ __('%s, Datum', 'novemberkind-produkte'), $label)); ?>">
-                        <input type="time" name="<?php echo esc_attr($key); ?>_time" step="60" value="<?php echo esc_attr($timestamp ? $local($timestamp, 'H:i') : $default_time); ?>"
-                               aria-label="<?php echo esc_attr(sprintf(/* translators: %s: Beginn oder Ende */ __('%s, Uhrzeit', 'novemberkind-produkte'), $label)); ?>">
-                    </div>
-                    <?php $field_error($key); ?>
-                </fieldset>
-            <?php endforeach; ?>
+            foreach ($moments as $key => [$label, $timestamp, $default_time]) {
+                Html::moment($key, $label, $timestamp, $default_time, ['required' => true]);
+            }
+            ?>
         </section>
 
         <section class="nkp-panel">
@@ -131,7 +108,7 @@ $status_labels = [
                         <span class="nkp-picker__count"><?php echo esc_html((string) $category['count']); ?></span>
                     </label>
                 <?php endforeach; ?>
-                <?php $field_error('categories'); ?>
+                <?php Html::field_error('categories'); ?>
             </div>
 
             <div class="nkp-picker" data-nkp-show-for="scope:products" <?php echo $scope === 'products' ? '' : 'hidden'; ?>>
@@ -151,7 +128,7 @@ $status_labels = [
                         </label>
                     <?php endforeach; ?>
                 </div>
-                <?php $field_error('products'); ?>
+                <?php Html::field_error('products'); ?>
             </div>
         </section>
     </fieldset>

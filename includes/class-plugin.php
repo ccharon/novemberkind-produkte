@@ -104,6 +104,32 @@ final class Plugin
     }
 
     /**
+     * Einträge eines nicht öffentlichen Inhaltstyps. Typ und Status stehen fest, die übrigen Vorgaben (alle Einträge,
+     * ohne Zählung) gelten, sofern `$args` nichts anderes sagt.
+     *
+     * @param array<string, mixed> $args weitere Argumente für get_posts
+     * @return \WP_Post[]
+     */
+    public static function private_posts(string $post_type, array $args = []): array
+    {
+        return array_values(array_filter(
+            get_posts(['post_type' => $post_type, 'post_status' => 'private'] + $args + ['posts_per_page' => -1, 'no_found_rows' => true]),
+            static fn(mixed $post): bool => $post instanceof \WP_Post
+        ));
+    }
+
+    /**
+     * IDs der Einträge eines nicht öffentlichen Inhaltstyps.
+     *
+     * @param array<string, mixed> $args weitere Argumente für get_posts
+     * @return int[]
+     */
+    public static function private_post_ids(string $post_type, array $args = []): array
+    {
+        return array_map('intval', get_posts(['post_type' => $post_type, 'post_status' => 'private', 'fields' => 'ids'] + $args + ['posts_per_page' => -1, 'no_found_rows' => true]));
+    }
+
+    /**
      * Beendet die Seite mit 403, wenn ein Recht fehlt. Die Meldung nennt den Bereich.
      */
     public static function require_capability(string $capability): void
