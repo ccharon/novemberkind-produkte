@@ -62,9 +62,8 @@ final class NewsletterSignup
         wp_enqueue_style('novemberkind-produkte-newsletter', plugin_dir_url(PLUGIN_FILE) . 'assets/css/newsletter.css', [], VERSION);
 
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- nur Anzeige der Rückmeldung
-        $status  = sanitize_key(wp_unslash($_GET[self::STATUS_ARG] ?? ''));
-        $message = match ($status) {
-            'ok'      => __('Du bekommst gleich eine Mail. Bitte bestätige darin deine Anmeldung.', 'novemberkind-produkte'),
+        $status = sanitize_key(wp_unslash($_GET[self::STATUS_ARG] ?? ''));
+        $error  = match ($status) {
             'invalid' => __('Bitte gib eine gültige E-Mail-Adresse ein.', 'novemberkind-produkte'),
             'busy'    => __('Gerade kommen sehr viele Anmeldungen. Bitte versuche es in einer Stunde noch einmal.', 'novemberkind-produkte'),
             'error'   => __('Die Anmeldung hat nicht geklappt. Bitte versuche es später noch einmal.', 'novemberkind-produkte'),
@@ -72,10 +71,27 @@ final class NewsletterSignup
         };
         $privacy = get_privacy_policy_url();
 
-        // Das Formular sendet an die eigene Seite, weil Hoster und Sicherheits-Plugins /wp-admin/ oft für Besucher sperren
         ob_start();
+        if ($status === 'ok') {
+            // Statt des Formulars, damit die Rückmeldung nicht neben dem gleichlautenden Hinweis untergeht
+            ?>
+            <div class="nkp-signup" id="nkp-newsletter">
+                <p class="nkp-signup__message nkp-signup__message--ok" role="status">
+                    <strong><?php esc_html_e('Bitte bestätige jetzt deine Anmeldung.', 'novemberkind-produkte'); ?></strong>
+                    <?php esc_html_e('Die Mail mit dem Link ist unterwegs zu dir. Falls sie in ein paar Minuten nicht da ist, schau bitte im Spam-Ordner nach.', 'novemberkind-produkte'); ?>
+                </p>
+            </div>
+            <?php
+
+            return (string) ob_get_clean();
+        }
+
+        // Das Formular sendet an die eigene Seite, weil Hoster und Sicherheits-Plugins /wp-admin/ oft für Besucher sperren
         ?>
         <form class="nkp-signup" id="nkp-newsletter" method="post">
+            <?php if ($error !== '') : ?>
+                <p class="nkp-signup__message nkp-signup__message--error" role="alert"><?php echo esc_html($error); ?></p>
+            <?php endif; ?>
             <input type="hidden" name="<?php echo esc_attr(self::SIGNUP_FIELD); ?>" value="1">
             <div class="nkp-signup__row">
                 <label class="nkp-signup__label" for="nkp-signup-email"><?php esc_html_e('E-Mail-Adresse', 'novemberkind-produkte'); ?></label>
@@ -85,9 +101,6 @@ final class NewsletterSignup
             <p class="nkp-signup__trap" aria-hidden="true">
                 <label><?php esc_html_e('Bitte leer lassen', 'novemberkind-produkte'); ?> <input type="text" name="<?php echo esc_attr(self::HONEYPOT); ?>" tabindex="-1" autocomplete="off"></label>
             </p>
-            <?php if ($message !== '') : ?>
-                <p class="nkp-signup__message nkp-signup__message--<?php echo esc_attr($status); ?>" role="status"><?php echo esc_html($message); ?></p>
-            <?php endif; ?>
             <p class="nkp-signup__note">
                 <?php esc_html_e('Du bekommst eine Mail mit einem Link zur Bestätigung. Abmelden kannst du dich jederzeit über den Link in jedem Newsletter.', 'novemberkind-produkte'); ?>
                 <?php if ($privacy !== '') : ?>

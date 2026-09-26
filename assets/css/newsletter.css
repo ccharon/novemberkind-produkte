@@ -1,4 +1,4 @@
-/* Novemberkind Produkte: Anmeldeformular für den Newsletter. Schrift und Farben kommen vom Theme. */
+/* Novemberkind Produkte: Anmeldeformular für den Newsletter. Schrift kommt vom Theme, Farben der Meldungen wie auf novemberkind.art. */
 
 .nkp-signup {
 	margin: 0 0 1em;
@@ -38,8 +38,22 @@
 }
 
 .nkp-signup__message {
+	background: rgba(58, 95, 149, 0.08);
+	border-left: 4px solid #3a5f95;
+	border-radius: 3px;
+	margin: 0 0 12px;
+	padding: 14px 18px;
+}
+
+.nkp-signup__message strong {
+	display: block;
+	margin-bottom: 4px;
+}
+
+.nkp-signup__message--error {
+	background: rgba(179, 38, 30, 0.07);
+	border-left-color: #b3261e;
 	font-weight: 600;
-	margin: 12px 0 0;
 }
 
 .nkp-signup__note {
