@@ -78,15 +78,28 @@ final class Plugin
     }
 
     /**
-     * Ein Formularwert als Text. Listen wie `email[]=…` ergeben den Standardwert statt einer PHP-Warnung.
+     * Nicht öffentlicher Inhaltstyp ohne Adresse, Backend-Oberfläche, REST und Export.
+     * Rechte wie bei Produkten, damit nur Rollen mit Produktrechten an die Einträge kommen.
      *
-     * @param array<mixed> $data
+     * @param string[] $supports
      */
-    public static function input(array $data, string $key, string $default = ''): string
+    public static function register_private_post_type(string $post_type, string $label, array $supports = ['title']): void
     {
-        $value = $data[$key] ?? $default;
-
-        return is_scalar($value) ? (string) $value : $default;
+        register_post_type($post_type, [
+            'label'               => $label,
+            'public'              => false,
+            'publicly_queryable'  => false,
+            'exclude_from_search' => true,
+            'show_ui'             => false,
+            'show_in_rest'        => false,
+            'show_in_nav_menus'   => false,
+            'rewrite'             => false,
+            'query_var'           => false,
+            'can_export'          => false,
+            'supports'            => $supports,
+            'capability_type'     => 'product',
+            'map_meta_cap'        => true,
+        ]);
     }
 
     /**

@@ -380,7 +380,7 @@ $choice = static function (string $name, string $value, string $label, string $c
                         <input type="date" name="publish_date" value="<?php echo esc_attr($publish_at ? wp_date('Y-m-d', $publish_at) : ''); ?>" aria-label="<?php esc_attr_e('Datum', 'novemberkind-produkte'); ?>">
                         <input type="time" name="publish_time" step="60" value="<?php echo esc_attr($publish_at ? wp_date('H:i', $publish_at) : '00:00'); ?>" aria-label="<?php esc_attr_e('Uhrzeit', 'novemberkind-produkte'); ?>">
                     </div>
-                    <?php $field_error('publish_at'); ?>
+                    <?php $field_error('publish'); ?>
                 </fieldset>
                 <label class="nkp-choice">
                     <input type="radio" name="status" value="publish" <?php checked($is_online); ?>>
@@ -452,5 +452,3 @@ $choice = static function (string $name, string $value, string $label, string $c
         </form>
     </dialog>
 <?php endif; ?>
-
-<div class="nkp-toast" data-nkp-toast role="status" aria-live="polite" hidden></div>

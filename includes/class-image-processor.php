@@ -187,11 +187,14 @@ final class ImageProcessor
         $name = wp_unique_filename($dir, sprintf('%s-%d.%s', $base, (int) ($meta['width'] ?? self::MAX_WIDTH), pathinfo($file, PATHINFO_EXTENSION)));
         $new  = $dir . '/' . $name;
 
-        foreach ($meta['sizes'] ?? [] as $size) {
-            wp_delete_file($dir . '/' . $size['file']);
-        }
+        // Erst umbenennen, dann die alten Vorschaubilder löschen: Scheitert das Umbenennen, bleibt das Foto vollständig
         if (!rename($file, $new)) { // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- gleiche Partition
             return false;
+        }
+        // Noch unter den alten Pfaden, danach zeigen die Metadaten auf die neue Datei
+        $this->delete_mail_copies($attachment_id);
+        foreach ($meta['sizes'] ?? [] as $size) {
+            wp_delete_file($dir . '/' . $size['file']);
         }
 
         update_attached_file($attachment_id, $new);

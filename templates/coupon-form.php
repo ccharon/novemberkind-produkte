@@ -37,7 +37,7 @@ $field_error = static function (string $field): void {
     <?php endif; ?>
 </header>
 
-<form class="nkp-campaign-form" data-nkp-simple-form data-nkp-save="novemberkind_produkte_save_coupon" novalidate>
+<form class="nkp-simple-form" data-nkp-simple-form data-nkp-save="novemberkind_produkte_save_coupon" novalidate>
     <input type="hidden" name="id" value="<?php echo esc_attr((string) ($coupon['id'] ?? 0)); ?>">
 
     <?php if (!$is_new && $coupon['usage'] > 0) : ?>
@@ -97,7 +97,7 @@ $field_error = static function (string $field): void {
         </label>
     </section>
 
-    <div class="nkp-campaign-form__actions">
+    <div class="nkp-simple-form__actions">
         <?php if (!$is_new) : ?>
             <?php if ($coupon['active']) : ?>
                 <button type="button" class="nkp-button nkp-button--secondary" data-nkp-action="novemberkind_produkte_toggle_coupon" data-nkp-value="off"
@@ -113,5 +113,3 @@ $field_error = static function (string $field): void {
         <button type="submit" class="nkp-button nkp-button--primary" data-nkp-submit><?php esc_html_e('Speichern', 'novemberkind-produkte'); ?></button>
     </div>
 </form>
-
-<div class="nkp-toast" data-nkp-toast role="status" aria-live="polite" hidden></div>

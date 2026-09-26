@@ -50,7 +50,7 @@ $badge = ['draft' => 'draft', 'scheduled' => 'campaign-planned', 'sending' => 'c
     <?php endif; ?>
 </header>
 
-<form class="nkp-campaign-form" data-nkp-simple-form data-nkp-save="novemberkind_produkte_save_newsletter" novalidate
+<form class="nkp-simple-form" data-nkp-simple-form data-nkp-save="novemberkind_produkte_save_newsletter" novalidate
       data-nkp-confirm-now="<?php
         echo esc_attr(sprintf(
             /* translators: %d: Anzahl der Empfänger */
@@ -92,7 +92,7 @@ $badge = ['draft' => 'draft', 'scheduled' => 'campaign-planned', 'sending' => 'c
         </p>
     <?php endif; ?>
 
-    <fieldset class="nkp-campaign-form__fields" <?php disabled($is_locked); ?>>
+    <fieldset class="nkp-simple-form__fields" <?php disabled($is_locked); ?>>
         <section class="nkp-panel">
             <label class="nkp-field">
                 <span class="nkp-field__label"><?php esc_html_e('Betreff', 'novemberkind-produkte'); ?></span>
@@ -197,11 +197,9 @@ $badge = ['draft' => 'draft', 'scheduled' => 'campaign-planned', 'sending' => 'c
     </fieldset>
 
     <?php if (!$is_locked) : ?>
-        <div class="nkp-campaign-form__actions">
+        <div class="nkp-simple-form__actions">
             <button type="button" class="nkp-button nkp-button--secondary" data-nkp-test="novemberkind_produkte_test_newsletter"><?php esc_html_e('Testmail schicken', 'novemberkind-produkte'); ?></button>
             <button type="submit" class="nkp-button nkp-button--primary" data-nkp-submit><?php esc_html_e('Speichern', 'novemberkind-produkte'); ?></button>
         </div>
     <?php endif; ?>
 </form>
-
-<div class="nkp-toast" data-nkp-toast role="status" aria-live="polite" hidden></div>

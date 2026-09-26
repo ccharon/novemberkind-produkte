@@ -32,22 +32,7 @@ final class Backups
      */
     public function register_post_type(): void
     {
-        register_post_type(self::POST_TYPE, [
-            'label'               => __('Produkt-Sicherungen', 'novemberkind-produkte'),
-            'public'              => false,
-            'publicly_queryable'  => false,
-            'exclude_from_search' => true,
-            'show_ui'             => false,
-            'show_in_rest'        => false,
-            'show_in_nav_menus'   => false,
-            'rewrite'             => false,
-            'query_var'           => false,
-            'can_export'          => false,
-            'supports'            => [],
-            // Rechte wie bei Produkten, damit nur Rollen mit Produktrechten an Sicherungen kommen
-            'capability_type'     => 'product',
-            'map_meta_cap'        => true,
-        ]);
+        Plugin::register_private_post_type(self::POST_TYPE, __('Produkt-Sicherungen', 'novemberkind-produkte'), []);
     }
 
     /**

@@ -144,8 +144,8 @@ final class NewsletterSignup
     private function process_signup(string $back): never
     {
         // phpcs:disable WordPress.Security.NonceVerification.Missing -- öffentliches Formular, siehe oben
-        $email = sanitize_email(wp_unslash(Plugin::input($_POST, 'email')));
-        $bot   = trim(sanitize_text_field(wp_unslash(Plugin::input($_POST, self::HONEYPOT)))) !== '';
+        $email = sanitize_email(wp_unslash(Input::value($_POST, 'email')));
+        $bot   = trim(sanitize_text_field(wp_unslash(Input::value($_POST, self::HONEYPOT)))) !== '';
         // phpcs:enable
 
         $ip     = sanitize_text_field(wp_unslash((string) ($_SERVER['REMOTE_ADDR'] ?? '')));
@@ -271,7 +271,7 @@ final class NewsletterSignup
     {
         // phpcs:disable WordPress.Security.NonceVerification -- das Token aus der Mail ist der Nachweis
         $action = sanitize_key(wp_unslash($_GET[self::QUERY_ARG] ?? ''));
-        $token  = (string) preg_replace('/[^A-Za-z0-9]/', '', sanitize_text_field(wp_unslash(Plugin::input($_GET, 't'))));
+        $token  = (string) preg_replace('/[^A-Za-z0-9]/', '', sanitize_text_field(wp_unslash(Input::value($_GET, 't'))));
         // phpcs:enable
         if (!in_array($action, ['bestaetigen', 'abmelden'], true)) {
             return;

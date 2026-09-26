@@ -16,6 +16,7 @@ final class Coupons
 {
     // Kennzeichnet Gutscheine aus diesem Plugin; andere werden in WooCommerce bearbeitet
     public const META_OWN = '_novemberkind_produkte_coupon';
+    public const CAPABILITY = 'edit_shop_coupons';
     public const KINDS = ['percent', 'shipping'];
     public const CODE_MIN_LENGTH = 3;
     public const CODE_MAX_LENGTH = 30;
@@ -129,7 +130,7 @@ final class Coupons
         }
 
         $errors = [];
-        $code   = strtoupper(trim(sanitize_text_field(wp_unslash((string) ($data['code'] ?? '')))));
+        $code   = strtoupper(Input::text($data, 'code'));
         if (!preg_match(self::CODE_PATTERN, $code)) {
             $errors['code'] = sprintf(
                 /* translators: 1: kleinste, 2: größte Anzahl Zeichen */
@@ -142,21 +143,17 @@ final class Coupons
             $errors['code'] = sprintf(__('Den Code %s gibt es schon.', 'novemberkind-produkte'), $code);
         }
 
-        $kind = (string) ($data['kind'] ?? '');
-        if (!in_array($kind, self::KINDS, true)) {
-            $kind = 'percent';
-        }
+        $kind    = Input::choice($data, 'kind', self::KINDS, 'percent');
         $percent = 0;
         if ($kind === 'percent') {
-            $raw     = trim((string) ($data['percent'] ?? ''));
-            $percent = ctype_digit($raw) ? (int) $raw : 0;
-            if ($percent < 1 || $percent > self::MAX_PERCENT) {
+            $percent = Input::percent($data, 'percent', self::MAX_PERCENT) ?? 0;
+            if ($percent === 0) {
                 /* translators: %d: höchster erlaubter Rabatt */
                 $errors['percent'] = sprintf(__('Bitte gib einen Rabatt zwischen 1 und %d Prozent ein.', 'novemberkind-produkte'), self::MAX_PERCENT);
             }
         }
 
-        $expires_raw = trim((string) ($data['expires'] ?? ''));
+        $expires_raw = Input::text($data, 'expires');
         $expires     = null;
         if ($expires_raw !== '') {
             $day = \DateTimeImmutable::createFromFormat('!Y-m-d', $expires_raw, wp_timezone());
@@ -170,7 +167,7 @@ final class Coupons
         }
 
         if ($errors !== []) {
-            return new \WP_Error('invalid', __('Bitte prüfe die markierten Felder.', 'novemberkind-produkte'), $errors);
+            return Input::invalid($errors);
         }
 
         $coupon = new \WC_Coupon($id);
@@ -188,7 +185,7 @@ final class Coupons
             $coupon->set_exclude_sale_items(true);
         }
         $coupon->set_date_expires($expires);
-        $coupon->set_usage_limit_per_user(!empty($data['once']) ? 1 : 0);
+        $coupon->set_usage_limit_per_user(Input::value($data, 'once') === '1' ? 1 : 0);
         if ($id === 0) {
             $coupon->set_status('publish');
         }

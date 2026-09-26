@@ -2,24 +2,14 @@
 (() => {
 	'use strict';
 
-	const config = window.novemberkindFormulare;
-	const toast = document.querySelector('[data-nkp-toast]');
-	const FLASH = 'nkpFlash';
-	const TOAST_MS = 4000;
-	const TOAST_ERROR_MS = 8000;
-	const CODE_LENGTH = 8;
-
-	let toastTimer;
-	function showToast(message, type = 'success') {
-		if (!toast) {
-			return;
-		}
-		toast.textContent = message;
-		toast.className = `nkp-toast nkp-toast--${type}`;
-		toast.hidden = false;
-		clearTimeout(toastTimer);
-		toastTimer = setTimeout(() => { toast.hidden = true; }, type === 'error' ? TOAST_ERROR_MS : TOAST_MS);
+	const base = window.novemberkindBasis;
+	if (!base) {
+		return;
 	}
+	const { config, showToast, post } = base;
+	const i18n = { ...config.i18n, ...window.novemberkindFormulare?.i18n };
+	const FLASH = 'nkpFlash';
+	const CODE_LENGTH = 8;
 
 	// Meldung über den Seitenwechsel hinweg, weil nach dem Speichern die Liste erscheint
 	try {
@@ -32,33 +22,8 @@
 		// Speicher gesperrt, die Meldung entfällt
 	}
 
-	if (!config) {
-		return;
-	}
-	const { i18n } = config;
 	const form = document.querySelector('[data-nkp-simple-form]');
 	let dirty = false;
-
-	async function post(action, body) {
-		body.append('action', action);
-		body.append('nonce', config.nonce);
-		let response;
-		try {
-			response = await fetch(config.ajaxUrl, { method: 'POST', body, credentials: 'same-origin' });
-		} catch {
-			throw new Error(i18n.networkError);
-		}
-		const json = await response.json().catch(() => null);
-		if (!json) {
-			throw new Error(response.status === 400 ? i18n.loggedOut : i18n.networkError);
-		}
-		if (!json.success) {
-			const error = new Error(json.data?.message ?? i18n.networkError);
-			error.fields = json.data?.fields ?? {};
-			throw error;
-		}
-		return json.data;
-	}
 
 	function reloadWith(data) {
 		dirty = false;
@@ -91,39 +56,6 @@
 	}
 	const submitButton = form.querySelector('[data-nkp-submit]');
 	let saving = false;
-
-	function clearFieldErrors() {
-		form.querySelectorAll('[data-error-for]').forEach((el) => {
-			el.hidden = true;
-			el.textContent = '';
-		});
-		form.querySelectorAll('[aria-invalid]').forEach((el) => el.removeAttribute('aria-invalid'));
-	}
-
-	function showFieldErrors(fields) {
-		let firstInput = null;
-		let firstError = null;
-		Object.entries(fields).forEach(([name, message]) => {
-			const error = form.querySelector(`[data-error-for="${name}"]`);
-			if (error) {
-				error.textContent = message;
-				error.hidden = false;
-				firstError ??= error;
-			}
-			// Datum und Uhrzeit melden Fehler unter dem gemeinsamen Namen, z. B. start für start_date
-			const input = form.elements[`${name}_date`] ?? form.elements[name];
-			if (input instanceof HTMLInputElement && input.type !== 'hidden') {
-				input.setAttribute('aria-invalid', 'true');
-				firstInput ??= input;
-			}
-		});
-		// Kategorien und Produkte haben kein einzelnes Eingabefeld, dort zum Hinweis scrollen
-		if (firstInput) {
-			firstInput.focus();
-		} else {
-			firstError?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-		}
-	}
 
 	// Teile, die nur bei einer bestimmten Auswahl gelten, z. B. data-nkp-show-for="scope:categories"
 	const parts = form.querySelectorAll('[data-nkp-show-for]');
@@ -182,34 +114,12 @@
 	// Editor für den Newsletter-Text: fett, kursiv, Zwischenüberschrift, Link
 	const editor = form.querySelector('[data-nkp-editor]');
 
-	function renameElement(element, tag) {
-		const replacement = document.createElement(tag);
-		replacement.append(...element.childNodes);
-		element.replaceWith(replacement);
-		return replacement;
-	}
-
 	// Einheitliches HTML für die Mail: strong, em, h2, p und Links ohne Stile der Browser
 	function cleanHTML() {
 		const copy = editor.cloneNode(true);
-		copy.querySelectorAll('b').forEach((b) => renameElement(b, 'strong'));
-		copy.querySelectorAll('i').forEach((i) => renameElement(i, 'em'));
-		copy.querySelectorAll('h1, h3, h4, h5, h6').forEach((h) => renameElement(h, 'h2'));
-		copy.querySelectorAll('div').forEach((div) => renameElement(div, 'p'));
-		copy.querySelectorAll('span, font').forEach((span) => {
-			let inner = [...span.childNodes];
-			if (/^(bold|[6-9]00)$/.test(span.style.fontWeight)) {
-				const strong = document.createElement('strong');
-				strong.append(...inner);
-				inner = [strong];
-			}
-			if (span.style.fontStyle === 'italic') {
-				const em = document.createElement('em');
-				em.append(...inner);
-				inner = [em];
-			}
-			span.replaceWith(...inner);
-		});
+		copy.querySelectorAll('h1, h3, h4, h5, h6').forEach((h) => base.renameElement(h, 'h2'));
+		copy.querySelectorAll('div').forEach((div) => base.renameElement(div, 'p'));
+		base.cleanInline(copy);
 		const keep = { A: ['href'], IMG: ['src', 'alt', 'class'] };
 		copy.querySelectorAll('*').forEach((element) => {
 			[...element.attributes].forEach((attribute) => {
@@ -224,11 +134,7 @@
 				img.remove();
 			}
 		});
-		copy.querySelectorAll('strong, em, a').forEach((element) => {
-			if (!element.textContent.trim()) {
-				element.replaceWith(...element.childNodes);
-			}
-		});
+		base.unwrapEmpty(copy, 'strong, em, a');
 		// Lose Textstücke auf oberster Ebene in Absätze fassen, br trennt dabei Absätze
 		let paragraph = null;
 		[...copy.childNodes].forEach((node) => {
@@ -247,11 +153,7 @@
 				block.remove();
 			}
 		});
-		copy.normalize();
-		const walker = document.createTreeWalker(copy, NodeFilter.SHOW_TEXT);
-		while (walker.nextNode()) {
-			walker.currentNode.textContent = walker.currentNode.textContent.replace(/\u00a0/g, ' ');
-		}
+		base.plainSpaces(copy);
 		return copy.innerHTML.trim();
 	}
 
@@ -273,30 +175,8 @@
 	if (editor) {
 		ensureParagraph();
 		editor.addEventListener('focus', ensureParagraph);
-		document.execCommand('defaultParagraphSeparator', false, 'p');
-		document.execCommand('styleWithCSS', false, false);
-
-		editor.addEventListener('paste', (event) => {
-			event.preventDefault();
-			document.execCommand('insertText', false, event.clipboardData.getData('text/plain'));
-		});
-
-		// Letzte Markierung merken. Safari verliert sie beim Klick auf einen Knopf trotz preventDefault.
-		let editorRange = null;
-		document.addEventListener('selectionchange', () => {
-			const selection = window.getSelection();
-			if (selection.rangeCount && editor.contains(selection.getRangeAt(0).commonAncestorContainer)) {
-				editorRange = selection.getRangeAt(0).cloneRange();
-			}
-		});
-		const restoreSelection = () => {
-			editor.focus();
-			if (editorRange) {
-				const selection = window.getSelection();
-				selection.removeAllRanges();
-				selection.addRange(editorRange);
-			}
-		};
+		const editorState = base.initEditor(editor);
+		const restoreSelection = editorState.restore;
 
 		// Foto an der Cursorposition: erst die Vorschau, nach dem Upload die Adresse aus der Mediathek
 		async function insertImage(file) {
@@ -354,14 +234,14 @@
 					return;
 				}
 				if (command === 'link') {
-					const range = editorRange;
+					const { range } = editorState;
 					const current = range?.commonAncestorContainer.parentElement?.closest('a')?.getAttribute('href') ?? 'https://';
 					let url = window.prompt(i18n.linkPrompt, current);
 					if (url === null) {
 						return;
 					}
 					url = url.trim();
-					editorRange = range;
+					editorState.range = range;
 					restoreSelection();
 					if (url === '' || url === 'https://') {
 						document.execCommand('unlink');
@@ -390,7 +270,7 @@
 			showToast(i18n.waitForUpload, 'info');
 			return;
 		}
-		clearFieldErrors();
+		base.clearFieldErrors(form);
 		syncEditor();
 		button.disabled = true;
 		button.textContent = i18n.testSending;
@@ -399,7 +279,7 @@
 		} catch (error) {
 			showToast(error.message, 'error');
 			if (error.fields) {
-				showFieldErrors(error.fields);
+				base.showFieldErrors(form, error.fields);
 			}
 		} finally {
 			button.disabled = false;
@@ -425,7 +305,7 @@
 			return;
 		}
 		saving = true;
-		clearFieldErrors();
+		base.clearFieldErrors(form);
 		syncEditor();
 		submitButton.disabled = true;
 		submitButton.textContent = i18n.saving;
@@ -434,7 +314,7 @@
 		} catch (error) {
 			showToast(error.message, 'error');
 			if (error.fields) {
-				showFieldErrors(error.fields);
+				base.showFieldErrors(form, error.fields);
 			}
 			submitButton.disabled = false;
 			submitButton.textContent = i18n.save;
@@ -462,17 +342,6 @@
 		}
 	}));
 
-	document.addEventListener('keydown', (event) => {
-		if ((event.metaKey || event.ctrlKey) && event.key === 's') {
-			event.preventDefault();
-			save();
-		}
-	});
-
-	window.addEventListener('beforeunload', (event) => {
-		if (dirty) {
-			event.preventDefault();
-			event.returnValue = i18n.unsaved;
-		}
-	});
+	base.onSaveShortcut(save);
+	base.warnUnsaved(() => dirty);
 })();

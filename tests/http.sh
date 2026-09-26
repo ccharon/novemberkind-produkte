@@ -35,6 +35,7 @@ for size in 180 192 512; do
   check "App-Icon ${size} px erreichbar" "$(curl -s -o /dev/null -w '%{http_code} %{content_type}' "$BASE/wp-content/plugins/novemberkind-produkte/assets/icons/app-icon-$size.png")" '200 image/png'
 done
 check 'ohne Login zur Anmeldung' "$(location "$APP/neu/" | grep -c '/wp-login.php?redirect_to=.*produkte-verwalten%2Fneu')" 1
+check 'ohne Login zur Anmeldung, Ziel ist die aufgerufene Aktion' "$(location "$APP/aktionen/12/" | grep -c 'redirect_to=.*produkte-verwalten%2Faktionen%2F12%2F')" 1
 
 curl -s -c "$JAR" -b "$JAR" -o /dev/null "$BASE/wp-login.php"
 check 'Shop-Manager landet nach Login in der Produktverwaltung' \
@@ -42,7 +43,7 @@ check 'Shop-Manager landet nach Login in der Produktverwaltung' \
 
 check 'Auswahl der Produktart zeigt 5 Arten' "$(curl -s -b "$JAR" "$APP/neu/" | grep -c 'class="nkp-type"')" 5
 page=$(curl -s -b "$JAR" "$APP/neu/button/")
-nonce=$(grep -oP 'var novemberkindProdukte = .*?"nonce":"\K[a-f0-9]+' <<<"$page")
+nonce=$(grep -oP 'var novemberkindConfig = .*?"nonce":"\K[a-f0-9]+' <<<"$page")
 check 'Button-Formular lädt mit Nonce' "$([ -n "$nonce" ] && echo ja)" ja
 check 'Schutz gegen Einbetten' "$(curl -s -b "$JAR" -D - -o /dev/null "$APP/neu/button/" | grep -ci '^x-frame-options: sameorigin')" 1
 check 'Seite verweist auf Manifest und Apple-Icon' "$(grep -cE 'rel="manifest"|rel="apple-touch-icon"|apple-mobile-web-app-capable' <<<"$page")" 3
@@ -56,6 +57,8 @@ check 'Karte bearbeiten lädt mit Format' "$(curl -s -b "$JAR" "$APP/$card_id/" 
 mug_id=$(bin/wp post list --post_type=product --title='Tasse: Inga und Lisa' --format=ids)
 check 'Produkt ohne Vorlage öffnet WooCommerce' "$(location -b "$JAR" "$APP/$mug_id/" | grep -c "post.php?post=$mug_id&action=edit")" 1
 check 'unbekanntes Produkt liefert 404' "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$APP/999999/")" 404
+check 'unbekannte Unterseite liefert 404' "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$APP/gibt-es-nicht/")" 404
+check 'unbekannte Unterseite ohne Login zur Anmeldung mit der Übersicht als Ziel' "$(location "$APP/gibt-es-nicht/" | grep -c 'redirect_to=.*produkte-verwalten%2F$')" 1
 check 'Menüeintrag im Backend leitet weiter' "$(location -b "$JAR" "$BASE/wp-admin/admin.php?page=novemberkind-produkte")" "$APP/"
 
 ADMIN_JAR=$TMP/admin-cookies
@@ -117,7 +120,7 @@ check 'Link „Zum Shop“ zeigt auf die Shopseite von WooCommerce' "$(curl -s -
 
 # Rabattaktionen
 check 'Aktionen: Liste lädt' "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$APP/aktionen/")" 200
-check 'Aktionen: Formular lädt mit Nonce' "$(curl -s -b "$JAR" "$APP/aktionen/neu/" | grep -c 'var novemberkindFormulare = .*"nonce":"[a-f0-9]')" 1
+check 'Aktionen: Formular lädt mit Nonce' "$(curl -s -b "$JAR" "$APP/aktionen/neu/" | grep -c 'var novemberkindConfig = .*"nonce":"[a-f0-9]')" 1
 check 'Aktionen: unbekannte Aktion liefert 404' "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$APP/aktionen/999999/")" 404
 check 'Aktionen: ohne Nonce abgelehnt' "$(ajax -d action=novemberkind_produkte_save_campaign -d nonce=falsch -d name=x)" 403
 check 'Aktionen: Pflichtfehler liefert 422' "$(ajax -d action=novemberkind_produkte_save_campaign -d "nonce=$nonce" -d name=)" 422
@@ -173,7 +176,7 @@ LIMITED_JAR=$TMP/limited-cookies
 curl -s -c "$LIMITED_JAR" -b "$LIMITED_JAR" -o /dev/null "$BASE/wp-login.php"
 curl -s -c "$LIMITED_JAR" -b "$LIMITED_JAR" -o /dev/null -d 'log=nurprodukte&pwd=password&testcookie=1' "$BASE/wp-login.php"
 check 'Newsletter-Seiten ohne manage_woocommerce gesperrt' "$(curl -s -b "$LIMITED_JAR" -o /dev/null -w '%{http_code}' "$APP/newsletter/")" 403
-limited_nonce=$(curl -s -b "$LIMITED_JAR" "$APP/neu/button/" | grep -oP 'var novemberkindProdukte = .*?"nonce":"\K[a-f0-9]+')
+limited_nonce=$(curl -s -b "$LIMITED_JAR" "$APP/neu/button/" | grep -oP 'var novemberkindConfig = .*?"nonce":"\K[a-f0-9]+')
 check 'Newsletter speichern ohne manage_woocommerce abgelehnt' "$(curl -s -b "$LIMITED_JAR" -o /dev/null -w '%{http_code}' -d action=novemberkind_produkte_save_newsletter -d "nonce=$limited_nonce" -d subject=x --data-urlencode 'content=<p>x</p>' "$BASE/wp-admin/admin-ajax.php")" 403
 bin/wp user delete nurprodukte --yes >/dev/null
 bin/wp role delete nkp_nur_produkte >/dev/null

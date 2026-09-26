@@ -80,15 +80,15 @@ $describe = static function (array $issue): string {
     <?php if ($by_status[$section_status] === []) {
         continue;
     } ?>
-    <section class="nkp-campaign-group">
+    <section class="nkp-entry-group">
         <h2 class="nkp-group__title"><?php echo esc_html($heading); ?></h2>
-        <ul class="nkp-campaigns">
+        <ul class="nkp-entries">
             <?php foreach ($by_status[$section_status] as $issue) : ?>
-                <li class="nkp-campaign<?php echo $section_status === 'sent' ? ' nkp-campaign--ended' : ''; ?>">
-                    <a class="nkp-campaign__link nkp-newsletter__link" href="<?php echo esc_url(App::newsletter_url($issue['id'])); ?>">
-                        <span class="nkp-campaign__main">
-                            <strong class="nkp-campaign__name"><?php echo esc_html($issue['subject']); ?></strong>
-                            <span class="nkp-campaign__meta"><?php echo esc_html($describe($issue)); ?></span>
+                <li class="nkp-entry<?php echo $section_status === 'sent' ? ' nkp-entry--ended' : ''; ?>">
+                    <a class="nkp-entry__link nkp-newsletter__link" href="<?php echo esc_url(App::newsletter_url($issue['id'])); ?>">
+                        <span class="nkp-entry__main">
+                            <strong class="nkp-entry__name"><?php echo esc_html($issue['subject']); ?></strong>
+                            <span class="nkp-entry__meta"><?php echo esc_html($describe($issue)); ?></span>
                         </span>
                     </a>
                 </li>
@@ -96,5 +96,3 @@ $describe = static function (array $issue): string {
         </ul>
     </section>
 <?php endforeach; ?>
-
-<div class="nkp-toast" data-nkp-toast role="status" aria-live="polite" hidden></div>

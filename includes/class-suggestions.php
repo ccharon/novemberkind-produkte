@@ -70,10 +70,10 @@ final class Suggestions
     public function suggest(ProductType $type, array $input): array|\WP_Error
     {
         [$context] = $type->parse($input);
-        $current   = wp_kses_post(wp_unslash((string) ($input['description'] ?? '')));
-        $tags      = ProductService::parse_tags((string) ($input['tags'] ?? ''));
-        $image_id  = absint($input['image_id'] ?? 0);
-        $product   = wc_get_product(absint($input['product_id'] ?? 0)) ?: null;
+        $current   = Input::html($input, 'description');
+        $tags      = Input::tags(Input::value($input, 'tags'));
+        $image_id  = Input::id($input, 'image_id');
+        $product   = wc_get_product(Input::id($input, 'product_id')) ?: null;
         if (!ProductService::usable_image($image_id, $product)) {
             $image_id = 0;
         }
@@ -267,7 +267,7 @@ final class Suggestions
 
         $fixed = array_map('mb_strtolower', $type->tags($context));
         $tags  = array_values(array_filter(
-            ProductService::parse_tags(mb_strtolower(implode(',', array_map('strval', (array) ($data['tags'] ?? []))))),
+            Input::tags(mb_strtolower(implode(',', array_map('strval', (array) ($data['tags'] ?? []))))),
             static fn(string $tag): bool => !in_array(mb_strtolower($tag), $fixed, true)
         ));
 

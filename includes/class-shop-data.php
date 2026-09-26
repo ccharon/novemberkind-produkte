@@ -77,7 +77,8 @@ final class ShopData
         if ($file_name === '') {
             return 0;
         }
-        if (empty($cache[$file_name])) {
+        // Auch fehlende Fotos merken, sonst fragt jeder Aufruf erneut die Datenbank
+        if (!array_key_exists($file_name, $cache)) {
             $ids = get_posts([
                 'post_type'      => 'attachment',
                 'post_status'    => 'inherit',
@@ -103,7 +104,9 @@ final class ShopData
     public static function next_sku(): string
     {
         $highest = 0;
-        $ids     = wc_get_products(['limit' => -1, 'status' => 'any', 'type' => ['simple', 'variable', 'grouped', 'external'], 'return' => 'ids']);
+        $ids     = array_map('intval', wc_get_products(['limit' => -1, 'status' => 'any', 'type' => ['simple', 'variable', 'grouped', 'external'], 'return' => 'ids']));
+        // Beiträge, Metadaten und Kategorien gesammelt laden statt einzeln je Produkt
+        _prime_post_caches($ids, true, true);
         foreach ($ids as $id) {
             $product = wc_get_product($id);
             if ($product && preg_match(ProductService::SKU_PATTERN, $product->get_sku('edit'), $match)) {

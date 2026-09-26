@@ -45,17 +45,17 @@ $by_status['planned'] = array_reverse($by_status['planned']);
     <?php if ($by_status[$section_status] === []) {
         continue;
     } ?>
-    <section class="nkp-campaign-group">
+    <section class="nkp-entry-group">
         <h2 class="nkp-group__title"><?php echo esc_html($heading); ?></h2>
-        <ul class="nkp-campaigns">
+        <ul class="nkp-entries">
             <?php foreach ($by_status[$section_status] as $campaign) : ?>
                 <?php $conflicts = $section_status === 'ended' ? ['overlaps' => [], 'reference' => []] : Campaigns::conflicts($campaign); ?>
-                <li class="nkp-campaign nkp-campaign--<?php echo esc_attr($section_status); ?>">
-                    <a class="nkp-campaign__link" href="<?php echo esc_url(App::campaigns_url($campaign['id'])); ?>">
-                        <span class="nkp-campaign__percent">−<?php echo esc_html((string) $campaign['percent']); ?> %</span>
-                        <span class="nkp-campaign__main">
-                            <strong class="nkp-campaign__name"><?php echo esc_html($campaign['name']); ?></strong>
-                            <span class="nkp-campaign__meta">
+                <li class="nkp-entry nkp-entry--<?php echo esc_attr($section_status); ?>">
+                    <a class="nkp-entry__link" href="<?php echo esc_url(App::campaigns_url($campaign['id'])); ?>">
+                        <span class="nkp-entry__percent">−<?php echo esc_html((string) $campaign['percent']); ?> %</span>
+                        <span class="nkp-entry__main">
+                            <strong class="nkp-entry__name"><?php echo esc_html($campaign['name']); ?></strong>
+                            <span class="nkp-entry__meta">
                                 <?php
                                 echo esc_html(sprintf(
                                     /* translators: 1: Beginn, 2: Ende */
@@ -67,7 +67,7 @@ $by_status['planned'] = array_reverse($by_status['planned']);
                                 · <?php echo esc_html(Campaigns::scope_label($campaign)); ?>
                             </span>
                             <?php foreach ($conflicts['overlaps'] as $other) : ?>
-                                <span class="nkp-campaign__note">
+                                <span class="nkp-entry__note">
                                     <?php
                                     /* translators: %s: Name der anderen Aktion */
                                     echo esc_html(sprintf(__('Läuft zeitgleich mit „%s“ für teils dieselben Produkte. Es gilt jeweils der höhere Rabatt.', 'novemberkind-produkte'), $other));
@@ -75,7 +75,7 @@ $by_status['planned'] = array_reverse($by_status['planned']);
                                 </span>
                             <?php endforeach; ?>
                             <?php foreach ($conflicts['reference'] as $other) : ?>
-                                <span class="nkp-campaign__note nkp-campaign__note--warning">
+                                <span class="nkp-entry__note nkp-entry__note--warning">
                                     <?php
                                     /* translators: %s: Name der anderen Aktion */
                                     echo esc_html(sprintf(__('„%s“ hat dieselben Produkte in den 30 Tagen davor reduziert. Der durchgestrichene Normalpreis ist dann als Vergleichspreis rechtlich heikel.', 'novemberkind-produkte'), $other));
@@ -89,5 +89,3 @@ $by_status['planned'] = array_reverse($by_status['planned']);
         </ul>
     </section>
 <?php endforeach; ?>
-
-<div class="nkp-toast" data-nkp-toast role="status" aria-live="polite" hidden></div>

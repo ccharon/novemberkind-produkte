@@ -42,7 +42,7 @@ $status_labels = [
     <?php endif; ?>
 </header>
 
-<form class="nkp-campaign-form" data-nkp-simple-form data-nkp-save="novemberkind_produkte_save_campaign" novalidate>
+<form class="nkp-simple-form" data-nkp-simple-form data-nkp-save="novemberkind_produkte_save_campaign" novalidate>
     <input type="hidden" name="id" value="<?php echo esc_attr((string) ($campaign['id'] ?? 0)); ?>">
 
     <?php if ($is_ended) : ?>
@@ -65,7 +65,7 @@ $status_labels = [
         </p>
     <?php endforeach; ?>
 
-    <fieldset class="nkp-campaign-form__fields" <?php disabled($is_ended); ?>>
+    <fieldset class="nkp-simple-form__fields" <?php disabled($is_ended); ?>>
         <section class="nkp-panel">
             <label class="nkp-field">
                 <span class="nkp-field__label"><?php esc_html_e('Name', 'novemberkind-produkte'); ?></span>
@@ -157,7 +157,7 @@ $status_labels = [
     </fieldset>
 
     <?php if (!$is_ended) : ?>
-        <div class="nkp-campaign-form__actions">
+        <div class="nkp-simple-form__actions">
             <?php if (!$is_new) : ?>
                 <button type="button" class="nkp-button nkp-button--secondary" data-nkp-action="novemberkind_produkte_end_campaign"
                         data-nkp-confirm="<?php esc_attr_e('Die Aktion endet sofort, die Preise im Shop sind dann wieder normal. Beenden?', 'novemberkind-produkte'); ?>">
@@ -168,5 +168,3 @@ $status_labels = [
         </div>
     <?php endif; ?>
 </form>
-
-<div class="nkp-toast" data-nkp-toast role="status" aria-live="polite" hidden></div>

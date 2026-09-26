@@ -32,6 +32,9 @@ final class Campaigns
     /** @var array<int, int[]> genaueste Kategorien je Produkt-ID */
     private static array $categories = [];
 
+    /** @var array<string, int[]> Produkte je Umfang einer Aktion in dieser Anfrage */
+    private static array $product_ids = [];
+
     /**
      * Meldet den Inhaltstyp und die Preisfilter an.
      */
@@ -47,6 +50,8 @@ final class Campaigns
         add_filter('woocommerce_get_variation_prices_hash', [$this, 'prices_hash']);
         add_filter('woocommerce_get_price_html', [$this, 'range_price_html'], self::FILTER_PRIORITY, 2);
         add_action('save_post_' . self::POST_TYPE, [self::class, 'flush']);
+        // Kategorien und Umfang hängen auch an den Produkten
+        add_action('save_post_product', [self::class, 'flush']);
     }
 
     /**
@@ -54,21 +59,7 @@ final class Campaigns
      */
     public function register_post_type(): void
     {
-        register_post_type(self::POST_TYPE, [
-            'label'               => __('Rabattaktionen', 'novemberkind-produkte'),
-            'public'              => false,
-            'publicly_queryable'  => false,
-            'exclude_from_search' => true,
-            'show_ui'             => false,
-            'show_in_rest'        => false,
-            'show_in_nav_menus'   => false,
-            'rewrite'             => false,
-            'query_var'           => false,
-            'can_export'          => false,
-            'supports'            => ['title'],
-            'capability_type'     => 'product',
-            'map_meta_cap'        => true,
-        ]);
+        Plugin::register_private_post_type(self::POST_TYPE, __('Rabattaktionen', 'novemberkind-produkte'));
     }
 
     /**
@@ -79,6 +70,7 @@ final class Campaigns
         self::$cache      = null;
         self::$discounts  = [];
         self::$categories = [];
+        self::$product_ids = [];
     }
 
     /**
@@ -161,7 +153,7 @@ final class Campaigns
         }
 
         $errors = [];
-        $name   = trim(sanitize_text_field(wp_unslash((string) ($data['name'] ?? ''))));
+        $name   = Input::text($data, 'name');
         if ($name === '') {
             $errors['name'] = __('Bitte gib der Aktion einen Namen, z. B. Herbstaktion.', 'novemberkind-produkte');
         } elseif (mb_strlen($name) > self::NAME_MAX_LENGTH) {
@@ -169,15 +161,14 @@ final class Campaigns
             $errors['name'] = sprintf(__('Der Name darf höchstens %d Zeichen lang sein.', 'novemberkind-produkte'), self::NAME_MAX_LENGTH);
         }
 
-        $percent_raw = trim((string) ($data['percent'] ?? ''));
-        $percent     = ctype_digit($percent_raw) ? (int) $percent_raw : 0;
-        if ($percent < 1 || $percent > self::MAX_PERCENT) {
+        $percent = Input::percent($data, 'percent', self::MAX_PERCENT);
+        if ($percent === null) {
             /* translators: %d: höchster erlaubter Rabatt */
             $errors['percent'] = sprintf(__('Bitte gib einen Rabatt zwischen 1 und %d Prozent ein.', 'novemberkind-produkte'), self::MAX_PERCENT);
         }
 
-        $start = ProductService::parse_local_datetime((string) ($data['start_date'] ?? ''), (string) ($data['start_time'] ?? ''));
-        $end   = ProductService::parse_local_datetime((string) ($data['end_date'] ?? ''), (string) ($data['end_time'] ?? ''), '23:59');
+        $start = Input::datetime($data, 'start');
+        $end   = Input::datetime($data, 'end', '23:59');
         if ($start === null) {
             $errors['start'] = __('Bitte wähle, wann die Aktion beginnt.', 'novemberkind-produkte');
         }
@@ -189,15 +180,12 @@ final class Campaigns
             $errors['end'] = __('Das Ende liegt in der Vergangenheit.', 'novemberkind-produkte');
         }
 
-        $scope = (string) ($data['scope'] ?? '');
-        if (!in_array($scope, self::SCOPES, true)) {
-            $scope = 'all';
-        }
+        $scope      = Input::choice($data, 'scope', self::SCOPES, 'all');
         $categories = [];
         $products   = [];
         if ($scope === 'categories') {
             $categories = array_values(array_filter(
-                array_unique(array_map('absint', (array) ($data['categories'] ?? []))),
+                Input::ids($data, 'categories'),
                 static fn(int $term_id): bool => term_exists($term_id, 'product_cat') !== null
             ));
             if ($categories === []) {
@@ -205,7 +193,7 @@ final class Campaigns
             }
         } elseif ($scope === 'products') {
             $products = array_values(array_filter(
-                array_unique(array_map('absint', (array) ($data['products'] ?? []))),
+                Input::ids($data, 'products'),
                 static fn(int $product_id): bool => get_post_type($product_id) === 'product'
             ));
             if ($products === []) {
@@ -214,7 +202,7 @@ final class Campaigns
         }
 
         if ($errors !== []) {
-            return new \WP_Error('invalid', __('Bitte prüfe die markierten Felder.', 'novemberkind-produkte'), $errors);
+            return Input::invalid($errors);
         }
 
         $post_id = wp_insert_post([
@@ -269,9 +257,13 @@ final class Campaigns
      */
     public static function product_ids(array $campaign): array
     {
-        $args = ['limit' => -1, 'return' => 'ids', 'status' => ['publish', 'future', 'draft', 'pending', 'private']];
+        $key = md5((string) wp_json_encode([$campaign['scope'], $campaign['categories'], $campaign['products']]));
+        if (isset(self::$product_ids[$key])) {
+            return self::$product_ids[$key];
+        }
+        $args = ['limit' => -1, 'return' => 'ids', 'status' => ProductService::LISTED_STATUSES];
 
-        return match ($campaign['scope']) {
+        return self::$product_ids[$key] = match ($campaign['scope']) {
             'products'   => $campaign['products'],
             'categories' => array_values(array_filter(
                 array_map('intval', wc_get_products($args + ['category' => self::category_slugs($campaign['categories'])])),

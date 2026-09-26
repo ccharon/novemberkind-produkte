@@ -197,7 +197,7 @@ final class ProductType
      */
     public function parse(array $input): array
     {
-        $value   = static fn(string $key): string => trim(sanitize_text_field(wp_unslash((string) ($input[$key] ?? ''))));
+        $value   = static fn(string $key): string => Input::text($input, $key);
         $context = ['motif' => $value('motif')];
         $errors  = [];
 
@@ -225,7 +225,7 @@ final class ProductType
 
                 case 'size':
                     foreach (['width' => __('Breite', 'novemberkind-produkte'), 'height' => __('Höhe', 'novemberkind-produkte')] as $key => $label) {
-                        $number = self::parse_number($value($key));
+                        $number = Input::number($value($key));
                         if ($number === null) {
                             /* translators: %s: Breite oder Höhe */
                             $errors[$key] = sprintf(__('Bitte gib die %s in cm ein, z. B. 7,5.', 'novemberkind-produkte'), $label);
@@ -260,7 +260,7 @@ final class ProductType
                     break;
 
                 case 'text':
-                    $context['text'] = trim(sanitize_textarea_field(wp_unslash((string) ($input['text'] ?? ''))));
+                    $context['text'] = Input::textarea($input, 'text');
                     if ($context['text'] === '') {
                         $errors['text'] = __('Bitte beschreibe das Bild mit ein paar Sätzen.', 'novemberkind-produkte');
                     }
@@ -318,10 +318,8 @@ final class ProductType
     public function description(array $context): string
     {
         $dimensions = $this->dimensions($context);
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- lokale Datei des Plugins
-        $footer     = (string) file_get_contents(__DIR__ . '/descriptions/_footer.html');
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- lokale Datei des Plugins
-        $template   = (string) file_get_contents(__DIR__ . "/descriptions/{$this->key}.html");
+        $footer     = self::read_template('_footer');
+        $template   = self::read_template($this->key);
         $finish     = $context['finish'] ?? '';
 
         $replacements = [
@@ -341,6 +339,18 @@ final class ProductType
         ];
 
         return trim(strtr(strtr($template, ['{footer}' => $footer]), $replacements));
+    }
+
+    /**
+     * Beschreibungstext aus includes/descriptions/. Fehlt die Datei, etwa bei einer Produktart aus dem Filter
+     * `novemberkind_produkte_types`, bleibt der Text leer.
+     */
+    private static function read_template(string $name): string
+    {
+        $file = __DIR__ . "/descriptions/{$name}.html";
+
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- lokale Datei des Plugins
+        return is_readable($file) ? (string) file_get_contents($file) : '';
     }
 
     /**
@@ -416,19 +426,6 @@ final class ProductType
         }
 
         return $tags;
-    }
-
-    /**
-     * „7,5“ oder „7.5“ → 7.5
-     */
-    public static function parse_number(string $input): ?float
-    {
-        $value = str_replace(',', '.', trim($input));
-        if (!preg_match('/^\d+(\.\d+)?$/', $value) || (float) $value <= 0) {
-            return null;
-        }
-
-        return (float) $value;
     }
 
     /**

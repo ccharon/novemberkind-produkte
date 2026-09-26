@@ -75,6 +75,11 @@ check('Preisfilter ohne Produkt gibt den Preis unverändert zurück', $campaigns
 check('Preisanzeige mit fremden Werten bleibt unverändert', $campaigns_hooks->range_price_html(null, null) === null && $campaigns_hooks->range_price_html('<span>1 €</span>', 'kein Produkt') === '<span>1 €</span>');
 check('Verfügbarkeitstext mit fremden Werten bleibt unverändert', (new NovemberkindProdukte\Originals())->availability_text(null, null) === null && (new NovemberkindProdukte\Originals())->availability_text('Vorrätig', 42) === 'Vorrätig');
 check('Versandfilter mit fremden Werten bleibt unverändert', (new NovemberkindProdukte\Coupons())->free_shipping_rates(null) === null);
+check('Sichtbarkeit verkaufter Unikate mit fremden Werten bricht nicht ab', (static function (): bool {
+    (new NovemberkindProdukte\Originals())->update_visibility(null, null, 'kein Produkt');
+    (new NovemberkindProdukte\Originals())->update_visibility('abc');
+    return true;
+})());
 check('Login-Weiterleitung mit fremden Werten bleibt unverändert', (new NovemberkindProdukte\App())->login_redirect('/ziel/', ['liste'], get_user_by('login', 'shop')) === '/ziel/' && (new NovemberkindProdukte\App())->login_redirect('/ziel/') === '/ziel/');
 
 section('Datenbank-Stand');
@@ -85,15 +90,24 @@ check('Upgrade entfernt die alte WebP-Option und merkt sich den Stand', get_opti
 
 section('Eingaben einlesen');
 foreach (['24,90' => '24.90', '24.90' => '24.90', '1.234,50' => '1234.50', '5' => '5.00', ' 9,5 € ' => '9.50'] as $in => $out) {
-    check("Preis „{$in}“ → {$out}", ProductService::parse_price($in) === $out);
+    check("Preis „{$in}“ → {$out}", NovemberkindProdukte\Input::price($in) === $out);
 }
 foreach (['', 'abc', '-3', '1,234'] as $in) {
-    check("Preis „{$in}“ wird abgelehnt", ProductService::parse_price($in) === null);
+    check("Preis „{$in}“ wird abgelehnt", NovemberkindProdukte\Input::price($in) === null);
 }
-check('Maß „7,5“ → 7.5', ProductType::parse_number('7,5') === 7.5);
-check('Maß „0“ wird abgelehnt', ProductType::parse_number('0') === null);
+check('Maß „7,5“ → 7.5', NovemberkindProdukte\Input::number('7,5') === 7.5);
+check('Maß „0“ wird abgelehnt', NovemberkindProdukte\Input::number('0') === null);
 check('Maß 10.5 wird als „10,5“ angezeigt', ProductType::format_number('10.5') === '10,5');
-check('Schlagwörter ohne Dubletten', ProductService::parse_tags('Otter, tier ,otter,, ') === ['Otter', 'tier']);
+check('Schlagwörter ohne Dubletten', NovemberkindProdukte\Input::tags('Otter, tier ,otter,, ') === ['Otter', 'tier']);
+$input = NovemberkindProdukte\Input::class;
+check('IDs ohne Dubletten, 0 und Listen in Listen', $input::ids(['ids' => ['3', '0', 'x', '3', ['7'], '12']], 'ids') === [3, 12]);
+check('einzelne ID als Liste', $input::ids(['ids' => '5'], 'ids') === [5]);
+check('Auswahl außerhalb der erlaubten Werte ergibt den Standard', $input::choice(['s' => 'hack'], 's', ['a', 'b'], 'a') === 'a' && $input::choice(['s' => 'b'], 's', ['a', 'b'], 'a') === 'b');
+check('Prozent von 1 bis zur Grenze', $input::percent(['p' => '90'], 'p', 90) === 90 && $input::percent(['p' => '91'], 'p', 90) === null && $input::percent(['p' => '0'], 'p', 90) === null && $input::percent(['p' => '5.5'], 'p', 90) === null);
+check('Zeitpunkt aus Datum und Uhrzeit in der Zeitzone des Shops', $input::datetime(['start_date' => '2030-10-01', 'start_time' => '18:00'], 'start') === (new DateTimeImmutable('2030-10-01 18:00', wp_timezone()))->getTimestamp());
+check('Zeitpunkt ohne Uhrzeit nimmt die Vorgabe', $input::datetime(['end_date' => '2030-10-01'], 'end', '23:59') === (new DateTimeImmutable('2030-10-01 23:59', wp_timezone()))->getTimestamp());
+check('31. Februar wird abgelehnt', $input::datetime(['d_date' => '2030-02-31'], 'd') === null);
+check('Text ohne Slashes und Tags', $input::text(['t' => ' Otter \\"Olli\\" <b>x</b> '], 't') === 'Otter "Olli" x');
 check('Motiv aus „Button: Sophie“', ProductType::get('button')->motif_from_name('Button: Sophie') === 'Sophie');
 check('Motiv beim Lesezeichen ist der Name', ProductType::get('bookmark')->motif_from_name('Kaffee to go') === 'Kaffee to go');
 
@@ -127,6 +141,40 @@ if (is_int($image_id)) {
 $gallery_id = $processor->import(make_png(800, 800));
 check('kleines Bild bleibt 800 px breit', is_int($gallery_id) && wp_get_attachment_metadata($gallery_id)['width'] === 800);
 $cleanup['attachments'][] = $gallery_id;
+
+section('Fotos umbenennen');
+$rename_id = $processor->import(make_png(600, 600));
+if (is_int($rename_id)) {
+    $cleanup['attachments'][] = $rename_id;
+    $old_file  = (string) get_attached_file($rename_id);
+    $old_sizes = array_map(static fn(array $size): string => dirname($old_file) . '/' . $size['file'], wp_get_attachment_metadata($rename_id)['sizes'] ?? []);
+    $old_copy  = wp_basename(wp_parse_url(ImageProcessor::mail_url($rename_id, 'full'), PHP_URL_PATH));
+    check('JPEG-Fassung für Mails vor dem Umbenennen vorhanden', file_exists(dirname($old_file) . '/' . $old_copy));
+    check('Umbenennen erfolgreich', $processor->rename($rename_id, 'A999996'));
+    $new_file = (string) get_attached_file($rename_id);
+    check('Datei trägt den neuen Namen', wp_basename($new_file) === 'A999996-600.webp' && file_exists($new_file) && !file_exists($old_file));
+    check('alte Vorschaubilder gelöscht, neue vorhanden', $old_sizes !== [] && array_filter($old_sizes, 'file_exists') === [] && array_filter(
+        wp_get_attachment_metadata($rename_id)['sizes'] ?? [],
+        static fn(array $size): bool => !file_exists(dirname($new_file) . '/' . $size['file'])
+    ) === []);
+    check('alte JPEG-Fassung für Mails gelöscht', !file_exists(dirname($old_file) . '/' . $old_copy));
+}
+
+section('Artikelnummern der Varianten');
+$taken_sku = 'A999990';
+$blocker   = new WC_Product_Simple();
+$blocker->set_name('Fremdes Produkt mit Variantennummer');
+$blocker->set_sku($taken_sku . '-3');
+$blocker->save();
+$before_count = count(wc_get_products(['limit' => -1, 'return' => 'ids', 'status' => 'any']));
+$conflict = $service->save(ProductType::get('button'), ['sku' => $taken_sku, 'motif' => 'Variantenkonflikt', 'price' => '4,50', 'status' => 'draft']);
+check('vergebene Nummer einer Variante wird am Feld gemeldet', is_wp_error($conflict) && str_contains((string) ($conflict->get_error_data()['sku'] ?? ''), $taken_sku . '-3'));
+check('dabei wird kein Produkt angelegt', count(wc_get_products(['limit' => -1, 'return' => 'ids', 'status' => 'any'])) === $before_count);
+$card_conflict = $service->save(ProductType::get('card'), ['sku' => $taken_sku, 'motif' => 'Variantenkonflikt', 'format' => 'quer', 'price' => '2,50', 'a4' => '1', 'price_a4' => '5', 'status' => 'draft']);
+check('Karte in A4 prüft nur -1 und -2', $card_conflict instanceof WC_Product);
+// Gleich wieder weg, sonst zählt ShopData::next_sku() ab dieser hohen Nummer weiter
+$card_conflict instanceof WC_Product && $card_conflict->delete(true);
+$blocker->delete(true);
 
 section('Button anlegen');
 $expected_sku = ShopData::next_sku();
@@ -560,11 +608,11 @@ check('geplantes Produkt hat Status „geplant“', get_post_status($planned->ge
 check('Zeitpunkt in der Zeitzone des Shops', $planned->get_date_created()->getTimestamp() === $tomorrow->getTimestamp());
 check('WordPress hat die Veröffentlichung eingeplant', wp_next_scheduled('publish_future_post', [$planned->get_id()]) === $tomorrow->getTimestamp());
 $past = $service->save(ProductType::get('button'), ['publish_date' => wp_date('Y-m-d', time() - 3600), 'publish_time' => wp_date('H:i', time() - 3600)] + $planned_data, $planned->get_id());
-check('Zeitpunkt in der Vergangenheit wird abgelehnt', is_wp_error($past) && isset($past->get_error_data()['publish_at']));
+check('Zeitpunkt in der Vergangenheit wird abgelehnt', is_wp_error($past) && isset($past->get_error_data()['publish']));
 $invalid = $service->save(ProductType::get('button'), ['publish_date' => '2030-02-31'] + $planned_data, $planned->get_id());
-check('ungültiges Datum wird abgelehnt', is_wp_error($invalid) && isset($invalid->get_error_data()['publish_at']));
+check('ungültiges Datum wird abgelehnt', is_wp_error($invalid) && isset($invalid->get_error_data()['publish']));
 $missing = $service->save(ProductType::get('button'), ['publish_date' => ''] + $planned_data, $planned->get_id());
-check('fehlender Zeitpunkt wird abgelehnt', is_wp_error($missing) && isset($missing->get_error_data()['publish_at']));
+check('fehlender Zeitpunkt wird abgelehnt', is_wp_error($missing) && isset($missing->get_error_data()['publish']));
 $now_online = $service->save(ProductType::get('button'), ['status' => 'publish'] + $planned_data, $planned->get_id());
 check('sofort online statt geplant', get_post_status($planned->get_id()) === 'publish' && $now_online->get_date_created()->getTimestamp() <= time());
 check('keine Veröffentlichung mehr eingeplant', wp_next_scheduled('publish_future_post', [$planned->get_id()]) === false);
@@ -925,7 +973,7 @@ check('passwortgeschützte Produkte erscheinen nicht in der Mail', !str_contains
 $open_link = NewsletterMail::render($newsletters->parse(['subject' => 'x', 'content' => '<p style="color:red">Text <a href="https://example.org/">offen']) + ['products' => []]);
 check('offener Link im Text umschließt nicht den Abmeldelink', str_contains($open_link['text'], 'Vom Newsletter abmelden (' . NewsletterSignup::url('abmelden', NewsletterMail::TOKEN_PLACEHOLDER) . ')'));
 check('Stile aus dem Text überschreiben die Gestaltung nicht', !str_contains($open_link['html'], 'color:red'));
-check('Listen statt Text in Formularfeldern ergeben leeren Text', NovemberkindProdukte\Plugin::input(['email' => ['a@b.de']], 'email') === '');
+check('Listen statt Text in Formularfeldern ergeben leeren Text', NovemberkindProdukte\Input::value(['email' => ['a@b.de']], 'email') === '');
 
 $form = do_shortcode('[novemberkind_newsletter]');
 check('Anmeldeformular per Shortcode sendet an die eigene Seite', !str_contains($form, 'admin-post.php') && str_contains($form, 'name="' . NewsletterSignup::SIGNUP_FIELD . '"') && str_contains($form, 'name="nkp_website"') && str_contains($form, 'type="email"'));

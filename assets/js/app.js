@@ -2,9 +2,6 @@
 (() => {
 	'use strict';
 
-	// Fehler bleiben länger stehen, damit man sie in Ruhe lesen kann
-	const TOAST_MS = 4000;
-	const TOAST_ERROR_MS = 8000;
 	// Wartezeit nach der letzten Eingabe, bevor die Beschreibung neu aus der Vorlage entsteht
 	const PREVIEW_DELAY_MS = 400;
 	// iOS meldet die neue Breite erst kurz nach dem Drehen
@@ -103,15 +100,15 @@
 		}));
 	}
 
-	const config = window.novemberkindProdukte;
+	const base = window.novemberkindBasis;
 	const form = document.querySelector('[data-nkp-form]');
-	if (!config || !form) {
+	if (!base || !form) {
 		return;
 	}
 
-	const { i18n } = config;
+	const { config, showToast, post } = base;
+	const i18n = { ...config.i18n, ...window.novemberkindProdukte?.i18n };
 	const submitButton = form.querySelector('[data-nkp-submit]');
-	const toast = document.querySelector('[data-nkp-toast]');
 	const gallery = form.querySelector('[data-nkp-gallery]');
 	const galleryAdd = form.querySelector('[data-nkp-gallery-add]');
 	const galleryTemplate = document.querySelector('[data-nkp-gallery-item]');
@@ -119,68 +116,6 @@
 	let dirty = false;
 	let pendingUploads = 0;
 	let saving = false;
-
-	// ---------------------------------------------------------------- Hinweise
-
-	let toastTimer;
-	function showToast(message, type = 'success') {
-		toast.textContent = message;
-		toast.className = `nkp-toast nkp-toast--${type}`;
-		toast.hidden = false;
-		clearTimeout(toastTimer);
-		toastTimer = setTimeout(() => { toast.hidden = true; }, type === 'error' ? TOAST_ERROR_MS : TOAST_MS);
-	}
-
-	function clearFieldErrors() {
-		form.querySelectorAll('[data-error-for]').forEach((el) => {
-			el.hidden = true;
-			el.textContent = '';
-		});
-		form.querySelectorAll('[aria-invalid]').forEach((el) => el.removeAttribute('aria-invalid'));
-	}
-
-	function showFieldErrors(fields) {
-		let first = null;
-		Object.entries(fields).forEach(([name, message]) => {
-			const error = form.querySelector(`[data-error-for="${name}"]`);
-			const input = form.elements[name] ?? form.elements[name.replace(/_at$/, '_date')];
-			if (error) {
-				error.textContent = message;
-				error.hidden = false;
-			}
-			if (input) {
-				input.setAttribute('aria-invalid', 'true');
-				first ??= input;
-			}
-		});
-		first?.focus();
-	}
-
-	// ---------------------------------------------------------------- Server
-
-	async function post(action, body) {
-		body.append('action', action);
-		body.append('nonce', config.nonce);
-
-		let response;
-		try {
-			response = await fetch(config.ajaxUrl, { method: 'POST', body, credentials: 'same-origin' });
-		} catch {
-			throw new Error(i18n.networkError);
-		}
-
-		const json = await response.json().catch(() => null);
-		if (!json) {
-			// admin-ajax.php antwortet ohne Anmeldung mit „0“ und Status 400
-			throw new Error(response.status === 400 ? i18n.loggedOut : i18n.networkError);
-		}
-		if (!json.success) {
-			const error = new Error(json.data?.message ?? i18n.networkError);
-			error.fields = json.data?.fields ?? {};
-			throw error;
-		}
-		return json.data;
-	}
 
 	// ---------------------------------------------------------------- Fotos
 
@@ -299,12 +234,7 @@
 	});
 	form.addEventListener('change', markDirty);
 
-	window.addEventListener('beforeunload', (event) => {
-		if (dirty) {
-			event.preventDefault();
-			event.returnValue = i18n.unsaved;
-		}
-	});
+	base.warnUnsaved(() => dirty);
 
 	function renderBackups(backups) {
 		const section = document.querySelector('[data-nkp-backups]');
@@ -377,8 +307,7 @@
 		}
 	}
 
-	document.execCommand('defaultParagraphSeparator', false, 'p');
-	document.execCommand('styleWithCSS', false, false);
+	const editorState = base.initEditor(editor);
 
 	// Überschriften aus Vorlage oder Vorschlag. Andere entstehen nur versehentlich beim Zusammenfügen von Absätzen.
 	let headings = new Set();
@@ -387,13 +316,6 @@
 		headings = new Set([...editor.querySelectorAll('h3')].map((h) => h.textContent.trim()));
 	}
 	setEditorHTML(editor.innerHTML);
-
-	function renameElement(element, tag) {
-		const replacement = document.createElement(tag);
-		replacement.append(...element.childNodes);
-		element.replaceWith(replacement);
-		return replacement;
-	}
 
 	// Macht versehentliche Überschriften wieder zu Absätzen, ohne dass die Einfügemarke verloren geht
 	function fixHeadings() {
@@ -405,7 +327,7 @@
 		const range = selection.rangeCount ? selection.getRangeAt(0) : null;
 		const points = range && [[range.startContainer, range.startOffset], [range.endContainer, range.endOffset]];
 		strays.forEach((heading) => {
-			const paragraph = renameElement(heading, 'p');
+			const paragraph = base.renameElement(heading, 'p');
 			points?.forEach((point) => {
 				if (point[0] === heading) {
 					point[0] = paragraph;
@@ -417,44 +339,18 @@
 		}
 	}
 
-	// Einheitliches HTML für den Shop: strong und em statt b, i und Stil-Spans der Browser
+	// Einheitliches HTML für den Shop: strong und em ohne Stile der Browser, Überschriften nur aus Vorlage oder Vorschlag
 	function cleanHTML() {
 		const copy = editor.cloneNode(true);
 		copy.querySelectorAll('h3').forEach((h) => {
 			if (!headings.has(h.textContent.trim())) {
-				renameElement(h, 'p');
+				base.renameElement(h, 'p');
 			}
 		});
-		copy.querySelectorAll('b').forEach((b) => renameElement(b, 'strong'));
-		copy.querySelectorAll('i').forEach((i) => renameElement(i, 'em'));
-		copy.querySelectorAll('span, font').forEach((span) => {
-			let inner = [...span.childNodes];
-			// Nur echte Formatierung übernehmen, Schriftgrößen stammen vom Zusammenfügen mit der Überschrift
-			if (!span.style.fontSize) {
-				if (/^(bold|[6-9]00)$/.test(span.style.fontWeight)) {
-					const strong = document.createElement('strong');
-					strong.append(...inner);
-					inner = [strong];
-				}
-				if (span.style.fontStyle === 'italic') {
-					const em = document.createElement('em');
-					em.append(...inner);
-					inner = [em];
-				}
-			}
-			span.replaceWith(...inner);
-		});
+		base.cleanInline(copy);
 		copy.querySelectorAll('[style]').forEach((element) => element.removeAttribute('style'));
-		copy.querySelectorAll('strong, em').forEach((element) => {
-			if (!element.textContent.trim()) {
-				element.replaceWith(...element.childNodes);
-			}
-		});
-		copy.normalize();
-		const walker = document.createTreeWalker(copy, NodeFilter.SHOW_TEXT);
-		while (walker.nextNode()) {
-			walker.currentNode.textContent = walker.currentNode.textContent.replace(/\u00a0/g, ' ');
-		}
+		base.unwrapEmpty(copy, 'strong, em');
+		base.plainSpaces(copy);
 		return copy.innerHTML;
 	}
 
@@ -463,31 +359,11 @@
 		setCustom(true);
 	});
 
-	editor.addEventListener('paste', (event) => {
-		event.preventDefault();
-		document.execCommand('insertText', false, event.clipboardData.getData('text/plain'));
-	});
-
-	// Letzte Markierung im Editor merken. Safari verliert sie beim Klick auf einen Knopf trotz preventDefault.
-	let editorRange = null;
-	document.addEventListener('selectionchange', () => {
-		const selection = window.getSelection();
-		if (selection.rangeCount && editor.contains(selection.getRangeAt(0).commonAncestorContainer)) {
-			editorRange = selection.getRangeAt(0).cloneRange();
-		}
-	});
-
 	form.querySelectorAll('[data-nkp-command]').forEach((button) => {
 		// mousedown statt click, damit der Fokus im Text bleibt
 		button.addEventListener('mousedown', (event) => {
 			event.preventDefault();
-			const range = editorRange;
-			editor.focus();
-			if (range) {
-				const selection = window.getSelection();
-				selection.removeAllRanges();
-				selection.addRange(range);
-			}
+			editorState.restore();
 			document.execCommand(button.dataset.nkpCommand);
 			editor.dispatchEvent(new Event('input', { bubbles: true }));
 		});
@@ -606,7 +482,7 @@
 		}
 
 		saving = true;
-		clearFieldErrors();
+		base.clearFieldErrors(form);
 		submitButton.disabled = true;
 		submitButton.textContent = i18n.saving;
 
@@ -617,7 +493,7 @@
 			applySaved(data);
 			showToast(data.message);
 		} catch (error) {
-			showFieldErrors(error.fields ?? {});
+			base.showFieldErrors(form, error.fields);
 			showToast(error.message, 'error');
 		} finally {
 			saving = false;
@@ -642,11 +518,5 @@
 	window.addEventListener('orientationchange', () => setTimeout(relayoutPhotos, RELAYOUT_DELAY_MS));
 	window.screen.orientation?.addEventListener('change', () => setTimeout(relayoutPhotos, RELAYOUT_DELAY_MS));
 
-	// Cmd+S / Strg+S speichert, statt die Seite herunterzuladen
-	document.addEventListener('keydown', (event) => {
-		if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
-			event.preventDefault();
-			save();
-		}
-	});
+	base.onSaveShortcut(save);
 })();

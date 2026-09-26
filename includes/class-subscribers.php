@@ -56,21 +56,7 @@ final class Subscribers
      */
     public function register_post_type(): void
     {
-        register_post_type(self::POST_TYPE, [
-            'label'               => __('Newsletter-Abonnenten', 'novemberkind-produkte'),
-            'public'              => false,
-            'publicly_queryable'  => false,
-            'exclude_from_search' => true,
-            'show_ui'             => false,
-            'show_in_rest'        => false,
-            'show_in_nav_menus'   => false,
-            'rewrite'             => false,
-            'query_var'           => false,
-            'can_export'          => false,
-            'supports'            => ['title'],
-            'capability_type'     => 'product',
-            'map_meta_cap'        => true,
-        ]);
+        Plugin::register_private_post_type(self::POST_TYPE, __('Newsletter-Abonnenten', 'novemberkind-produkte'));
     }
 
     /**

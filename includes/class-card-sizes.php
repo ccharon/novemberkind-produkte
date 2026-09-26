@@ -16,7 +16,7 @@ final class CardSizes
     public const A6 = 'A6';
     public const A4 = 'A4';
     // Reihenfolge der Varianten und Endung ihrer Artikelnummer (A000123-1, -2)
-    private const POSITIONS = [self::A6 => 1, self::A4 => 2];
+    public const POSITIONS = [self::A6 => 1, self::A4 => 2];
 
     /** Maße in cm im Querformat: Breite, Höhe */
     private const DIMENSIONS = [self::A6 => ['15', '10.5'], self::A4 => ['29.7', '21']];
