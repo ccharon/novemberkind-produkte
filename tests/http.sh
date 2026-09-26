@@ -194,6 +194,10 @@ signup=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' -e "$BASE/kontak
 check 'Anmeldung leitet mit Rückmeldung zurück' "$signup" "302 $BASE/kontakt/?nkp-newsletter-status=ok#nkp-newsletter"
 signup_page=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' -d nkp_newsletter_signup=1 -d email=http-seite@example.org "$BASE/newsletter/?nkp-newsletter-status=busy")
 check 'Anmeldung auf der eigenen Seite leitet ohne Referer dorthin zurück' "$signup_page/$(subscriber_status http-seite@example.org)" "302 $BASE/newsletter/?nkp-newsletter-status=ok#nkp-newsletter/pending"
+done_page=$(curl -s "$BASE/newsletter/?nkp-newsletter-status=ok")
+check 'nach der Anmeldung Rückmeldung statt Formular' "$(grep -c 'nkp-signup__message--ok' <<<"$done_page")/$(grep -c 'name="email"' <<<"$done_page")" 1/0
+invalid_page=$(curl -s "$BASE/newsletter/?nkp-newsletter-status=invalid")
+check 'Fehler über dem Formular' "$(grep -c 'role="alert">Bitte gib eine gültige E-Mail-Adresse ein.' <<<"$invalid_page")/$(grep -c 'name="email"' <<<"$invalid_page")" 1/1
 check 'Anmeldung mit fremdem Host leitet zur Startseite' "$(location -H 'Host: fremd.example' -d nkp_newsletter_signup=1 -d email=http-seite@example.org "$BASE/newsletter/")" "$BASE/?nkp-newsletter-status=ok#nkp-newsletter"
 bin/wp eval '$s = NovemberkindProdukte\Subscribers::find("http-seite@example.org"); $s && (new NovemberkindProdukte\Subscribers())->remove($s["id"]);' >/dev/null
 bin/wp eval 'set_transient("novemberkind_produkte_signup_all", ["start" => time(), "count" => 999], 60);'
