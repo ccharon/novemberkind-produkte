@@ -184,56 +184,8 @@
 
 	// ---------------------------------------------------------------- Fotos
 
-	async function decode(file) {
-		try {
-			return await createImageBitmap(file, { imageOrientation: 'from-image' });
-		} catch {
-			// Fallback über <img>, z. B. für ältere Safari-Versionen
-			const url = URL.createObjectURL(file);
-			try {
-				const img = new Image();
-				img.src = url;
-				await img.decode();
-				return img;
-			} catch {
-				throw new Error(i18n.unreadable);
-			} finally {
-				URL.revokeObjectURL(url);
-			}
-		}
-	}
-
-	function toBlob(canvas, type, quality) {
-		return new Promise((resolve) => canvas.toBlob(resolve, type, quality));
-	}
-
-	/**
-	 * Verkleinert auf maximal `maxWidth` Pixel Breite und liefert ein verlustfreies PNG.
-	 * Nur wenn das PNG über der Upload-Grenze des Servers liegt, wird ein hochwertiges JPEG geschickt.
-	 */
-	async function resize(file) {
-		const image = await decode(file);
-		const width = image.width;
-		const height = image.height;
-		const scale = Math.min(1, config.maxWidth / width);
-
-		const canvas = document.createElement('canvas');
-		canvas.width = Math.round(width * scale);
-		canvas.height = Math.round(height * scale);
-		const context = canvas.getContext('2d');
-		context.imageSmoothingQuality = 'high';
-		context.drawImage(image, 0, 0, canvas.width, canvas.height);
-		image.close?.();
-
-		const baseName = file.name.replace(/\.[^.]+$/, '') || 'foto';
-		const limit = config.maxUploadBytes * 0.95;
-
-		const png = await toBlob(canvas, 'image/png');
-		if (png && png.size <= limit) {
-			return { blob: png, name: `${baseName}.png` };
-		}
-		const jpeg = await toBlob(canvas, 'image/jpeg', 0.95);
-		return { blob: jpeg, name: `${baseName}.jpg` };
+	function resize(file) {
+		return window.novemberkindBilder.resize(file, { maxWidth: config.maxWidth, maxBytes: config.maxUploadBytes, unreadable: i18n.unreadable });
 	}
 
 	async function uploadInto(photo, file) {
@@ -283,7 +235,7 @@
 	}
 
 	function handleFiles(dropzone, files) {
-		const images = [...files].filter((file) => file.type.startsWith('image/') || /\.hei[cf]$/i.test(file.name));
+		const images = [...files].filter(window.novemberkindBilder.isImage);
 		if (images.length === 0) {
 			return;
 		}

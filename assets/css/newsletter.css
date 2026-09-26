@@ -1,0 +1,49 @@
+/* Novemberkind Produkte: Anmeldeformular für den Newsletter. Schrift und Farben kommen vom Theme. */
+
+.nkp-signup {
+	margin: 0 0 1em;
+	max-width: 560px;
+}
+
+.nkp-signup__row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.nkp-signup__label {
+	flex-basis: 100%;
+	font-weight: 600;
+}
+
+.nkp-signup__input {
+	flex: 1 1 220px;
+	font-size: 16px;
+	min-width: 0;
+	padding: 10px 12px;
+}
+
+.nkp-signup__button {
+	cursor: pointer;
+	font-size: 16px;
+	padding: 10px 20px;
+}
+
+.nkp-signup__trap {
+	height: 1px;
+	left: -9999px;
+	overflow: hidden;
+	position: absolute;
+	width: 1px;
+}
+
+.nkp-signup__message {
+	font-weight: 600;
+	margin: 12px 0 0;
+}
+
+.nkp-signup__note {
+	font-size: 0.875em;
+	margin: 10px 0 0;
+	opacity: 0.8;
+}

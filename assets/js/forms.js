@@ -1,4 +1,4 @@
-/* Novemberkind Produkte, einfache Formulare für Aktionen und Gutscheine: speichern, beenden, ein- und ausschalten. */
+/* Novemberkind Produkte, einfache Formulare für Aktionen, Gutscheine und Newsletter: speichern, beenden, ein- und ausschalten. */
 (() => {
 	'use strict';
 
@@ -32,14 +32,12 @@
 		// Speicher gesperrt, die Meldung entfällt
 	}
 
-	const form = document.querySelector('[data-nkp-simple-form]');
-	if (!config || !form) {
+	if (!config) {
 		return;
 	}
 	const { i18n } = config;
-	const submitButton = form.querySelector('[data-nkp-submit]');
+	const form = document.querySelector('[data-nkp-simple-form]');
 	let dirty = false;
-	let saving = false;
 
 	async function post(action, body) {
 		body.append('action', action);
@@ -72,6 +70,28 @@
 		window.location.replace(data.url);
 	}
 
+	// Abonnenten austragen, außerhalb eines Formulars
+	document.querySelectorAll('[data-nkp-remove-subscriber]').forEach((button) => button.addEventListener('click', async () => {
+		if (!window.confirm(button.dataset.nkpConfirm)) {
+			return;
+		}
+		const body = new FormData();
+		body.append('id', button.dataset.nkpRemoveSubscriber);
+		button.disabled = true;
+		try {
+			reloadWith(await post('novemberkind_produkte_remove_subscriber', body));
+		} catch (error) {
+			showToast(error.message, 'error');
+			button.disabled = false;
+		}
+	}));
+
+	if (!form) {
+		return;
+	}
+	const submitButton = form.querySelector('[data-nkp-submit]');
+	let saving = false;
+
 	function clearFieldErrors() {
 		form.querySelectorAll('[data-error-for]').forEach((el) => {
 			el.hidden = true;
@@ -91,8 +111,8 @@
 				firstError ??= error;
 			}
 			// Datum und Uhrzeit melden Fehler unter dem gemeinsamen Namen, z. B. start für start_date
-			const input = form.elements[name] ?? form.elements[`${name}_date`];
-			if (input instanceof HTMLInputElement) {
+			const input = form.elements[`${name}_date`] ?? form.elements[name];
+			if (input instanceof HTMLInputElement && input.type !== 'hidden') {
 				input.setAttribute('aria-invalid', 'true');
 				firstInput ??= input;
 			}
@@ -159,8 +179,236 @@
 		}
 	});
 
+	// Editor für den Newsletter-Text: fett, kursiv, Zwischenüberschrift, Link
+	const editor = form.querySelector('[data-nkp-editor]');
+
+	function renameElement(element, tag) {
+		const replacement = document.createElement(tag);
+		replacement.append(...element.childNodes);
+		element.replaceWith(replacement);
+		return replacement;
+	}
+
+	// Einheitliches HTML für die Mail: strong, em, h2, p und Links ohne Stile der Browser
+	function cleanHTML() {
+		const copy = editor.cloneNode(true);
+		copy.querySelectorAll('b').forEach((b) => renameElement(b, 'strong'));
+		copy.querySelectorAll('i').forEach((i) => renameElement(i, 'em'));
+		copy.querySelectorAll('h1, h3, h4, h5, h6').forEach((h) => renameElement(h, 'h2'));
+		copy.querySelectorAll('div').forEach((div) => renameElement(div, 'p'));
+		copy.querySelectorAll('span, font').forEach((span) => {
+			let inner = [...span.childNodes];
+			if (/^(bold|[6-9]00)$/.test(span.style.fontWeight)) {
+				const strong = document.createElement('strong');
+				strong.append(...inner);
+				inner = [strong];
+			}
+			if (span.style.fontStyle === 'italic') {
+				const em = document.createElement('em');
+				em.append(...inner);
+				inner = [em];
+			}
+			span.replaceWith(...inner);
+		});
+		const keep = { A: ['href'], IMG: ['src', 'alt', 'class'] };
+		copy.querySelectorAll('*').forEach((element) => {
+			[...element.attributes].forEach((attribute) => {
+				if (!keep[element.tagName]?.includes(attribute.name)) {
+					element.removeAttribute(attribute.name);
+				}
+			});
+		});
+		// Nur Fotos aus der Mediathek, an der Klasse wp-image-<ID> erkennt der Server die JPEG-Fassung für die Mail
+		copy.querySelectorAll('img').forEach((img) => {
+			if (!/^wp-image-\d+$/.test(img.className)) {
+				img.remove();
+			}
+		});
+		copy.querySelectorAll('strong, em, a').forEach((element) => {
+			if (!element.textContent.trim()) {
+				element.replaceWith(...element.childNodes);
+			}
+		});
+		// Lose Textstücke auf oberster Ebene in Absätze fassen, br trennt dabei Absätze
+		let paragraph = null;
+		[...copy.childNodes].forEach((node) => {
+			if (node.nodeType === Node.ELEMENT_NODE && ['P', 'H2'].includes(node.tagName)) {
+				paragraph = null;
+			} else if (node.nodeName === 'BR') {
+				paragraph = null;
+				node.remove();
+			} else {
+				paragraph ??= node.parentNode.insertBefore(document.createElement('p'), node);
+				paragraph.append(node);
+			}
+		});
+		copy.querySelectorAll('p, h2').forEach((block) => {
+			if (!block.textContent.trim() && !block.querySelector('img')) {
+				block.remove();
+			}
+		});
+		copy.normalize();
+		const walker = document.createTreeWalker(copy, NodeFilter.SHOW_TEXT);
+		while (walker.nextNode()) {
+			walker.currentNode.textContent = walker.currentNode.textContent.replace(/\u00a0/g, ' ');
+		}
+		return copy.innerHTML.trim();
+	}
+
+	function syncEditor() {
+		if (editor && form.elements.content) {
+			form.elements.content.value = cleanHTML();
+		}
+	}
+
+	let pendingUploads = 0;
+
+	// Ohne Absatz tippt der Browser die erste Zeile als losen Text
+	function ensureParagraph() {
+		if (editor.isContentEditable && !editor.textContent.trim() && !editor.querySelector('p, h2')) {
+			editor.innerHTML = '<p><br></p>';
+		}
+	}
+
+	if (editor) {
+		ensureParagraph();
+		editor.addEventListener('focus', ensureParagraph);
+		document.execCommand('defaultParagraphSeparator', false, 'p');
+		document.execCommand('styleWithCSS', false, false);
+
+		editor.addEventListener('paste', (event) => {
+			event.preventDefault();
+			document.execCommand('insertText', false, event.clipboardData.getData('text/plain'));
+		});
+
+		// Letzte Markierung merken. Safari verliert sie beim Klick auf einen Knopf trotz preventDefault.
+		let editorRange = null;
+		document.addEventListener('selectionchange', () => {
+			const selection = window.getSelection();
+			if (selection.rangeCount && editor.contains(selection.getRangeAt(0).commonAncestorContainer)) {
+				editorRange = selection.getRangeAt(0).cloneRange();
+			}
+		});
+		const restoreSelection = () => {
+			editor.focus();
+			if (editorRange) {
+				const selection = window.getSelection();
+				selection.removeAllRanges();
+				selection.addRange(editorRange);
+			}
+		};
+
+		// Foto an der Cursorposition: erst die Vorschau, nach dem Upload die Adresse aus der Mediathek
+		async function insertImage(file) {
+			const preview = URL.createObjectURL(file);
+			const img = document.createElement('img');
+			img.src = preview;
+			img.alt = '';
+			img.dataset.nkpUploading = '1';
+			restoreSelection();
+			const range = window.getSelection().rangeCount ? window.getSelection().getRangeAt(0) : null;
+			if (range && editor.contains(range.commonAncestorContainer)) {
+				range.deleteContents();
+				range.insertNode(img);
+				range.setStartAfter(img);
+				range.collapse(true);
+			} else {
+				const paragraph = document.createElement('p');
+				paragraph.append(img);
+				editor.append(paragraph);
+			}
+			editor.dispatchEvent(new Event('input', { bubbles: true }));
+			pendingUploads++;
+			try {
+				const { blob, name } = await window.novemberkindBilder.resize(file, { maxWidth: config.maxWidth, maxBytes: config.maxUploadBytes, unreadable: i18n.unreadable });
+				const body = new FormData();
+				body.append('file', blob, name);
+				const data = await post('novemberkind_produkte_upload', body);
+				img.src = data.full;
+				img.className = `wp-image-${data.id}`;
+				delete img.dataset.nkpUploading;
+				dirty = true;
+			} catch (error) {
+				img.remove();
+				showToast(error.message, 'error');
+			} finally {
+				URL.revokeObjectURL(preview);
+				pendingUploads--;
+			}
+		}
+
+		const imageInput = form.querySelector('[data-nkp-image-file]');
+		imageInput?.addEventListener('change', () => {
+			[...imageInput.files].filter(window.novemberkindBilder.isImage).forEach(insertImage);
+			imageInput.value = '';
+		});
+		// click statt mousedown, weil iOS die Fotoauswahl nur direkt nach einem Tipp öffnet
+		form.querySelector('[data-nkp-command="image"]')?.addEventListener('click', () => imageInput?.click());
+
+		form.querySelectorAll('[data-nkp-command]').forEach((button) => {
+			// mousedown statt click, damit der Fokus im Text bleibt
+			button.addEventListener('mousedown', (event) => {
+				event.preventDefault();
+				const command = button.dataset.nkpCommand;
+				if (editor.isContentEditable === false || command === 'image') {
+					return;
+				}
+				if (command === 'link') {
+					const range = editorRange;
+					const current = range?.commonAncestorContainer.parentElement?.closest('a')?.getAttribute('href') ?? 'https://';
+					let url = window.prompt(i18n.linkPrompt, current);
+					if (url === null) {
+						return;
+					}
+					url = url.trim();
+					editorRange = range;
+					restoreSelection();
+					if (url === '' || url === 'https://') {
+						document.execCommand('unlink');
+					} else {
+						document.execCommand('createLink', false, /^(https?:|mailto:)/i.test(url) ? url : `https://${url}`);
+					}
+				} else if (command === 'heading') {
+					restoreSelection();
+					const node = window.getSelection().anchorNode;
+					const inHeading = (node instanceof Element ? node : node?.parentElement)?.closest('h2');
+					document.execCommand('formatBlock', false, inHeading ? '<p>' : '<h2>');
+				} else {
+					restoreSelection();
+					document.execCommand(command);
+				}
+				editor.dispatchEvent(new Event('input', { bubbles: true }));
+			});
+		});
+	}
+
+	// Testmail mit dem aktuellen Stand, ohne zu speichern
+	form.querySelector('[data-nkp-test]')?.addEventListener('click', async (event) => {
+		const button = event.currentTarget;
+		const label = button.textContent;
+		if (pendingUploads > 0) {
+			showToast(i18n.waitForUpload, 'info');
+			return;
+		}
+		clearFieldErrors();
+		syncEditor();
+		button.disabled = true;
+		button.textContent = i18n.testSending;
+		try {
+			showToast((await post(button.dataset.nkpTest, new FormData(form))).message);
+		} catch (error) {
+			showToast(error.message, 'error');
+			if (error.fields) {
+				showFieldErrors(error.fields);
+			}
+		} finally {
+			button.disabled = false;
+			button.textContent = label;
+		}
+	});
+
 	form.addEventListener('input', (event) => {
-		if (event.target !== filter) {
+		if (event.target !== filter && !event.target.hasAttribute('data-nkp-not-dirty')) {
 			dirty = true;
 		}
 	});
@@ -169,8 +417,16 @@
 		if (saving || !submitButton) {
 			return;
 		}
+		if (pendingUploads > 0) {
+			showToast(i18n.waitForUpload, 'info');
+			return;
+		}
+		if (form.dataset.nkpConfirmNow && form.elements.send?.value === 'now' && !window.confirm(form.dataset.nkpConfirmNow)) {
+			return;
+		}
 		saving = true;
 		clearFieldErrors();
+		syncEditor();
 		submitButton.disabled = true;
 		submitButton.textContent = i18n.saving;
 		try {

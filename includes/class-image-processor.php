@@ -16,6 +16,90 @@ final class ImageProcessor
     public const QUALITY = 85;
     public const MAX_SOURCE_SIDE = 8000;
     public const META_UPLOAD = '_novemberkind_produkte_upload';
+    // Endung der JPEG-Fassungen für Mails, weil Outlook für Windows kein WebP anzeigt
+    private const MAIL_SUFFIX = '-mail.jpg';
+
+    /**
+     * Räumt beim Löschen eines Fotos auch die JPEG-Fassungen für Mails weg.
+     */
+    public function register(): void
+    {
+        add_action('delete_attachment', [$this, 'delete_mail_copies']);
+    }
+
+    /**
+     * Adresse eines Fotos in einer Größe, bei WebP als JPEG-Fassung. Die Fassung entsteht beim ersten Aufruf
+     * neben der Originaldatei und wird danach wiederverwendet. Schlägt die Umwandlung fehl, bleibt es beim WebP.
+     */
+    public static function mail_url(int $attachment_id, string $size): string
+    {
+        $image = wp_get_attachment_image_src($attachment_id, $size);
+        if (!$image) {
+            return '';
+        }
+        $url = (string) $image[0];
+        if (strtolower((string) pathinfo((string) wp_parse_url($url, PHP_URL_PATH), PATHINFO_EXTENSION)) !== 'webp') {
+            return $url;
+        }
+
+        $file = self::file_for_url($attachment_id, $url);
+        if ($file === '') {
+            return $url;
+        }
+        $copy = self::mail_copy_path($file);
+        if (!file_exists($copy)) {
+            $editor = wp_get_image_editor($file);
+            if (is_wp_error($editor)) {
+                return $url;
+            }
+            $editor->set_quality(self::QUALITY);
+            if (is_wp_error($editor->save($copy, 'image/jpeg'))) {
+                return $url;
+            }
+        }
+
+        return substr($url, 0, (int) strrpos($url, '/') + 1) . rawurlencode(wp_basename($copy));
+    }
+
+    /**
+     * Löscht die JPEG-Fassungen zu Originaldatei und Vorschaubildern eines Fotos.
+     */
+    public function delete_mail_copies(int $attachment_id): void
+    {
+        $file = get_attached_file($attachment_id);
+        if (!$file) {
+            return;
+        }
+        $files = [$file];
+        foreach ((array) (wp_get_attachment_metadata($attachment_id)['sizes'] ?? []) as $size) {
+            $files[] = dirname($file) . '/' . $size['file'];
+        }
+        foreach ($files as $path) {
+            $copy = self::mail_copy_path($path);
+            if (file_exists($copy)) {
+                wp_delete_file($copy);
+            }
+        }
+    }
+
+    private static function mail_copy_path(string $file): string
+    {
+        return dirname($file) . '/' . pathinfo($file, PATHINFO_FILENAME) . self::MAIL_SUFFIX;
+    }
+
+    /**
+     * Pfad der Datei hinter einer Bildadresse, nur innerhalb des Ordners des Fotos.
+     */
+    private static function file_for_url(int $attachment_id, string $url): string
+    {
+        $original = get_attached_file($attachment_id);
+        if (!$original) {
+            return '';
+        }
+        $path = dirname($original) . '/' . wp_basename((string) wp_parse_url($url, PHP_URL_PATH));
+
+        return file_exists($path) ? $path : '';
+    }
 
     /**
      * Ob ein Foto über dieses Plugin hochgeladen wurde. Nur solche Fotos darf das Plugin umbenennen.

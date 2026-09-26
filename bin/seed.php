@@ -40,6 +40,29 @@ foreach (ProductType::get('button')->config('variations')['options'] as $i => $o
     }
 }
 
+// Seite mit dem Anmeldeformular für den Newsletter unter /newsletter/
+if (!get_page_by_path('newsletter')) {
+    wp_insert_post([
+        'post_type'    => 'page',
+        'post_status'  => 'publish',
+        'post_title'   => 'Newsletter',
+        'post_name'    => 'newsletter',
+        'post_content' => "<!-- wp:paragraph -->\n<p>Neuigkeiten aus dem Shop, ein paar Mal im Jahr.</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:shortcode -->\n[novemberkind_newsletter]\n<!-- /wp:shortcode -->",
+    ]);
+    echo "Angelegt: Seite Newsletter\n";
+}
+
+// Logo wie auf novemberkind.art, für den Kopf der Newsletter-Mails
+if (!get_theme_mod('custom_logo') && !get_option('site_logo')) {
+    require_once ABSPATH . 'wp-admin/includes/image.php';
+    $logo = trailingslashit(wp_upload_dir()['path']) . wp_unique_filename(wp_upload_dir()['path'], 'logo-illustration-400.png');
+    copy(__DIR__ . '/seed-logo.png', $logo);
+    $logo_id = wp_insert_attachment(['post_mime_type' => 'image/png', 'post_title' => 'Logo', 'post_status' => 'inherit'], $logo);
+    wp_update_attachment_metadata($logo_id, wp_generate_attachment_metadata($logo_id, $logo));
+    update_option('site_logo', $logo_id);
+    echo "Angelegt: Logo\n";
+}
+
 if (wc_get_products(['limit' => 1, 'status' => 'any', 'return' => 'ids']) !== []) {
     echo "Produkte vorhanden, keine Beispielprodukte angelegt.\n";
     return;

@@ -12,6 +12,7 @@ defined('ABSPATH') || exit;
 final class Plugin
 {
     public const CAPABILITY = 'edit_products';
+    private const DB_VERSION_OPTION = 'novemberkind_produkte_db_version';
 
     /**
      * Startet alle Teile des Plugins; ohne WooCommerce nur den Updater.
@@ -20,6 +21,7 @@ final class Plugin
     {
         // Updates auch ohne aktives WooCommerce, damit sich ein fehlerhaftes Release beheben lässt
         (new Updater())->register();
+        self::upgrade();
 
         if (!class_exists(\WooCommerce::class)) {
             return;
@@ -28,6 +30,10 @@ final class Plugin
         (new Backups())->register();
         (new Campaigns())->register();
         (new Coupons())->register();
+        (new Subscribers())->register();
+        (new ImageProcessor())->register();
+        (new Newsletters())->register();
+        (new NewsletterSignup())->register();
         (new App())->register();
         (new AdminPage())->register();
         (new Ajax())->register();
@@ -54,11 +60,41 @@ final class Plugin
     }
 
     /**
-     * Merkt sich bei der Aktivierung, ob der Server WebP schreiben kann.
+     * Passt gespeicherte Daten einmalig an den Stand dieser Version an. Updates über WordPress
+     * lösen keinen Aktivierungs-Hook aus, deshalb bei jedem Laden mit einer gemerkten Version.
      */
-    public static function activate(): void
+    public static function upgrade(): void
     {
-        update_option('novemberkind_produkte_webp_supported', self::webp_supported() ? 'yes' : 'no');
+        $version = (int) get_option(self::DB_VERSION_OPTION, 0);
+        $steps   = [
+            1 => static fn() => delete_option('novemberkind_produkte_webp_supported'),
+        ];
+        foreach ($steps as $step => $run) {
+            if ($version < $step) {
+                $run();
+                update_option(self::DB_VERSION_OPTION, $step, true);
+            }
+        }
+    }
+
+    /**
+     * Ein Formularwert als Text. Listen wie `email[]=…` ergeben den Standardwert statt einer PHP-Warnung.
+     *
+     * @param array<mixed> $data
+     */
+    public static function input(array $data, string $key, string $default = ''): string
+    {
+        $value = $data[$key] ?? $default;
+
+        return is_scalar($value) ? (string) $value : $default;
+    }
+
+    /**
+     * Entfernt beim Deaktivieren die eigenen Aufgaben aus WP-Cron.
+     */
+    public static function deactivate(): void
+    {
+        wp_clear_scheduled_hook(Subscribers::CLEANUP_HOOK);
     }
 
     /**

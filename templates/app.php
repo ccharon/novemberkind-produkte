@@ -46,6 +46,9 @@ $shop_name = get_bloginfo('name');
             <?php if (current_user_can('edit_shop_coupons')) : ?>
                 <a href="<?php echo esc_url(App::coupons_url()); ?>" <?php echo str_starts_with($view, 'coupon') ? 'aria-current="page"' : ''; ?>><?php esc_html_e('Gutscheine', 'novemberkind-produkte'); ?></a>
             <?php endif; ?>
+            <?php if (current_user_can(Newsletters::CAPABILITY)) : ?>
+                <a href="<?php echo esc_url(App::newsletter_url()); ?>" <?php echo in_array($view, ['newsletters', 'newsletter-form', 'subscribers'], true) ? 'aria-current="page"' : ''; ?>><?php esc_html_e('Newsletter', 'novemberkind-produkte'); ?></a>
+            <?php endif; ?>
             <a href="<?php echo esc_url(wc_get_page_permalink('shop')); ?>" target="_blank" rel="noopener"><?php esc_html_e('Zum Shop', 'novemberkind-produkte'); ?></a>
             <a href="<?php echo esc_url(wp_logout_url(App::url())); ?>"><?php esc_html_e('Abmelden', 'novemberkind-produkte'); ?></a>
         </nav>
@@ -60,7 +63,7 @@ $shop_name = get_bloginfo('name');
         <?php endif; ?>
     </main>
 
-    <?php $simple = str_starts_with($view, 'campaign') || str_starts_with($view, 'coupon'); ?>
+    <?php $simple = str_starts_with($view, 'campaign') || str_starts_with($view, 'coupon') || str_starts_with($view, 'newsletter') || $view === 'subscribers'; ?>
     <?php wp_print_scripts([$simple ? 'novemberkind-produkte-forms' : 'novemberkind-produkte-app', 'novemberkind-produkte-vine']); ?>
 </body>
 </html>
