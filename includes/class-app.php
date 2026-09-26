@@ -195,10 +195,11 @@ final class App
 
     /**
      * Shop-Manager landen nach dem Login direkt in der Produktverwaltung, Administratoren im Backend.
+     * Ohne Typangaben, weil auch andere Plugins diesen Filter auslösen; ein Typfehler würde die Anmeldung abbrechen.
      */
-    public function login_redirect(string $redirect_to, string $requested, \WP_User|\WP_Error $user): string
+    public function login_redirect(mixed $redirect_to, mixed $requested = '', mixed $user = null): mixed
     {
-        if (!$user instanceof \WP_User || $user->has_cap('manage_options') || !$user->has_cap(Plugin::CAPABILITY)) {
+        if (!is_string($requested) || !$user instanceof \WP_User || $user->has_cap('manage_options') || !$user->has_cap(Plugin::CAPABILITY)) {
             return $redirect_to;
         }
         if ($requested === '' || untrailingslashit($requested) === untrailingslashit(admin_url())) {

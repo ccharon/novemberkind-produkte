@@ -366,9 +366,13 @@ final class Campaigns
 
     /**
      * Senkt Preis und Angebotspreis beim Auslesen. Grundlage ist immer der normale Preis.
+     * Ohne Typangaben, weil auch andere Plugins diese Filter auslösen.
      */
-    public function filter_price(mixed $price, \WC_Product $product): mixed
+    public function filter_price(mixed $price, mixed $product = null): mixed
     {
+        if (!$product instanceof \WC_Product) {
+            return $price;
+        }
         $regular = (string) $product->get_regular_price('edit');
         if ($regular === '' || (float) $regular <= 0) {
             return $price;
@@ -385,9 +389,9 @@ final class Campaigns
      * Zeigt bei einer Preisspanne in einer Aktion die normale Spanne durchgestrichen davor, wie bei einfachen Produkten.
      * WooCommerce selbst streicht bei variablen Produkten nur Einzelpreise durch.
      */
-    public function range_price_html(string $html, \WC_Product $product): string
+    public function range_price_html(mixed $html, mixed $product = null): mixed
     {
-        if (!$product instanceof \WC_Product_Variable || !$this->in_running_campaign($product->get_id())) {
+        if (!is_string($html) || !$product instanceof \WC_Product_Variable || !$this->in_running_campaign($product->get_id())) {
             return $html;
         }
         $prices  = $product->get_variation_prices(true);

@@ -53,10 +53,11 @@ final class Originals
     }
 
     /**
-     * Zeigt bei verkauften Unikaten „Verkauft“ statt „Nicht vorrätig“.
+     * Zeigt bei verkauften Unikaten „Verkauft“ statt „Nicht vorrätig“. Ohne Typangaben, weil auch andere Plugins
+     * diesen Filter auslösen; ein Typfehler würde die Produktseite abbrechen.
      */
-    public function availability_text(string $text, \WC_Product $product): string
+    public function availability_text(mixed $text, mixed $product = null): mixed
     {
-        return self::is_sold($product) ? __('Verkauft', 'novemberkind-produkte') : $text;
+        return $product instanceof \WC_Product && self::is_sold($product) ? __('Verkauft', 'novemberkind-produkte') : $text;
     }
 }

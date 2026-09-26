@@ -69,6 +69,14 @@ wp_set_current_user(get_user_by('login', 'shop')->ID);
 $service   = new ProductService();
 $germanized = function_exists('wc_gzd_get_product');
 
+section('Hooks mit fremden Argumenten');
+$campaigns_hooks = new NovemberkindProdukte\Campaigns();
+check('Preisfilter ohne Produkt gibt den Preis unverändert zurück', $campaigns_hooks->filter_price('4.50', null) === '4.50' && $campaigns_hooks->filter_price(null) === null);
+check('Preisanzeige mit fremden Werten bleibt unverändert', $campaigns_hooks->range_price_html(null, null) === null && $campaigns_hooks->range_price_html('<span>1 €</span>', 'kein Produkt') === '<span>1 €</span>');
+check('Verfügbarkeitstext mit fremden Werten bleibt unverändert', (new NovemberkindProdukte\Originals())->availability_text(null, null) === null && (new NovemberkindProdukte\Originals())->availability_text('Vorrätig', 42) === 'Vorrätig');
+check('Versandfilter mit fremden Werten bleibt unverändert', (new NovemberkindProdukte\Coupons())->free_shipping_rates(null) === null);
+check('Login-Weiterleitung mit fremden Werten bleibt unverändert', (new NovemberkindProdukte\App())->login_redirect('/ziel/', ['liste'], get_user_by('login', 'shop')) === '/ziel/' && (new NovemberkindProdukte\App())->login_redirect('/ziel/') === '/ziel/');
+
 section('Datenbank-Stand');
 update_option('novemberkind_produkte_webp_supported', 'yes');
 update_option('novemberkind_produkte_db_version', 0);
@@ -385,6 +393,13 @@ check('Schlagwörter ohne feste und ohne Dubletten', $result['tags'] === ['eule'
 check('Anfrage enthält Angaben, bisherigen Text und Vorlage', str_contains($sent['text'], "<angaben>\nOberfläche: matt\nMaße: 7,5 × 6 cm") && str_contains($sent['text'], '<p>eule, nachts, niedlich</p>') && str_contains($sent['text'], '<vorlage>'));
 check('Anfrage enthält das Foto als WebP', is_string($sent['image']) && $sent['mime'] === 'image/webp');
 check('Systemprompt mit Shopname', str_contains($suggestions->system_prompt(), '„' . get_bloginfo('name') . '“'));
+
+$links = NovemberkindProdukte\Suggestions::clean_html(
+    '<p>Mehr auf <a href="https://instagram.com/novemberkind_illustration" target="_blank" rel="noopener">Instagram</a>, im <a href="https://example.org/set/">Set</a> und <a href="https://boese.example/">hier</a>.</p><img src="https://boese.example/pixel.gif"><p style="color:red" onclick="x()">Text</p>',
+    ProductType::get('sticker')->description(['motif' => 'x', 'finish' => 'matt', 'width' => '5', 'height' => '5']) . '<p><a href="https://example.org/set/">Set</a></p>'
+);
+check('Vorschlag: nur bekannte Links, keine Bilder und Attribute', str_contains($links, 'href="https://instagram.com/novemberkind_illustration"') && str_contains($links, 'href="https://example.org/set/"')
+    && !str_contains($links, 'boese.example') && str_contains($links, 'und hier.') && !str_contains($links, '<img') && !str_contains($links, 'style') && !str_contains($links, 'onclick'));
 
 $empty = static fn() => ['mode' => 'verbessert', 'title' => '', 'description' => '', 'tags' => []];
 add_filter('novemberkind_produkte_pre_suggestion', $empty);

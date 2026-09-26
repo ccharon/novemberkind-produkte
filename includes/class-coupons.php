@@ -34,14 +34,12 @@ final class Coupons
 
     /**
      * Versand-Gutscheine setzen die Kosten aller Versandarten auf 0. So braucht der Shop keine eigene Versandart „Kostenloser Versand“.
-     *
-     * @param array<string, mixed> $rates
-     * @return array<string, mixed>
+     * Ohne Typangabe, weil auch andere Plugins diesen Filter auslösen.
      */
-    public function free_shipping_rates(array $rates): array
+    public function free_shipping_rates(mixed $rates): mixed
     {
         $cart = function_exists('WC') ? WC()->cart : null;
-        if (!$cart) {
+        if (!$cart || !is_array($rates)) {
             return $rates;
         }
         $free = false;

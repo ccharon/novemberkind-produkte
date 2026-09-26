@@ -89,7 +89,7 @@ final class Suggestions
             }
         }
 
-        return $this->clean(is_array($raw) ? $raw : [], $type, $context);
+        return $this->clean(is_array($raw) ? $raw : [], $type, $context, $current);
     }
 
     /**
@@ -222,16 +222,45 @@ final class Suggestions
     }
 
     /**
+     * Nur Textauszeichnungen, keine Bilder. Links bleiben nur mit Adressen, die schon in Vorlage oder bisheriger
+     * Beschreibung stehen, damit Text im Foto Claude keine fremden Links unterschieben kann.
+     */
+    public static function clean_html(string $html, string $known): string
+    {
+        $html = wp_kses($html, [
+            'p'      => [],
+            'br'     => [],
+            'strong' => [],
+            'em'     => [],
+            'h2'     => [],
+            'h3'     => [],
+            'h4'     => [],
+            'ul'     => [],
+            'ol'     => [],
+            'li'     => [],
+            'a'      => ['href' => true, 'target' => true, 'rel' => true],
+        ]);
+        preg_match_all('/<a\s[^>]*href="([^"]*)"/i', $known, $found);
+        $allowed = $found[1];
+
+        return (string) preg_replace_callback(
+            '#<a\s[^>]*>(.*?)</a>#is',
+            static fn(array $link): string => preg_match('/href="([^"]*)"/i', $link[0], $href) && in_array($href[1], $allowed, true) ? $link[0] : $link[1],
+            $html
+        );
+    }
+
+    /**
      * Prüft und bereinigt die Antwort, bevor sie ins Formular kommt.
      *
      * @param array<string, mixed>  $data
      * @param array<string, string> $context
      * @return array{mode: string, title: string, description: string, tags: string[]}|\WP_Error
      */
-    private function clean(array $data, ProductType $type, array $context): array|\WP_Error
+    private function clean(array $data, ProductType $type, array $context, string $current): array|\WP_Error
     {
         $title = $type->motif_from_name(sanitize_text_field((string) ($data['title'] ?? '')));
-        $html  = wp_kses_post((string) ($data['description'] ?? ''));
+        $html  = self::clean_html((string) ($data['description'] ?? ''), $type->description($context) . $current);
         if ($title === '' || trim(wp_strip_all_tags($html)) === '') {
             return new \WP_Error('format', __('Die Antwort von Claude war unvollständig. Bitte versuch es noch einmal.', 'novemberkind-produkte'));
         }
