@@ -765,6 +765,10 @@ $rendered = NewsletterMail::render($draft);
 check('Mail mit Vorschauzeile, Produkt und Abmeldelink', str_contains($rendered['html'], 'Neue Sticker') && str_contains($rendered['html'], 'Sticker: Newslettertest') && str_contains($rendered['html'], 'nkp-newsletter=abmelden&#038;t=' . NewsletterMail::TOKEN_PLACEHOLDER));
 check('Textfassung mit Link und Preis', str_contains($rendered['text'], 'hier entlang (https://example.org/neu/)') && str_contains($rendered['text'], '2,50'));
 
+$angle = $newsletters->parse(['subject' => 'Herz <3 & mehr', 'preheader' => 'a < b', 'content' => '<p>x</p>']);
+check('einzelnes < in Betreff und Vorschauzeile bleibt lesbar', !is_wp_error($angle) && $angle['subject'] === 'Herz <3 & mehr' && $angle['preheader'] === 'a < b');
+check('Tags im Betreff werden entfernt', $newsletters->parse(['subject' => '<b>Fett</b>', 'content' => '<p>x</p>'])['subject'] === 'Fett');
+
 $mails = [];
 check('Testmail an eine Adresse', $newsletters->send_test(wp_slash($issue_data), 'shop@example.org') === true && count($mails) === 1 && $mails[0]['subject'] === '[Test] Tee & Kekse \\o/');
 
@@ -773,6 +777,15 @@ check('geplanter Versand in der Vergangenheit wird abgelehnt', is_wp_error($past
 $later = time() + DAY_IN_SECONDS;
 $planned = $newsletters->save(wp_slash(['send' => 'scheduled', 'send_date' => wp_date('Y-m-d', $later), 'send_time' => wp_date('H:i', $later)] + $issue_data), $draft['id']);
 check('geplant mit Aufgabe im Action Scheduler', $planned['status'] === 'scheduled' && as_next_scheduled_action(Newsletters::HOOK_START, ['id' => $draft['id']], 'novemberkind-produkte') !== false);
+$newsletters->save(wp_slash($issue_data), $draft['id']);
+// Geplanter Zeitpunkt verstrichen, Aufgabe fehlt, etwa weil das Plugin deaktiviert war
+$newsletters->save(wp_slash(['send' => 'scheduled', 'send_date' => wp_date('Y-m-d', $later), 'send_time' => wp_date('H:i', $later)] + $issue_data), $draft['id']);
+as_unschedule_all_actions(Newsletters::HOOK_START, ['id' => $draft['id']], 'novemberkind-produkte');
+$overdue = get_post_meta($draft['id'], Newsletters::META, true);
+update_post_meta($draft['id'], Newsletters::META, wp_slash(['scheduled' => time() - 60] + $overdue));
+$newsletters->resume_stalled();
+check('überfällige geplante Ausgabe wird nachgeholt', as_has_scheduled_action(Newsletters::HOOK_START, ['id' => $draft['id']], 'novemberkind-produkte'));
+as_unschedule_all_actions(Newsletters::HOOK_START, ['id' => $draft['id']], 'novemberkind-produkte');
 $newsletters->save(wp_slash($issue_data), $draft['id']);
 check('zurück zum Entwurf ohne Aufgabe', Newsletters::get($draft['id'])['status'] === 'draft' && as_next_scheduled_action(Newsletters::HOOK_START, ['id' => $draft['id']], 'novemberkind-produkte') === false);
 
@@ -787,6 +800,17 @@ $recipients = count(Subscribers::confirmed());
 check('„Jetzt verschicken“ legt die Empfänger fest', $sending['status'] === 'sending' && $sending['recipients'] === $recipients && Newsletters::remaining($sending['id']) === $recipients);
 check('laufender Newsletter lässt sich nicht ändern', is_wp_error($newsletters->save(wp_slash($issue_data), $sending['id'])));
 // Die Aufgabe vom Start zählt nicht, geprüft wird das vom Päckchen geplante nächste
+as_unschedule_all_actions(Newsletters::HOOK_BATCH, ['id' => $sending['id']], 'novemberkind-produkte');
+// Die Sperre hält eine zweite Datenbankverbindung, wie ein anderer PHP-Prozess
+$other_db = new wpdb(DB_USER, DB_PASSWORD, DB_NAME, DB_HOST);
+$lock_name = (new ReflectionMethod(Newsletters::class, 'lock_name'))->invoke(null, $sending['id']);
+$other_db->query($other_db->prepare('SELECT GET_LOCK(%s, 0)', $lock_name));
+$newsletters->send_batch($sending['id']);
+check('während ein Päckchen läuft, sendet kein zweites und kommt später dran', $mails === [] && Newsletters::remaining($sending['id']) === $recipients
+    && as_next_scheduled_action(Newsletters::HOOK_BATCH, ['id' => $sending['id']], 'novemberkind-produkte') >= time() + Newsletters::BATCH_INTERVAL - 10);
+check('gesperrte Ausgabe lässt sich nicht speichern', is_wp_error($locked_save = $newsletters->save(wp_slash($issue_data), $sending['id'])) && $locked_save->get_error_code() === 'busy');
+$other_db->query($other_db->prepare('SELECT RELEASE_LOCK(%s)', $lock_name));
+$other_db->close();
 as_unschedule_all_actions(Newsletters::HOOK_BATCH, ['id' => $sending['id']], 'novemberkind-produkte');
 $newsletters->send_batch($sending['id']);
 $after_first = Newsletters::get($sending['id']);
@@ -853,7 +877,7 @@ check('Stile aus dem Text überschreiben die Gestaltung nicht', !str_contains($o
 check('Listen statt Text in Formularfeldern ergeben leeren Text', NovemberkindProdukte\Plugin::input(['email' => ['a@b.de']], 'email') === '');
 
 $form = do_shortcode('[novemberkind_newsletter]');
-check('Anmeldeformular per Shortcode mit verstecktem Feld', str_contains($form, 'admin-post.php') && str_contains($form, 'name="nkp_website"') && str_contains($form, 'type="email"'));
+check('Anmeldeformular per Shortcode sendet an die eigene Seite', !str_contains($form, 'admin-post.php') && str_contains($form, 'name="' . NewsletterSignup::SIGNUP_FIELD . '"') && str_contains($form, 'name="nkp_website"') && str_contains($form, 'type="email"'));
 ob_start();
 (new NewsletterSignup())->checkout_checkbox();
 $checkbox = (string) ob_get_clean();
@@ -869,6 +893,37 @@ unset($_POST['nkp_newsletter']);
 $from_checkout = Subscribers::find('test-kasse@example.org');
 $test_subscribers[] = $from_checkout['id'] ?? 0;
 check('Haken an der Kasse startet die Anmeldung', $from_checkout !== null && $from_checkout['status'] === 'pending' && $from_checkout['source'] === 'checkout');
+$subscribers->remove($from_checkout['id']);
+$_POST['nkp_newsletter'] = '1';
+(new NewsletterSignup())->classic_checkout_processed((string) $order->get_id(), null);
+(new NewsletterSignup())->classic_checkout_processed();
+(new NewsletterSignup())->block_checkout_processed('keine Bestellung');
+unset($_POST['nkp_newsletter']);
+$other_args = Subscribers::find('test-kasse@example.org');
+$test_subscribers[] = $other_args['id'] ?? 0;
+check('Kasse übersteht fremde Argumente und findet die Bestellung über die ID', $other_args !== null && $other_args['source'] === 'checkout');
+$failing_mail = static function (): never {
+    throw new RuntimeException('Mailserver weg');
+};
+add_filter('pre_wp_mail', $failing_mail, 1);
+// Die erwartete Meldung in eine eigene Datei, damit debug.log sauber bleibt
+$test_log = wp_tempnam('nkp-log');
+$previous_log = ini_set('error_log', $test_log);
+$_POST['nkp_newsletter'] = '1';
+$subscribers->remove($other_args['id']);
+try {
+    (new NewsletterSignup())->classic_checkout_processed($order->get_id(), [], $order);
+    $checkout_survived = true;
+} catch (Throwable $e) {
+    $checkout_survived = false;
+}
+unset($_POST['nkp_newsletter']);
+remove_filter('pre_wp_mail', $failing_mail, 1);
+ini_set('error_log', (string) $previous_log);
+$logged = (string) file_get_contents($test_log);
+unlink($test_log);
+$test_subscribers[] = Subscribers::find('test-kasse@example.org')['id'] ?? 0;
+check('Fehler bei der Anmeldung hält die Bestellung nicht auf und steht im Log', $checkout_survived && str_contains($logged, 'Mailserver weg'));
 $order->delete(true);
 
 // CSV-Export für ein Konto ohne manage_woocommerce; liefert der Export trotzdem aus, endet das Skript mit exit

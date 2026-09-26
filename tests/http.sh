@@ -178,7 +178,7 @@ bin/wp user delete nurprodukte --yes >/dev/null
 bin/wp role delete nkp_nur_produkte >/dev/null
 
 # Reste eines abgebrochenen Laufs
-bin/wp eval 'foreach (["http-abo", "http-bot", "http-csv", "http-kasse", "http-voll", "http-a&b"] as $n) { $s = NovemberkindProdukte\Subscribers::find("$n@example.org"); $s && (new NovemberkindProdukte\Subscribers())->remove($s["id"]); }' >/dev/null
+bin/wp eval 'foreach (["http-abo", "http-bot", "http-csv", "http-kasse", "http-voll", "http-a&b", "http-seite"] as $n) { $s = NovemberkindProdukte\Subscribers::find("$n@example.org"); $s && (new NovemberkindProdukte\Subscribers())->remove($s["id"]); }' >/dev/null
 reset_signup_limits() {
   bin/wp transient list --search='novemberkind_produkte_signup_*' --fields=name --format=csv | tail -n +2 | xargs -r -n1 bin/wp transient delete >/dev/null
 }
@@ -191,6 +191,10 @@ check 'Newsletter: Pflichtfehler liefert 422' "$(ajax -d action=novemberkind_pro
 
 signup=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' -e "$BASE/kontakt/" -d action=novemberkind_produkte_newsletter_signup -d email=http-abo@example.org "$BASE/wp-admin/admin-post.php")
 check 'Anmeldung leitet mit Rückmeldung zurück' "$signup" "302 $BASE/kontakt/?nkp-newsletter-status=ok#nkp-newsletter"
+signup_page=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' -d nkp_newsletter_signup=1 -d email=http-seite@example.org "$BASE/newsletter/?nkp-newsletter-status=busy")
+check 'Anmeldung auf der eigenen Seite leitet ohne Referer dorthin zurück' "$signup_page/$(subscriber_status http-seite@example.org)" "302 $BASE/newsletter/?nkp-newsletter-status=ok#nkp-newsletter/pending"
+check 'Anmeldung mit fremdem Host leitet zur Startseite' "$(location -H 'Host: fremd.example' -d nkp_newsletter_signup=1 -d email=http-seite@example.org "$BASE/newsletter/")" "$BASE/?nkp-newsletter-status=ok#nkp-newsletter"
+bin/wp eval '$s = NovemberkindProdukte\Subscribers::find("http-seite@example.org"); $s && (new NovemberkindProdukte\Subscribers())->remove($s["id"]);' >/dev/null
 bin/wp eval 'set_transient("novemberkind_produkte_signup_all", ["start" => time(), "count" => 999], 60);'
 check 'Obergrenze erreicht: Anmeldung pausiert' "$(location -e "$BASE/kontakt/" -d action=novemberkind_produkte_newsletter_signup -d email=http-voll@example.org "$BASE/wp-admin/admin-post.php" | grep -o 'status=[a-z]*')/$(subscriber_status http-voll@example.org)" status=busy/weg
 reset_signup_limits

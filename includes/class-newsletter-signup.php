@@ -12,7 +12,9 @@ defined('ABSPATH') || exit;
 final class NewsletterSignup
 {
     public const SHORTCODE = 'novemberkind_newsletter';
+    // Ziel für Formulare aus Seiten-Caches, die noch an admin-post.php senden
     public const SIGNUP_ACTION = 'novemberkind_produkte_newsletter_signup';
+    public const SIGNUP_FIELD = 'nkp_newsletter_signup';
     public const QUERY_ARG = 'nkp-newsletter';
     public const STATUS_ARG = 'nkp-newsletter-status';
     public const CHECKOUT_FIELD = 'nkp_newsletter';
@@ -33,6 +35,7 @@ final class NewsletterSignup
         add_shortcode(self::SHORTCODE, [$this, 'shortcode']);
         add_action('admin_post_nopriv_' . self::SIGNUP_ACTION, [$this, 'handle_signup']);
         add_action('admin_post_' . self::SIGNUP_ACTION, [$this, 'handle_signup']);
+        add_action('template_redirect', [$this, 'maybe_handle_signup'], 0);
         add_action('template_redirect', [$this, 'maybe_render_page'], 0);
 
         // Klassische Kasse
@@ -69,10 +72,11 @@ final class NewsletterSignup
         };
         $privacy = get_privacy_policy_url();
 
+        // Das Formular sendet an die eigene Seite, weil Hoster und Sicherheits-Plugins /wp-admin/ oft für Besucher sperren
         ob_start();
         ?>
-        <form class="nkp-signup" id="nkp-newsletter" method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-            <input type="hidden" name="action" value="<?php echo esc_attr(self::SIGNUP_ACTION); ?>">
+        <form class="nkp-signup" id="nkp-newsletter" method="post">
+            <input type="hidden" name="<?php echo esc_attr(self::SIGNUP_FIELD); ?>" value="1">
             <div class="nkp-signup__row">
                 <label class="nkp-signup__label" for="nkp-signup-email"><?php esc_html_e('E-Mail-Adresse', 'novemberkind-produkte'); ?></label>
                 <input class="nkp-signup__input" type="email" id="nkp-signup-email" name="email" required autocomplete="email" inputmode="email">
@@ -97,10 +101,34 @@ final class NewsletterSignup
     }
 
     /**
-     * Nimmt das Formular an und leitet zurück zur Seite mit einer Rückmeldung.
-     * Ohne Nonce, weil Seiten-Caches sie für Besucher veralten lassen; Schutz über Honeypot, Wartezeit je Adresse und Grenzen pro Stunde.
+     * Nimmt das Formular auf der Seite an, auf der es steht, und leitet dorthin zurück.
+     */
+    public function maybe_handle_signup(): void
+    {
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- öffentliches Formular, siehe process_signup()
+        if (!isset($_SERVER['REQUEST_METHOD'], $_POST[self::SIGNUP_FIELD]) || $_SERVER['REQUEST_METHOD'] !== 'POST') {
+            return;
+        }
+
+        // esc_url_raw statt sanitize_text_field, das kodierte Umlaute im Pfad entfernen würde
+        $host = sanitize_text_field(wp_unslash((string) ($_SERVER['HTTP_HOST'] ?? '')));
+        $page = esc_url_raw((is_ssl() ? 'https://' : 'http://') . $host . wp_unslash((string) ($_SERVER['REQUEST_URI'] ?? '/')));
+        $this->process_signup(wp_validate_redirect($page, home_url('/')));
+    }
+
+    /**
+     * Formulare, die noch an admin-post.php senden. Zurück geht es über den Referer.
      */
     public function handle_signup(): void
+    {
+        $this->process_signup(wp_get_referer() ?: home_url('/'));
+    }
+
+    /**
+     * Nimmt eine Anmeldung an und leitet mit einer Rückmeldung zurück.
+     * Ohne Nonce, weil Seiten-Caches sie für Besucher veralten lassen; Schutz über Honeypot, Wartezeit je Adresse und Grenzen pro Stunde.
+     */
+    private function process_signup(string $back): never
     {
         // phpcs:disable WordPress.Security.NonceVerification.Missing -- öffentliches Formular, siehe oben
         $email = sanitize_email(wp_unslash(Plugin::input($_POST, 'email')));
@@ -118,7 +146,6 @@ final class NewsletterSignup
             }
         }
 
-        $back = wp_get_referer() ?: home_url('/');
         wp_safe_redirect(add_query_arg(self::STATUS_ARG, $status, remove_query_arg(self::STATUS_ARG, $back)) . '#nkp-newsletter');
         exit;
     }
@@ -169,13 +196,13 @@ final class NewsletterSignup
     }
 
     /**
-     * @param array<string, mixed> $posted
+     * Ohne Typangaben, weil auch andere Plugins diesen Hook auslösen, teils mit anderen Argumenten.
      */
-    public function classic_checkout_processed(int $order_id, array $posted, \WC_Order $order): void
+    public function classic_checkout_processed(mixed $order_id = 0, mixed $posted = [], mixed $order = null): void
     {
         // phpcs:ignore WordPress.Security.NonceVerification.Missing -- WooCommerce hat die Nonce der Kasse geprüft
         if (!empty($_POST[self::CHECKOUT_FIELD])) {
-            (new Subscribers())->subscribe($order->get_billing_email(), 'checkout');
+            self::subscribe_customer($order instanceof \WC_Order ? $order : wc_get_order(is_numeric($order_id) ? (int) $order_id : 0));
         }
     }
 
@@ -195,11 +222,31 @@ final class NewsletterSignup
         ]);
     }
 
-    public function block_checkout_processed(\WC_Order $order): void
+    public function block_checkout_processed(mixed $order = null): void
     {
+        if (!$order instanceof \WC_Order) {
+            return;
+        }
         // WooCommerce speichert Zusatzfelder der Bestellung unter _wc_other/<id>
-        if (wc_string_to_bool((string) $order->get_meta('_wc_other/' . self::BLOCK_FIELD))) {
+        $checked = $order->get_meta('_wc_other/' . self::BLOCK_FIELD);
+        if (is_scalar($checked) && wc_string_to_bool((string) $checked)) {
+            self::subscribe_customer($order);
+        }
+    }
+
+    /**
+     * Meldet die Adresse einer Bestellung an. Ein Fehler dabei darf die Bestellung nie aufhalten.
+     */
+    private static function subscribe_customer(mixed $order): void
+    {
+        if (!$order instanceof \WC_Order) {
+            return;
+        }
+        try {
             (new Subscribers())->subscribe($order->get_billing_email(), 'checkout');
+        } catch (\Throwable $error) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Hinweis für den Betrieb
+            error_log('novemberkind-produkte: Anmeldung zum Newsletter an der Kasse fehlgeschlagen: ' . $error->getMessage());
         }
     }
 

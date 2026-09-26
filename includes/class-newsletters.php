@@ -24,9 +24,11 @@ final class Newsletters
     // Hoster begrenzen die Zahl der Mails pro Stunde, deshalb in kleinen Päckchen
     public const BATCH_SIZE = 25;
     public const BATCH_INTERVAL = 60;
+    // Der Action Scheduler übergibt ['id' => …] als benanntes Argument, der Parameter muss $id heißen
     public const HOOK_START = 'novemberkind_produkte_newsletter_start';
     public const HOOK_BATCH = 'novemberkind_produkte_newsletter_batch';
     private const GROUP = 'novemberkind-produkte';
+    private const LOCK_PREFIX = 'nkp_newsletter_';
 
     /**
      * Meldet den Inhaltstyp und die Aufgaben für den Action Scheduler an.
@@ -108,7 +110,8 @@ final class Newsletters
     public function parse(array $data): array|\WP_Error
     {
         $errors  = [];
-        $subject = trim(sanitize_text_field(wp_unslash(Plugin::input($data, 'subject'))));
+        // sanitize_text_field macht aus einem einzelnen < ein &lt;, das im Posteingang sichtbar wäre
+        $subject = trim(wp_specialchars_decode(sanitize_text_field(wp_unslash(Plugin::input($data, 'subject'))), ENT_QUOTES));
         if ($subject === '') {
             $errors['subject'] = __('Bitte gib einen Betreff ein.', 'novemberkind-produkte');
         } elseif (mb_strlen($subject) > self::SUBJECT_MAX_LENGTH) {
@@ -116,7 +119,7 @@ final class Newsletters
             $errors['subject'] = sprintf(__('Der Betreff darf höchstens %d Zeichen lang sein.', 'novemberkind-produkte'), self::SUBJECT_MAX_LENGTH);
         }
 
-        $preheader = trim(sanitize_text_field(wp_unslash(Plugin::input($data, 'preheader'))));
+        $preheader = trim(wp_specialchars_decode(sanitize_text_field(wp_unslash(Plugin::input($data, 'preheader'))), ENT_QUOTES));
         if (mb_strlen($preheader) > self::PREHEADER_MAX_LENGTH) {
             /* translators: %d: größte Anzahl Zeichen */
             $errors['preheader'] = sprintf(__('Die Vorschauzeile darf höchstens %d Zeichen lang sein.', 'novemberkind-produkte'), self::PREHEADER_MAX_LENGTH);
@@ -147,6 +150,26 @@ final class Newsletters
      * @phpstan-return Issue|\WP_Error
      */
     public function save(array $data, int $id = 0): array|\WP_Error
+    {
+        // Gesperrt, damit zwei gleichzeitige Anfragen den Versand nicht zweimal starten
+        if ($id && !self::lock($id)) {
+            return new \WP_Error('busy', __('Der Newsletter wird gerade gespeichert oder verschickt. Bitte lade die Seite neu.', 'novemberkind-produkte'));
+        }
+        try {
+            return $this->save_locked($data, $id);
+        } finally {
+            if ($id) {
+                self::unlock($id);
+            }
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>|\WP_Error
+     * @phpstan-return Issue|\WP_Error
+     */
+    private function save_locked(array $data, int $id): array|\WP_Error
     {
         $existing = $id ? self::get($id) : null;
         if ($id && $existing === null) {
@@ -196,7 +219,7 @@ final class Newsletters
             'scheduled' => $mode === 'scheduled' ? $scheduled : 0,
         ]);
         if ($mode === 'now') {
-            $this->start($post_id);
+            $id ? $this->start_locked($post_id) : $this->start($post_id);
         } elseif ($mode === 'scheduled') {
             as_schedule_single_action($scheduled, self::HOOK_START, ['id' => $post_id], self::GROUP);
         }
@@ -232,6 +255,18 @@ final class Newsletters
      */
     public function start(int $id): void
     {
+        if (!self::lock($id)) {
+            return;
+        }
+        try {
+            $this->start_locked($id);
+        } finally {
+            self::unlock($id);
+        }
+    }
+
+    private function start_locked(int $id): void
+    {
         $issue = self::get($id);
         if ($issue === null || $issue['status'] !== 'scheduled') {
             return;
@@ -249,6 +284,20 @@ final class Newsletters
      * damit nach einem Abbruch niemand die Mail doppelt bekommt.
      */
     public function send_batch(int $id): void
+    {
+        // Läuft schon ein Päckchen, etwa bei langsamem SMTP, kommt dieses später dran
+        if (!self::lock($id)) {
+            as_schedule_single_action(time() + self::BATCH_INTERVAL, self::HOOK_BATCH, ['id' => $id], self::GROUP);
+            return;
+        }
+        try {
+            $this->send_locked_batch($id);
+        } finally {
+            self::unlock($id);
+        }
+    }
+
+    private function send_locked_batch(int $id): void
     {
         $issue = self::get($id);
         if ($issue === null || $issue['status'] !== 'sending') {
@@ -293,13 +342,17 @@ final class Newsletters
     }
 
     /**
-     * Setzt einen Versand fort, dessen nächstes Päckchen fehlt, etwa nach einem Abbruch.
+     * Setzt einen Versand fort, dessen nächste Aufgabe fehlt, etwa nach einem Abbruch oder
+     * wenn das Plugin zum geplanten Zeitpunkt deaktiviert war.
      */
     public function resume_stalled(): void
     {
         foreach (self::all() as $issue) {
-            if ($issue['status'] === 'sending' && !as_has_scheduled_action(self::HOOK_BATCH, ['id' => $issue['id']], self::GROUP)) {
-                as_enqueue_async_action(self::HOOK_BATCH, ['id' => $issue['id']], self::GROUP);
+            $args = ['id' => $issue['id']];
+            if ($issue['status'] === 'sending' && !as_has_scheduled_action(self::HOOK_BATCH, $args, self::GROUP)) {
+                as_enqueue_async_action(self::HOOK_BATCH, $args, self::GROUP);
+            } elseif ($issue['status'] === 'scheduled' && $issue['scheduled'] <= time() && !as_has_scheduled_action(self::HOOK_START, $args, self::GROUP)) {
+                as_enqueue_async_action(self::HOOK_START, $args, self::GROUP);
             }
         }
     }
@@ -312,6 +365,40 @@ final class Newsletters
         $queue = get_post_meta($id, self::META_QUEUE, true);
 
         return is_array($queue) ? count($queue) : 0;
+    }
+
+    /**
+     * Sperre je Ausgabe über GET_LOCK der Datenbank: wirkt über alle PHP-Prozesse und endet auch bei einem Absturz.
+     * Nur eine belegte Sperre (0) blockiert, eine Datenbank ohne GET_LOCK (NULL) nicht.
+     */
+    private static function lock(int $id): bool
+    {
+        global $wpdb;
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- Sperre, keine Daten
+        $locked = $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, 0)', self::lock_name($id))) !== '0';
+        if ($locked) {
+            // Werte, die diese Anfrage vorher gelesen hat, können inzwischen veraltet sein
+            wp_cache_delete($id, 'post_meta');
+        }
+
+        return $locked;
+    }
+
+    private static function unlock(int $id): void
+    {
+        global $wpdb;
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- Sperre, keine Daten
+        $wpdb->query($wpdb->prepare('SELECT RELEASE_LOCK(%s)', self::lock_name($id)));
+    }
+
+    /**
+     * Der Name gilt für den ganzen Datenbankserver, deshalb mit Datenbank und Tabellenpräfix.
+     */
+    private static function lock_name(int $id): string
+    {
+        global $wpdb;
+
+        return self::LOCK_PREFIX . substr(md5($wpdb->dbname . $wpdb->prefix), 0, 12) . '_' . $id;
     }
 
     private function unschedule(int $id): void
