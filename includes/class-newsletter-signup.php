@@ -59,7 +59,7 @@ final class NewsletterSignup
      */
     public function shortcode(): string
     {
-        wp_enqueue_style('novemberkind-produkte-newsletter', plugin_dir_url(PLUGIN_FILE) . 'assets/css/newsletter.css', [], VERSION);
+        wp_enqueue_style('novemberkind-produkte-newsletter', Plugin::asset_url('assets/css/newsletter.css'), [], Plugin::asset_version('assets/css/newsletter.css'));
 
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- nur Anzeige der Rückmeldung
         $status = sanitize_key(wp_unslash($_GET[self::STATUS_ARG] ?? ''));
@@ -328,7 +328,7 @@ final class NewsletterSignup
         $button = $state !== 'ask' ? '' : ($action === 'abmelden' ? __('Abmelden', 'novemberkind-produkte') : __('Anmeldung bestätigen', 'novemberkind-produkte'));
         $shop   = get_bloginfo('name');
 
-        wp_register_style('novemberkind-produkte-app', plugin_dir_url(PLUGIN_FILE) . 'assets/css/app.css', [], VERSION);
+        Plugin::register_app_style();
         include __DIR__ . '/../templates/newsletter-page.php';
     }
 

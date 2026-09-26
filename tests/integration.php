@@ -191,7 +191,7 @@ $button = $service->save(ProductType::get('button'), [
 check('angelegt', $button instanceof WC_Product_Variable);
 if ($button instanceof WC_Product_Variable) {
     $cleanup['products'][] = $button->get_id();
-    $backs = $service->variation_image_ids(ProductType::get('button'));
+    $backs = ProductType::get('button')->back_image_ids();
     check('Name mit Motiv, ohne Backslashes', $button->get_name() === 'Button: Test "Otter"');
     check("Artikelnummer {$expected_sku}", $button->get_sku() === $expected_sku);
     check('Kategorien Physische Produkte > Buttons', same_ids($button->get_category_ids(), ShopData::category_ids(['Physische Produkte', 'Buttons'])));
@@ -477,8 +477,8 @@ $old_button->set_category_ids(ShopData::category_ids(['Physische Produkte', 'But
 $old_button->set_gallery_image_ids([$own_photo, $dup_back]);
 $old_button->save();
 $cleanup['products'][] = $old_button->get_id();
-check('Dublette „-1“ wird als Rückseite erkannt', $service->is_variation_image(ProductType::get('button'), $dup_back));
-check('eigenes Foto ist keine Rückseite', !$service->is_variation_image(ProductType::get('button'), $own_photo));
+check('Dublette „-1“ wird als Rückseite erkannt', ProductType::get('button')->is_back_image($dup_back));
+check('eigenes Foto ist keine Rückseite', !ProductType::get('button')->is_back_image($own_photo));
 $saved_old = $service->save(ProductType::get('button'), [
     'sku' => $old_button->get_sku(), 'motif' => 'Altbestand', 'price' => '4,5', 'gallery_ids' => [(string) $own_photo],
 ], $old_button->get_id());

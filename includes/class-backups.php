@@ -138,12 +138,7 @@ final class Backups
         $filename = sprintf('%s-sicherung-%s.json', $product ? $product->get_sku() : 'produkt', get_post_time('Y-m-d-His', false, $backup));
         $inline   = sanitize_key(wp_unslash($_GET['inline'] ?? '')) === '1'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- oben geprüft
 
-        nocache_headers();
-        header('Content-Type: application/json; charset=utf-8');
-        header('X-Content-Type-Options: nosniff');
-        header(sprintf('Content-Disposition: %s; filename="%s"', $inline ? 'inline' : 'attachment', sanitize_file_name($filename)));
-        echo self::snapshot($backup->ID); // phpcs:ignore WordPress.Security.EscapeOutput -- JSON mit Content-Type application/json und nosniff
-        exit;
+        Plugin::send_file($filename, 'application/json; charset=utf-8', self::snapshot($backup->ID), $inline);
     }
 
     /**

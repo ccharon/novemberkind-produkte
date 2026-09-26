@@ -103,6 +103,15 @@ final class Input
     }
 
     /**
+     * Meldung am Feld, wenn Input::percent() null liefert.
+     */
+    public static function percent_error(int $max): string
+    {
+        /* translators: %d: höchster erlaubter Rabatt */
+        return sprintf(__('Bitte gib einen Rabatt zwischen 1 und %d Prozent ein.', 'novemberkind-produkte'), $max);
+    }
+
+    /**
      * Zeitpunkt aus den Feldern `<prefix>_date` und `<prefix>_time` in der Zeitzone des Shops.
      * Fehlt die Uhrzeit, gilt `$default_time`. Fehler meldet das Formular unter `<prefix>`.
      *

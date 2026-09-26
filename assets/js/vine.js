@@ -2,6 +2,7 @@
 (() => {
 	'use strict';
 
+	const { storage } = window.novemberkindBasis;
 	const STORAGE_KEY = 'nkpVine';
 	const GROW_MS = 5 * 60 * 1000; // bis alle Ränder bewachsen sind
 	const PARALLAX = 0.25; // Ranke bewegt sich mit einem Viertel der Scrollgeschwindigkeit
@@ -47,12 +48,7 @@
 
 	function loadState() {
 		const today = new Date().toISOString().slice(0, 10);
-		let state = {};
-		try {
-			state = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || '{}');
-		} catch {
-			// Speicher gesperrt, z. B. im privaten Modus
-		}
+		let state = storage.getJSON(STORAGE_KEY, {});
 		if (state.day !== today) {
 			// Jeden Tag eine neue Ranke
 			state = { day: today, seed: Math.floor(Math.random() * 2 ** 31), progress: 0, off: Boolean(state.off) };
@@ -61,11 +57,7 @@
 	}
 
 	function saveState(state) {
-		try {
-			window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-		} catch {
-			// siehe oben
-		}
+		storage.setJSON(STORAGE_KEY, state);
 	}
 
 	// ------------------------------------------------------------ Pflanzenplan

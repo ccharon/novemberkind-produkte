@@ -47,30 +47,20 @@ $describe = static function (array $issue): string {
     };
 };
 ?>
-<header class="nkp-header">
-    <h1><?php esc_html_e('Newsletter', 'novemberkind-produkte'); ?></h1>
-    <div class="nkp-header__actions">
-        <a class="nkp-button nkp-button--secondary" href="<?php echo esc_url(App::newsletter_url('abonnenten')); ?>">
-            <?php
-            /* translators: %d: Anzahl der bestätigten Abonnenten */
-            echo esc_html(sprintf(__('Abonnenten (%d)', 'novemberkind-produkte'), $counts['confirmed']));
-            ?>
-        </a>
-        <a class="nkp-button nkp-button--primary" href="<?php echo esc_url(App::newsletter_url('neu')); ?>">
-            <?php esc_html_e('+ Neuer Newsletter', 'novemberkind-produkte'); ?>
-        </a>
-    </div>
-</header>
-
-<p class="nkp-note nkp-note--intro">
-    <?php
-    echo esc_html(sprintf(
-        /* translators: %s: Absender, z. B. Novemberkind <psst@novemberkind.art> */
-        __('Der Newsletter geht an alle, die ihre Anmeldung bestätigt haben. Absender und Antwortadresse: %s.', 'novemberkind-produkte'),
-        NewsletterMail::from_label()
-    ));
-    ?>
-</p>
+<?php
+$list_title   = __('Newsletter', 'novemberkind-produkte');
+$list_buttons = [
+    /* translators: %d: Anzahl der bestätigten Abonnenten */
+    ['url' => App::newsletter_url('abonnenten'), 'label' => sprintf(__('Abonnenten (%d)', 'novemberkind-produkte'), $counts['confirmed']), 'primary' => false],
+    ['url' => App::newsletter_url('neu'), 'label' => __('+ Neuer Newsletter', 'novemberkind-produkte'), 'primary' => true],
+];
+$list_intro   = [sprintf(
+    /* translators: %s: Absender, z. B. Novemberkind <psst@novemberkind.art> */
+    __('Der Newsletter geht an alle, die ihre Anmeldung bestätigt haben. Absender und Antwortadresse: %s.', 'novemberkind-produkte'),
+    NewsletterMail::from_label()
+)];
+include __DIR__ . '/list-header.php';
+?>
 
 <?php if ($issues === []) : ?>
     <p class="nkp-empty"><?php esc_html_e('Noch kein Newsletter geschrieben.', 'novemberkind-produkte'); ?></p>

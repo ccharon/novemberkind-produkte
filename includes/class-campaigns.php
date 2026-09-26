@@ -163,8 +163,7 @@ final class Campaigns
 
         $percent = Input::percent($data, 'percent', self::MAX_PERCENT);
         if ($percent === null) {
-            /* translators: %d: höchster erlaubter Rabatt */
-            $errors['percent'] = sprintf(__('Bitte gib einen Rabatt zwischen 1 und %d Prozent ein.', 'novemberkind-produkte'), self::MAX_PERCENT);
+            $errors['percent'] = Input::percent_error(self::MAX_PERCENT);
         }
 
         $start = Input::datetime($data, 'start');

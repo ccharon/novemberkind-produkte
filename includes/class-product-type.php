@@ -94,6 +94,52 @@ final class ProductType
     }
 
     /**
+     * Ob ein Foto eines der Rückseitenfotos ist (z. B. „Saugnapf-gross.webp“). Erkannt am Dateinamen,
+     * auch mit der Endung „-1“, die WordPress bei doppelt hochgeladenen Dateien anhängt.
+     */
+    public function is_back_image(int $attachment_id): bool
+    {
+        $name = pathinfo((string) get_attached_file($attachment_id), PATHINFO_FILENAME);
+        foreach ($this->config['variations']['options'] ?? [] as $option) {
+            if (!empty($option['image']) && preg_match('/^' . preg_quote($option['image'], '/') . '(-\d+)?$/', $name)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Rückseitenfotos aus der Mediathek, die bei jedem neuen Produkt dieser Art in der Galerie stehen.
+     *
+     * @return int[]
+     */
+    public function back_image_ids(): array
+    {
+        $ids = array_map(
+            static fn(array $option): int => ShopData::attachment_id($option['image'] ?? ''),
+            $this->config['variations']['options'] ?? []
+        );
+
+        return array_values(array_filter($ids));
+    }
+
+    /**
+     * Rückseitenfotos eines bestehenden Produkts in seiner Reihenfolge. Hat es keine, die aus der Mediathek.
+     *
+     * @return int[]
+     */
+    public function back_images_of(\WC_Product $product): array
+    {
+        $existing = array_values(array_filter(
+            array_map('intval', $product->get_gallery_image_ids()),
+            fn(int $id): bool => $this->is_back_image($id)
+        ));
+
+        return $existing !== [] ? $existing : $this->back_image_ids();
+    }
+
+    /**
      * Name der Produktart für die Oberfläche.
      */
     public function label(): string

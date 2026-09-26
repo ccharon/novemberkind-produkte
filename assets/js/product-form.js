@@ -8,98 +8,6 @@
 	const RELAYOUT_DELAY_MS = 300;
 	const MS_PER_MINUTE = 60 * 1000;
 
-	// Zugeklappte Kategorien der Übersicht merken. Ist der Speicher im Browser gesperrt, bleibt alles offen.
-	const groups = document.querySelectorAll('[data-nkp-group]');
-	let collapsed = [];
-	try {
-		collapsed = JSON.parse(window.localStorage.getItem('nkpCollapsedGroups') || '[]');
-	} catch {
-		// Speicher gesperrt, z. B. im privaten Modus
-	}
-	groups.forEach((group) => {
-		group.open = !collapsed.includes(group.dataset.nkpGroup);
-		group.addEventListener('toggle', () => {
-			const closed = [...groups].filter((g) => !g.open).map((g) => g.dataset.nkpGroup);
-			try {
-				window.localStorage.setItem('nkpCollapsedGroups', JSON.stringify(closed));
-			} catch {
-				// siehe oben
-			}
-		});
-	});
-
-	// Ansicht der Übersicht (Liste oder Kacheln) pro Gerät merken, Liste ist Standard
-	const overview = document.querySelector('[data-nkp-overview]');
-	const viewButtons = document.querySelectorAll('[data-nkp-view]');
-	function showView(view) {
-		overview.classList.toggle('nkp-overview--list', view === 'list');
-		overview.classList.toggle('nkp-overview--grid', view === 'grid');
-		viewButtons.forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.nkpView === view)));
-	}
-	if (overview) {
-		showView(overview.classList.contains('nkp-overview--grid') ? 'grid' : 'list');
-		viewButtons.forEach((button) => button.addEventListener('click', () => {
-			showView(button.dataset.nkpView);
-			try {
-				window.localStorage.setItem('nkpOverviewView', button.dataset.nkpView);
-			} catch {
-				// Speicher gesperrt, die Ansicht gilt dann nur bis zum Neuladen
-			}
-		}));
-	}
-
-	// Sortierung der Liste, gilt für alle Kategorien gleichzeitig und wird pro Gerät gemerkt
-	const sortButtons = document.querySelectorAll('[data-nkp-sort]');
-	const collator = new Intl.Collator('de', { numeric: true, sensitivity: 'base' });
-	const numeric = ['price', 'status', 'stock', 'modified'];
-	function sortProducts(key, direction) {
-		const factor = direction === 'ascending' ? 1 : -1;
-		const value = (item) => item.dataset[key];
-		document.querySelectorAll('.nkp-grid').forEach((list) => {
-			const items = [...list.querySelectorAll('.nkp-card')];
-			items.sort((a, b) => {
-				const x = value(a);
-				const y = value(b);
-				// Produkte ohne Wert (z. B. ohne gezählten Bestand) stehen immer am Ende
-				if ((x === '') !== (y === '')) {
-					return x === '' ? 1 : -1;
-				}
-				const order = numeric.includes(key) ? Number(x) - Number(y) : collator.compare(x, y);
-				return order * factor || collator.compare(a.dataset.name, b.dataset.name);
-			});
-			list.append(...items);
-		});
-		sortButtons.forEach((button) => {
-			if (button.dataset.nkpSort === key) {
-				button.setAttribute('aria-sort', direction);
-			} else {
-				button.removeAttribute('aria-sort');
-			}
-		});
-	}
-	if (sortButtons.length) {
-		let sort = { key: 'modified', direction: 'descending' };
-		try {
-			sort = JSON.parse(window.localStorage.getItem('nkpOverviewSort')) || sort;
-		} catch {
-			// Speicher gesperrt, Standard gilt
-		}
-		sortProducts(sort.key, sort.direction);
-		sortButtons.forEach((button) => button.addEventListener('click', () => {
-			const key = button.dataset.nkpSort;
-			const current = button.getAttribute('aria-sort');
-			// Datum, Preis und Bestand zuerst absteigend, Texte zuerst aufsteigend
-			const first = ['modified', 'price', 'stock'].includes(key) ? 'descending' : 'ascending';
-			const direction = current ? (current === 'ascending' ? 'descending' : 'ascending') : first;
-			sortProducts(key, direction);
-			try {
-				window.localStorage.setItem('nkpOverviewSort', JSON.stringify({ key, direction }));
-			} catch {
-				// siehe oben
-			}
-		}));
-	}
-
 	const base = window.novemberkindBasis;
 	const form = document.querySelector('[data-nkp-form]');
 	if (!base || !form) {
@@ -119,10 +27,6 @@
 
 	// ---------------------------------------------------------------- Fotos
 
-	function resize(file) {
-		return window.novemberkindBilder.resize(file, { maxWidth: config.maxWidth, maxBytes: config.maxUploadBytes, unreadable: i18n.unreadable });
-	}
-
 	async function uploadInto(photo, file) {
 		const image = photo.querySelector('.nkp-photo__image');
 		const idInput = photo.querySelector('input[type="hidden"]');
@@ -137,10 +41,7 @@
 		pendingUploads++;
 
 		try {
-			const { blob, name } = await resize(file);
-			const body = new FormData();
-			body.append('file', blob, name);
-			const data = await post('novemberkind_produkte_upload', body);
+			const data = await base.upload(file);
 			idInput.value = data.id;
 			image.src = data.url;
 			markDirty();
@@ -170,7 +71,7 @@
 	}
 
 	function handleFiles(dropzone, files) {
-		const images = [...files].filter(window.novemberkindBilder.isImage);
+		const images = [...files].filter(base.isImage);
 		if (images.length === 0) {
 			return;
 		}
@@ -307,7 +208,7 @@
 		}
 	}
 
-	const editorState = base.initEditor(editor);
+	base.initEditor(editor, form.querySelectorAll('[data-nkp-command]'));
 
 	// Überschriften aus Vorlage oder Vorschlag. Andere entstehen nur versehentlich beim Zusammenfügen von Absätzen.
 	let headings = new Set();
@@ -357,16 +258,6 @@
 	editor.addEventListener('input', () => {
 		fixHeadings();
 		setCustom(true);
-	});
-
-	form.querySelectorAll('[data-nkp-command]').forEach((button) => {
-		// mousedown statt click, damit der Fokus im Text bleibt
-		button.addEventListener('mousedown', (event) => {
-			event.preventDefault();
-			editorState.restore();
-			document.execCommand(button.dataset.nkpCommand);
-			editor.dispatchEvent(new Event('input', { bubbles: true }));
-		});
 	});
 
 	form.querySelector('[data-nkp-description-reset]').addEventListener('click', () => {

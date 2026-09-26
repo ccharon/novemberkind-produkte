@@ -95,6 +95,21 @@ final class Ajax
         ], $status);
     }
 
+    /**
+     * Antwort für Formulare, nach denen die Liste des Bereichs mit einer Meldung erscheint.
+     * Ein Fehler geht mit seinen Meldungen je Feld zurück an das Formular.
+     *
+     * @param array<string, mixed>|\WP_Error          $result
+     * @param callable(array<string, mixed>): string $message
+     */
+    private static function back_to_list(array|\WP_Error $result, string $url, callable $message): never
+    {
+        if (is_wp_error($result)) {
+            self::fail($result);
+        }
+        wp_send_json_success(['id' => $result['id'] ?? 0, 'url' => $url, 'message' => $message($result)]);
+    }
+
     private static function deny(): never
     {
         wp_send_json_error(['message' => __('Dafür fehlen dir die Berechtigungen.', 'novemberkind-produkte')], 403);
@@ -219,19 +234,10 @@ final class Ajax
      */
     private function save_campaign(): void
     {
-        $result = (new Campaigns())->save($_POST, Input::id($_POST, 'id'));
-        if (is_wp_error($result)) {
-            self::fail($result);
-        }
-
-        wp_send_json_success([
-            'id'      => $result['id'],
-            'url'     => App::campaigns_url(),
-            'message' => Campaigns::status($result) === 'running'
-                ? __('Gespeichert. Die Aktion läuft, die Preise im Shop sind gesenkt.', 'novemberkind-produkte')
-                /* translators: 1: Datum, 2: Uhrzeit */
-                : self::at(__('Gespeichert. Die Aktion beginnt am %1$s um %2$s Uhr.', 'novemberkind-produkte'), $result['start']),
-        ]);
+        self::back_to_list((new Campaigns())->save($_POST, Input::id($_POST, 'id')), App::campaigns_url(), static fn(array $campaign): string => Campaigns::status($campaign) === 'running'
+            ? __('Gespeichert. Die Aktion läuft, die Preise im Shop sind gesenkt.', 'novemberkind-produkte')
+            /* translators: 1: Datum, 2: Uhrzeit */
+            : self::at(__('Gespeichert. Die Aktion beginnt am %1$s um %2$s Uhr.', 'novemberkind-produkte'), $campaign['start']));
     }
 
     /**
@@ -239,16 +245,7 @@ final class Ajax
      */
     private function end_campaign(): void
     {
-        $result = (new Campaigns())->end(Input::id($_POST, 'id'));
-        if (is_wp_error($result)) {
-            self::fail($result);
-        }
-
-        wp_send_json_success([
-            'id'      => $result['id'],
-            'url'     => App::campaigns_url(),
-            'message' => __('Die Aktion ist beendet. Im Shop gelten wieder die normalen Preise.', 'novemberkind-produkte'),
-        ]);
+        self::back_to_list((new Campaigns())->end(Input::id($_POST, 'id')), App::campaigns_url(), static fn(): string => __('Die Aktion ist beendet. Im Shop gelten wieder die normalen Preise.', 'novemberkind-produkte'));
     }
 
     /**
@@ -256,19 +253,10 @@ final class Ajax
      */
     private function save_coupon(): void
     {
-        $result = (new Coupons())->save($_POST, Input::id($_POST, 'id'));
-        if (is_wp_error($result)) {
-            self::fail($result);
-        }
-
-        wp_send_json_success([
-            'id'      => $result['id'],
-            'url'     => App::coupons_url(),
-            'message' => $result['active']
-                /* translators: %s: Gutscheincode */
-                ? sprintf(__('Gespeichert. Der Code %s ist im Shop einlösbar.', 'novemberkind-produkte'), $result['code'])
-                : __('Gespeichert. Der Gutschein bleibt deaktiviert.', 'novemberkind-produkte'),
-        ]);
+        self::back_to_list((new Coupons())->save($_POST, Input::id($_POST, 'id')), App::coupons_url(), static fn(array $coupon): string => $coupon['active']
+            /* translators: %s: Gutscheincode */
+            ? sprintf(__('Gespeichert. Der Code %s ist im Shop einlösbar.', 'novemberkind-produkte'), $coupon['code'])
+            : __('Gespeichert. Der Gutschein bleibt deaktiviert.', 'novemberkind-produkte'));
     }
 
     /**
@@ -277,18 +265,9 @@ final class Ajax
     private function toggle_coupon(): void
     {
         $active = Input::text($_POST, 'value') === 'on';
-        $result = (new Coupons())->set_active(Input::id($_POST, 'id'), $active);
-        if (is_wp_error($result)) {
-            self::fail($result);
-        }
-
-        wp_send_json_success([
-            'id'      => $result['id'],
-            'url'     => App::coupons_url(),
-            'message' => $active
-                ? __('Der Gutschein ist wieder einlösbar.', 'novemberkind-produkte')
-                : __('Der Gutschein ist deaktiviert und im Shop nicht mehr einlösbar.', 'novemberkind-produkte'),
-        ]);
+        self::back_to_list((new Coupons())->set_active(Input::id($_POST, 'id'), $active), App::coupons_url(), static fn(): string => $active
+            ? __('Der Gutschein ist wieder einlösbar.', 'novemberkind-produkte')
+            : __('Der Gutschein ist deaktiviert und im Shop nicht mehr einlösbar.', 'novemberkind-produkte'));
     }
 
     /**
@@ -296,25 +275,16 @@ final class Ajax
      */
     private function save_newsletter(): void
     {
-        $result = (new Newsletters())->save($_POST, Input::id($_POST, 'id'));
-        if (is_wp_error($result)) {
-            self::fail($result);
-        }
-
-        wp_send_json_success([
-            'id'      => $result['id'],
-            'url'     => App::newsletter_url(),
-            'message' => match ($result['status']) {
-                'sending'   => sprintf(
-                    /* translators: %d: Anzahl der Empfänger */
-                    _n('Der Newsletter wird jetzt an %d Empfänger verschickt.', 'Der Newsletter wird jetzt an %d Empfänger verschickt.', $result['recipients'], 'novemberkind-produkte'),
-                    $result['recipients']
-                ),
-                /* translators: 1: Datum, 2: Uhrzeit */
-                'scheduled' => self::at(__('Gespeichert. Der Newsletter geht am %1$s um %2$s Uhr raus.', 'novemberkind-produkte'), $result['scheduled']),
-                default     => __('Als Entwurf gespeichert.', 'novemberkind-produkte'),
-            },
-        ]);
+        self::back_to_list((new Newsletters())->save($_POST, Input::id($_POST, 'id')), App::newsletter_url(), static fn(array $issue): string => match ($issue['status']) {
+            'sending'   => sprintf(
+                /* translators: %d: Anzahl der Empfänger */
+                _n('Der Newsletter wird jetzt an %d Empfänger verschickt.', 'Der Newsletter wird jetzt an %d Empfänger verschickt.', $issue['recipients'], 'novemberkind-produkte'),
+                $issue['recipients']
+            ),
+            /* translators: 1: Datum, 2: Uhrzeit */
+            'scheduled' => self::at(__('Gespeichert. Der Newsletter geht am %1$s um %2$s Uhr raus.', 'novemberkind-produkte'), $issue['scheduled']),
+            default     => __('Als Entwurf gespeichert.', 'novemberkind-produkte'),
+        });
     }
 
     /**
@@ -347,9 +317,6 @@ final class Ajax
             wp_send_json_error(['message' => __('Diese Adresse ist nicht mehr angemeldet.', 'novemberkind-produkte')], 422);
         }
 
-        wp_send_json_success([
-            'url'     => App::newsletter_url('abonnenten'),
-            'message' => __('Ausgetragen. Die Adresse ist gelöscht.', 'novemberkind-produkte'),
-        ]);
+        self::back_to_list([], App::newsletter_url('abonnenten'), static fn(): string => __('Ausgetragen. Die Adresse ist gelöscht.', 'novemberkind-produkte'));
     }
 }

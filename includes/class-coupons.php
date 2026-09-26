@@ -148,8 +148,7 @@ final class Coupons
         if ($kind === 'percent') {
             $percent = Input::percent($data, 'percent', self::MAX_PERCENT) ?? 0;
             if ($percent === 0) {
-                /* translators: %d: höchster erlaubter Rabatt */
-                $errors['percent'] = sprintf(__('Bitte gib einen Rabatt zwischen 1 und %d Prozent ein.', 'novemberkind-produkte'), self::MAX_PERCENT);
+                $errors['percent'] = Input::percent_error(self::MAX_PERCENT);
             }
         }
 

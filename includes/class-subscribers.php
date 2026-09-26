@@ -320,17 +320,11 @@ final class Subscribers
     public function download_csv(): void
     {
         check_admin_referer(self::CSV_ACTION);
-        if (!current_user_can(Plugin::CAPABILITY) || !current_user_can(Newsletters::CAPABILITY)) {
-            wp_die(esc_html__('Dafür fehlen dir die Berechtigungen.', 'novemberkind-produkte'), '', ['response' => 403]);
-        }
+        Plugin::require_capability(Plugin::CAPABILITY);
+        Plugin::require_capability(Newsletters::CAPABILITY);
 
-        nocache_headers();
-        header('Content-Type: text/csv; charset=utf-8');
-        header('X-Content-Type-Options: nosniff');
-        header('Content-Disposition: attachment; filename="newsletter-abonnenten-' . wp_date('Y-m-d') . '.csv"');
         // BOM, damit Excel die Umlaute richtig liest
-        echo "\xEF\xBB\xBF" . self::csv(); // phpcs:ignore WordPress.Security.EscapeOutput -- CSV mit Content-Type text/csv und nosniff
-        exit;
+        Plugin::send_file('newsletter-abonnenten-' . wp_date('Y-m-d') . '.csv', 'text/csv; charset=utf-8', "\xEF\xBB\xBF" . self::csv());
     }
 
     /**

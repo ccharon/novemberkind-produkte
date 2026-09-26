@@ -103,6 +103,66 @@ final class Plugin
     }
 
     /**
+     * Beendet die Seite mit 403, wenn ein Recht fehlt. Die Meldung nennt den Bereich.
+     */
+    public static function require_capability(string $capability): void
+    {
+        if (current_user_can($capability)) {
+            return;
+        }
+        wp_die(
+            esc_html(match ($capability) {
+                Coupons::CAPABILITY     => __('Für Gutscheine fehlen dir die Berechtigungen.', 'novemberkind-produkte'),
+                Newsletters::CAPABILITY => __('Für den Newsletter fehlen dir die Berechtigungen.', 'novemberkind-produkte'),
+                self::CAPABILITY        => __('Für die Produktverwaltung fehlen dir die Berechtigungen.', 'novemberkind-produkte'),
+                default                 => __('Dafür fehlen dir die Berechtigungen.', 'novemberkind-produkte'),
+            }),
+            esc_html__('Keine Berechtigung', 'novemberkind-produkte'),
+            ['response' => 403, 'back_link' => true]
+        );
+    }
+
+    /**
+     * Liefert eine Datei zum Herunterladen oder Ansehen aus. Mit festem Typ und nosniff, damit der Browser
+     * den Inhalt nie als HTML ausführt.
+     */
+    public static function send_file(string $filename, string $content_type, string $body, bool $inline = false): never
+    {
+        nocache_headers();
+        header('Content-Type: ' . $content_type);
+        header('X-Content-Type-Options: nosniff');
+        header(sprintf('Content-Disposition: %s; filename="%s"', $inline ? 'inline' : 'attachment', sanitize_file_name($filename)));
+        echo $body; // phpcs:ignore WordPress.Security.EscapeOutput -- Dateiinhalt mit festem Content-Type und nosniff
+        exit;
+    }
+
+    /**
+     * Adresse einer Datei des Plugins, z. B. „assets/css/app.css“.
+     */
+    public static function asset_url(string $file): string
+    {
+        return plugin_dir_url(PLUGIN_FILE) . $file;
+    }
+
+    /**
+     * Plugin-Version plus Änderungszeit der Datei, damit Browser nach jeder Änderung die neue Fassung laden.
+     */
+    public static function asset_version(string $file): string
+    {
+        $path = dirname(PLUGIN_FILE) . '/' . $file;
+
+        return VERSION . '.' . (is_readable($path) ? (string) filemtime($path) : '0');
+    }
+
+    /**
+     * Stile der Produktverwaltung, auch für die öffentlichen Seiten zum Bestätigen und Abmelden.
+     */
+    public static function register_app_style(): void
+    {
+        wp_register_style('novemberkind-produkte-app', self::asset_url('assets/css/app.css'), [], self::asset_version('assets/css/app.css'));
+    }
+
+    /**
      * Entfernt beim Deaktivieren die eigenen Aufgaben aus WP-Cron.
      */
     public static function deactivate(): void

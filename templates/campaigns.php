@@ -24,18 +24,12 @@ foreach ($campaigns as $campaign) {
 // Geplante in der Reihenfolge ihres Starts
 $by_status['planned'] = array_reverse($by_status['planned']);
 ?>
-<header class="nkp-header">
-    <h1><?php esc_html_e('Aktionen', 'novemberkind-produkte'); ?></h1>
-    <div class="nkp-header__actions">
-        <a class="nkp-button nkp-button--primary" href="<?php echo esc_url(App::campaigns_url('neu')); ?>">
-            <?php esc_html_e('+ Neue Aktion', 'novemberkind-produkte'); ?>
-        </a>
-    </div>
-</header>
-
-<p class="nkp-note nkp-note--intro">
-    <?php esc_html_e('Eine Aktion senkt die Preise während ihrer Laufzeit um einen festen Prozentsatz. Die Produkte selbst bleiben unverändert. Produkte mit eigenem Angebotspreis sind ausgenommen, und laufen mehrere Aktionen gleichzeitig, gilt der höchste Rabatt.', 'novemberkind-produkte'); ?>
-</p>
+<?php
+$list_title   = __('Aktionen', 'novemberkind-produkte');
+$list_buttons = [['url' => App::campaigns_url('neu'), 'label' => __('+ Neue Aktion', 'novemberkind-produkte'), 'primary' => true]];
+$list_intro   = [__('Eine Aktion senkt die Preise während ihrer Laufzeit um einen festen Prozentsatz. Die Produkte selbst bleiben unverändert. Produkte mit eigenem Angebotspreis sind ausgenommen, und laufen mehrere Aktionen gleichzeitig, gilt der höchste Rabatt.', 'novemberkind-produkte')];
+include __DIR__ . '/list-header.php';
+?>
 
 <?php if ($campaigns === []) : ?>
     <p class="nkp-empty"><?php esc_html_e('Noch keine Aktionen angelegt.', 'novemberkind-produkte'); ?></p>

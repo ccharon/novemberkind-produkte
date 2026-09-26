@@ -1,4 +1,4 @@
-/* Novemberkind Produkte, gemeinsame Teile aller Formulare: Meldungen, Anfragen an den Server, Fehler am Feld, Editor. */
+/* Novemberkind Produkte, gemeinsame Teile aller Seiten: Speicher im Browser, Meldungen, Anfragen an den Server, Fotos, Fehler am Feld, Editor. */
 (() => {
 	'use strict';
 
@@ -6,6 +6,42 @@
 	const TOAST_MS = 4000;
 	// Fehler bleiben länger stehen, damit man sie in Ruhe lesen kann
 	const TOAST_ERROR_MS = 8000;
+
+	// Speicher im Browser. Ist er gesperrt, etwa im privaten Modus, gilt der Standardwert und nichts wird gemerkt.
+	// Werte bleiben im bisherigen Format: Text als Text, Listen und Objekte als JSON.
+	const storage = {
+		get(key, fallback = null, area = 'localStorage') {
+			try {
+				return window[area].getItem(key) ?? fallback;
+			} catch {
+				return fallback;
+			}
+		},
+		set(key, value, area = 'localStorage') {
+			try {
+				window[area].setItem(key, value);
+			} catch {
+				// siehe oben
+			}
+		},
+		remove(key, area = 'localStorage') {
+			try {
+				window[area].removeItem(key);
+			} catch {
+				// siehe oben
+			}
+		},
+		getJSON(key, fallback, area = 'localStorage') {
+			try {
+				return JSON.parse(storage.get(key, null, area)) ?? fallback;
+			} catch {
+				return fallback;
+			}
+		},
+		setJSON(key, value, area = 'localStorage') {
+			storage.set(key, JSON.stringify(value), area);
+		},
+	};
 
 	let toastTimer;
 	function showToast(message, type = 'success') {
@@ -45,6 +81,20 @@
 		}
 		return json.data;
 	}
+
+	// Foto im Browser verkleinern und in die Mediathek hochladen; liefert id, url (Vorschau) und full
+	async function upload(file) {
+		const { blob, name } = await window.novemberkindBilder.resize(file, {
+			maxWidth: config.maxWidth,
+			maxBytes: config.maxUploadBytes,
+			unreadable: config.i18n.unreadable,
+		});
+		const body = new FormData();
+		body.append('file', blob, name);
+		return post('novemberkind_produkte_upload', body);
+	}
+
+	const isImage = (file) => window.novemberkindBilder.isImage(file);
 
 	function clearFieldErrors(form) {
 		form.querySelectorAll('[data-error-for]').forEach((el) => {
@@ -127,9 +177,10 @@
 		}
 	}
 
-	// Editor mit Absätzen, Einfügen als reiner Text und gemerkter Markierung.
-	// Safari verliert die Markierung beim Klick auf einen Knopf trotz preventDefault.
-	function initEditor(editor) {
+	// Editor mit Absätzen, Einfügen als reiner Text, gemerkter Markierung und Knöpfen. Ein Knopf ruft
+	// execCommand mit seinem data-nkp-command auf oder den gleichnamigen Eintrag aus commands;
+	// liefert der false, ist nichts geändert. Safari verliert die Markierung beim Klick auf einen Knopf trotz preventDefault.
+	function initEditor(editor, buttons = [], commands = {}) {
 		document.execCommand('defaultParagraphSeparator', false, 'p');
 		document.execCommand('styleWithCSS', false, false);
 
@@ -154,6 +205,26 @@
 				selection.addRange(range);
 			}
 		};
+
+		buttons.forEach((button) => {
+			// mousedown statt click, damit der Fokus im Text bleibt
+			button.addEventListener('mousedown', (event) => {
+				event.preventDefault();
+				if (!editor.isContentEditable) {
+					return;
+				}
+				const command = button.dataset.nkpCommand;
+				if (commands[command]) {
+					if (commands[command](state) === false) {
+						return;
+					}
+				} else {
+					state.restore();
+					document.execCommand(command);
+				}
+				editor.dispatchEvent(new Event('input', { bubbles: true }));
+			});
+		});
 		return state;
 	}
 
@@ -178,8 +249,11 @@
 
 	window.novemberkindBasis = {
 		config,
+		storage,
 		showToast,
 		post,
+		upload,
+		isImage,
 		clearFieldErrors,
 		showFieldErrors,
 		renameElement,

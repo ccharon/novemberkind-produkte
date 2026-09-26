@@ -34,18 +34,12 @@ $describe = static function (array $coupon): string {
     return implode(' · ', $parts);
 };
 ?>
-<header class="nkp-header">
-    <h1><?php esc_html_e('Gutscheine', 'novemberkind-produkte'); ?></h1>
-    <div class="nkp-header__actions">
-        <a class="nkp-button nkp-button--primary" href="<?php echo esc_url(App::coupons_url('neu')); ?>">
-            <?php esc_html_e('+ Neuer Gutschein', 'novemberkind-produkte'); ?>
-        </a>
-    </div>
-</header>
-
-<p class="nkp-note nkp-note--intro">
-    <?php esc_html_e('Kundinnen und Kunden geben den Code im Warenkorb ein. Ein Prozent-Gutschein gilt nicht für Produkte, die schon reduziert sind. Ein Versand-Gutschein macht Brief und Päckchen kostenlos.', 'novemberkind-produkte'); ?>
-</p>
+<?php
+$list_title   = __('Gutscheine', 'novemberkind-produkte');
+$list_buttons = [['url' => App::coupons_url('neu'), 'label' => __('+ Neuer Gutschein', 'novemberkind-produkte'), 'primary' => true]];
+$list_intro   = [__('Kundinnen und Kunden geben den Code im Warenkorb ein. Ein Prozent-Gutschein gilt nicht für Produkte, die schon reduziert sind. Ein Versand-Gutschein macht Brief und Päckchen kostenlos.', 'novemberkind-produkte')];
+include __DIR__ . '/list-header.php';
+?>
 
 <?php if (!Coupons::enabled()) : ?>
     <p class="nkp-note nkp-note--warning">

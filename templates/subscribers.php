@@ -17,33 +17,24 @@ $pending   = count($subscribers) - count($confirmed);
 ?>
 <a class="nkp-back" href="<?php echo esc_url(App::newsletter_url()); ?>"><?php esc_html_e('← Newsletter', 'novemberkind-produkte'); ?></a>
 
-<header class="nkp-header">
-    <h1><?php esc_html_e('Abonnenten', 'novemberkind-produkte'); ?></h1>
-    <?php if ($confirmed !== []) : ?>
-        <div class="nkp-header__actions">
-            <a class="nkp-button nkp-button--secondary" href="<?php echo esc_url(Subscribers::csv_url()); ?>"><?php esc_html_e('Als CSV herunterladen', 'novemberkind-produkte'); ?></a>
-        </div>
-    <?php endif; ?>
-</header>
-
-<p class="nkp-note nkp-note--intro">
-    <?php
-    echo esc_html(sprintf(
+<?php
+$list_title   = __('Abonnenten', 'novemberkind-produkte');
+$list_buttons = $confirmed === [] ? [] : [['url' => Subscribers::csv_url(), 'label' => __('Als CSV herunterladen', 'novemberkind-produkte'), 'primary' => false]];
+$list_intro   = [
+    sprintf(
         /* translators: 1: bestätigte, 2: unbestätigte Anmeldungen */
         __('%1$d bestätigt, %2$d warten auf Bestätigung. Unbestätigte Anmeldungen werden nach 7 Tagen gelöscht.', 'novemberkind-produkte'),
         count($confirmed),
         $pending
-    ));
-    ?>
-    <br>
-    <?php
-    echo esc_html(sprintf(
+    ),
+    sprintf(
         /* translators: %s: Shortcode */
         __('Das Anmeldeformular erscheint im Shop überall, wo %s steht, zum Beispiel im Footer. An der Kasse gibt es einen eigenen Haken.', 'novemberkind-produkte'),
         '[' . NewsletterSignup::SHORTCODE . ']'
-    ));
-    ?>
-</p>
+    ),
+];
+include __DIR__ . '/list-header.php';
+?>
 
 <?php if ($subscribers === []) : ?>
     <p class="nkp-empty"><?php esc_html_e('Noch niemand angemeldet.', 'novemberkind-produkte'); ?></p>

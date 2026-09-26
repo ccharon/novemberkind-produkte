@@ -6,20 +6,16 @@
 	if (!base) {
 		return;
 	}
-	const { config, showToast, post } = base;
+	const { config, storage, showToast, post } = base;
 	const i18n = { ...config.i18n, ...window.novemberkindFormulare?.i18n };
 	const FLASH = 'nkpFlash';
 	const CODE_LENGTH = 8;
 
 	// Meldung über den Seitenwechsel hinweg, weil nach dem Speichern die Liste erscheint
-	try {
-		const flash = window.sessionStorage.getItem(FLASH);
-		if (flash) {
-			window.sessionStorage.removeItem(FLASH);
-			showToast(flash);
-		}
-	} catch {
-		// Speicher gesperrt, die Meldung entfällt
+	const flash = storage.get(FLASH, null, 'sessionStorage');
+	if (flash) {
+		storage.remove(FLASH, 'sessionStorage');
+		showToast(flash);
 	}
 
 	const form = document.querySelector('[data-nkp-simple-form]');
@@ -27,11 +23,7 @@
 
 	function reloadWith(data) {
 		dirty = false;
-		try {
-			window.sessionStorage.setItem(FLASH, data.message);
-		} catch {
-			// siehe oben
-		}
+		storage.set(FLASH, data.message, 'sessionStorage');
 		window.location.replace(data.url);
 	}
 
@@ -175,7 +167,32 @@
 	if (editor) {
 		ensureParagraph();
 		editor.addEventListener('focus', ensureParagraph);
-		const editorState = base.initEditor(editor);
+		const editorState = base.initEditor(editor, form.querySelectorAll('[data-nkp-command]:not([data-nkp-command="image"])'), {
+			link(state) {
+				const { range } = state;
+				const current = range?.commonAncestorContainer.parentElement?.closest('a')?.getAttribute('href') ?? 'https://';
+				let url = window.prompt(i18n.linkPrompt, current);
+				if (url === null) {
+					return false;
+				}
+				url = url.trim();
+				state.range = range;
+				state.restore();
+				if (url === '' || url === 'https://') {
+					document.execCommand('unlink');
+				} else {
+					document.execCommand('createLink', false, /^(https?:|mailto:)/i.test(url) ? url : `https://${url}`);
+				}
+				return true;
+			},
+			heading(state) {
+				state.restore();
+				const node = window.getSelection().anchorNode;
+				const inHeading = (node instanceof Element ? node : node?.parentElement)?.closest('h2');
+				document.execCommand('formatBlock', false, inHeading ? '<p>' : '<h2>');
+				return true;
+			},
+		});
 		const restoreSelection = editorState.restore;
 
 		// Foto an der Cursorposition: erst die Vorschau, nach dem Upload die Adresse aus der Mediathek
@@ -200,10 +217,7 @@
 			editor.dispatchEvent(new Event('input', { bubbles: true }));
 			pendingUploads++;
 			try {
-				const { blob, name } = await window.novemberkindBilder.resize(file, { maxWidth: config.maxWidth, maxBytes: config.maxUploadBytes, unreadable: i18n.unreadable });
-				const body = new FormData();
-				body.append('file', blob, name);
-				const data = await post('novemberkind_produkte_upload', body);
+				const data = await base.upload(file);
 				img.src = data.full;
 				img.className = `wp-image-${data.id}`;
 				delete img.dataset.nkpUploading;
@@ -219,47 +233,14 @@
 
 		const imageInput = form.querySelector('[data-nkp-image-file]');
 		imageInput?.addEventListener('change', () => {
-			[...imageInput.files].filter(window.novemberkindBilder.isImage).forEach(insertImage);
+			[...imageInput.files].filter(base.isImage).forEach(insertImage);
 			imageInput.value = '';
 		});
-		// click statt mousedown, weil iOS die Fotoauswahl nur direkt nach einem Tipp öffnet
-		form.querySelector('[data-nkp-command="image"]')?.addEventListener('click', () => imageInput?.click());
+		// click statt mousedown, weil iOS die Fotoauswahl nur direkt nach einem Tipp öffnet; mousedown hält den Fokus im Text
+		const imageButton = form.querySelector('[data-nkp-command="image"]');
+		imageButton?.addEventListener('mousedown', (event) => event.preventDefault());
+		imageButton?.addEventListener('click', () => imageInput?.click());
 
-		form.querySelectorAll('[data-nkp-command]').forEach((button) => {
-			// mousedown statt click, damit der Fokus im Text bleibt
-			button.addEventListener('mousedown', (event) => {
-				event.preventDefault();
-				const command = button.dataset.nkpCommand;
-				if (editor.isContentEditable === false || command === 'image') {
-					return;
-				}
-				if (command === 'link') {
-					const { range } = editorState;
-					const current = range?.commonAncestorContainer.parentElement?.closest('a')?.getAttribute('href') ?? 'https://';
-					let url = window.prompt(i18n.linkPrompt, current);
-					if (url === null) {
-						return;
-					}
-					url = url.trim();
-					editorState.range = range;
-					restoreSelection();
-					if (url === '' || url === 'https://') {
-						document.execCommand('unlink');
-					} else {
-						document.execCommand('createLink', false, /^(https?:|mailto:)/i.test(url) ? url : `https://${url}`);
-					}
-				} else if (command === 'heading') {
-					restoreSelection();
-					const node = window.getSelection().anchorNode;
-					const inHeading = (node instanceof Element ? node : node?.parentElement)?.closest('h2');
-					document.execCommand('formatBlock', false, inHeading ? '<p>' : '<h2>');
-				} else {
-					restoreSelection();
-					document.execCommand(command);
-				}
-				editor.dispatchEvent(new Event('input', { bubbles: true }));
-			});
-		});
 	}
 
 	// Testmail mit dem aktuellen Stand, ohne zu speichern

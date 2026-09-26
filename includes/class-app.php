@@ -15,22 +15,37 @@ final class App
     private const MANIFEST = 'manifest.webmanifest';
 
     /**
-     * Adressen unter dem Pfad der Produktverwaltung: Muster => [Methode, zusätzlich nötiges Recht].
-     * Gruppen im Muster werden der Methode übergeben.
+     * Adressen unter dem Pfad der Produktverwaltung: Muster => [Methode, Bereich, Skript der Seite].
+     * Gruppen im Muster werden der Methode übergeben, das nötige Recht kommt vom Bereich.
      */
     private const ROUTES = [
-        ''                      => ['overview', ''],
-        'neu'                   => ['type_picker', ''],
-        'neu/([a-z]+)'          => ['new_product', ''],
-        '(\d+)'                 => ['edit_product', ''],
-        'aktionen'              => ['campaigns', ''],
-        'aktionen/(neu|\d+)'    => ['campaign_form', ''],
-        'gutscheine'            => ['coupons', Coupons::CAPABILITY],
-        'gutscheine/(neu|\d+)'  => ['coupon_form', Coupons::CAPABILITY],
-        'newsletter'            => ['newsletters', Newsletters::CAPABILITY],
-        'newsletter/abonnenten' => ['subscribers', Newsletters::CAPABILITY],
-        'newsletter/(neu|\d+)'  => ['newsletter_form', Newsletters::CAPABILITY],
+        ''                      => ['overview', 'products', 'overview'],
+        'neu'                   => ['type_picker', 'products', ''],
+        'neu/([a-z]+)'          => ['new_product', 'products', 'product-form'],
+        '(\d+)'                 => ['edit_product', 'products', 'product-form'],
+        'aktionen'              => ['campaigns', 'campaigns', 'forms'],
+        'aktionen/(neu|\d+)'    => ['campaign_form', 'campaigns', 'forms'],
+        'gutscheine'            => ['coupons', 'coupons', 'forms'],
+        'gutscheine/(neu|\d+)'  => ['coupon_form', 'coupons', 'forms'],
+        'newsletter'            => ['newsletters', 'newsletter', 'forms'],
+        'newsletter/abonnenten' => ['subscribers', 'newsletter', 'forms'],
+        'newsletter/(neu|\d+)'  => ['newsletter_form', 'newsletter', 'forms'],
     ];
+
+    /**
+     * Bereiche in der Kopfzeile mit Adresse, Bezeichnung und dem Recht, das sie zusätzlich verlangen.
+     *
+     * @return array<string, array{url: string, label: string, capability: string}>
+     */
+    public static function sections(): array
+    {
+        return [
+            'products'   => ['url' => self::url(), 'label' => __('Produkte', 'novemberkind-produkte'), 'capability' => ''],
+            'campaigns'  => ['url' => self::campaigns_url(), 'label' => __('Aktionen', 'novemberkind-produkte'), 'capability' => ''],
+            'coupons'    => ['url' => self::coupons_url(), 'label' => __('Gutscheine', 'novemberkind-produkte'), 'capability' => Coupons::CAPABILITY],
+            'newsletter' => ['url' => self::newsletter_url(), 'label' => __('Newsletter', 'novemberkind-produkte'), 'capability' => Newsletters::CAPABILITY],
+        ];
+    }
 
     /**
      * Pfad der Produktverwaltung ohne Schrägstriche, änderbar über den Filter `novemberkind_produkte_path`.
@@ -154,58 +169,35 @@ final class App
             wp_safe_redirect(wp_login_url($route !== null ? self::url($page) : self::url()));
             exit;
         }
-        self::require_capability(Plugin::CAPABILITY);
-        if ($route !== null && $route['capability'] !== '') {
-            self::require_capability($route['capability']);
+        Plugin::require_capability(Plugin::CAPABILITY);
+        $section = $route['section'] ?? 'products';
+        $capability = self::sections()[$section]['capability'];
+        if ($capability !== '') {
+            Plugin::require_capability($capability);
         }
 
         status_header(200);
         send_frame_options_header();
-        $this->render($route ? $this->{$route['method']}(...$route['args']) : self::missing(__('Diese Seite gibt es nicht.', 'novemberkind-produkte')));
+        $page = $route ? $this->{$route['method']}(...$route['args']) : self::missing(__('Diese Seite gibt es nicht.', 'novemberkind-produkte'));
+        $this->render($page + ['section' => $section, 'script' => $page['view'] === 'not-found' ? '' : (string) ($route['script'] ?? '')]);
         exit;
     }
 
     /**
      * Sucht die Route zu einer Adresse unter dem Pfad, z. B. „aktionen/12“.
      *
-     * @return array{method: string, capability: string, args: string[]}|null
+     * @return array{method: string, section: string, script: string, args: string[]}|null
      */
     private static function match(string $page): ?array
     {
-        foreach (self::ROUTES as $pattern => [$method, $capability]) {
+        foreach (self::ROUTES as $pattern => [$method, $section, $script]) {
             // D: $ passt nur am Ende, nicht vor einem abschließenden Zeilenumbruch
             if (preg_match('#^' . $pattern . '$#D', $page, $found)) {
-                return ['method' => $method, 'capability' => $capability, 'args' => array_slice($found, 1)];
+                return ['method' => $method, 'section' => $section, 'script' => $script, 'args' => array_slice($found, 1)];
             }
         }
 
         return null;
-    }
-
-    private static function require_capability(string $capability): void
-    {
-        if (current_user_can($capability)) {
-            return;
-        }
-        wp_die(
-            esc_html(match ($capability) {
-                Coupons::CAPABILITY     => __('Für Gutscheine fehlen dir die Berechtigungen.', 'novemberkind-produkte'),
-                Newsletters::CAPABILITY => __('Für den Newsletter fehlen dir die Berechtigungen.', 'novemberkind-produkte'),
-                default                 => __('Für die Produktverwaltung fehlen dir die Berechtigungen.', 'novemberkind-produkte'),
-            }),
-            esc_html__('Keine Berechtigung', 'novemberkind-produkte'),
-            ['response' => 403, 'back_link' => true]
-        );
-    }
-
-    /**
-     * Plugin-Version plus Änderungszeit der Datei, damit Browser nach jeder Änderung die neue Fassung laden.
-     */
-    private static function asset_version(string $file): string
-    {
-        $path = dirname(PLUGIN_FILE) . '/' . $file;
-
-        return VERSION . '.' . (is_readable($path) ? (string) filemtime($path) : '0');
     }
 
     /**
@@ -213,7 +205,7 @@ final class App
      */
     private function manifest(): never
     {
-        $icons = plugin_dir_url(PLUGIN_FILE) . 'assets/icons/';
+        $icons = Plugin::asset_url('assets/icons/');
         $home  = (string) wp_parse_url(home_url('/'), PHP_URL_PATH);
 
         status_header(200);
@@ -259,18 +251,20 @@ final class App
      */
     public function login_style(): void
     {
-        wp_enqueue_style('novemberkind-produkte-login', plugin_dir_url(PLUGIN_FILE) . 'assets/css/login.css', [], self::asset_version('assets/css/login.css'));
+        wp_enqueue_style('novemberkind-produkte-login', Plugin::asset_url('assets/css/login.css'), [], Plugin::asset_version('assets/css/login.css'));
     }
 
     /**
-     * @param array{view: string, title: string, data: array<string, mixed>} $page
+     * @param array{view: string, title: string, data: array<string, mixed>, section: string, script: string} $page
      */
     private function render(array $page): void
     {
         $this->register_assets();
 
-        $view  = $page['view'];
-        $title = $page['title'];
+        $view    = $page['view'];
+        $title   = $page['title'];
+        $section = $page['section'];
+        $scripts = [...($page['script'] !== '' ? ['novemberkind-produkte-' . $page['script']] : []), 'novemberkind-produkte-vine'];
         extract($page['data'], EXTR_SKIP); // phpcs:ignore WordPress.PHP.DontExtract -- Variablen für das Template
         include __DIR__ . '/../templates/app.php';
     }
@@ -281,16 +275,16 @@ final class App
      */
     private function register_assets(): void
     {
-        $base   = plugin_dir_url(PLUGIN_FILE);
-        $script = static function (string $handle, string $file, array $deps = []) use ($base): void {
-            wp_register_script('novemberkind-produkte-' . $handle, $base . $file, $deps, self::asset_version($file), true);
+        $script = static function (string $handle, string $file, array $deps = []): void {
+            wp_register_script('novemberkind-produkte-' . $handle, Plugin::asset_url($file), $deps, Plugin::asset_version($file), true);
         };
-        wp_register_style('novemberkind-produkte-app', $base . 'assets/css/app.css', [], self::asset_version('assets/css/app.css'));
-        $script('common', 'assets/js/common.js');
+        Plugin::register_app_style();
         $script('images', 'assets/js/images.js');
-        $script('app', 'assets/js/app.js', ['novemberkind-produkte-common', 'novemberkind-produkte-images']);
-        $script('forms', 'assets/js/forms.js', ['novemberkind-produkte-common', 'novemberkind-produkte-images']);
-        $script('vine', 'assets/js/vine.js');
+        $script('common', 'assets/js/common.js', ['novemberkind-produkte-images']);
+        $script('overview', 'assets/js/overview.js', ['novemberkind-produkte-common']);
+        $script('product-form', 'assets/js/product-form.js', ['novemberkind-produkte-common']);
+        $script('forms', 'assets/js/forms.js', ['novemberkind-produkte-common']);
+        $script('vine', 'assets/js/vine.js', ['novemberkind-produkte-common']);
 
         wp_localize_script('novemberkind-produkte-common', 'novemberkindConfig', [
             'ajaxUrl'        => admin_url('admin-ajax.php'),
@@ -308,7 +302,7 @@ final class App
                 'unsaved'       => __('Es gibt ungespeicherte Änderungen.', 'novemberkind-produkte'),
             ],
         ]);
-        wp_localize_script('novemberkind-produkte-app', 'novemberkindProdukte', [
+        wp_localize_script('novemberkind-produkte-product-form', 'novemberkindProdukte', [
             'i18n' => [
                 'suggesting'   => __('Claude denkt nach …', 'novemberkind-produkte'),
                 'suggest'      => __('Vorschlag holen', 'novemberkind-produkte'),
@@ -555,8 +549,7 @@ final class App
             return null;
         }
 
-        $service = new ProductService();
-        $back_images = !$type->is_variable() ? [] : ($product ? $service->variation_images_of($type, $product) : $service->variation_image_ids($type));
+        $back_images = !$type->is_variable() ? [] : ($product ? $type->back_images_of($product) : $type->back_image_ids());
 
         $context = $product ? $type->context_from_product($product) : self::default_context($type);
 
@@ -573,7 +566,7 @@ final class App
             'stock_a4'    => '',
             'gallery_ids' => $product ? array_values(array_filter(
                 array_map('intval', $product->get_gallery_image_ids()),
-                static fn(int $id): bool => !$service->is_variation_image($type, $id)
+                static fn(int $id): bool => !$type->is_back_image($id)
             )) : [],
             'back_images' => $back_images,
             'backups'     => $product ? (new Backups())->summary($product->get_id()) : [],
