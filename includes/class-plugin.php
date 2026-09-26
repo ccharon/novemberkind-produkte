@@ -44,7 +44,7 @@ final class Plugin
     }
 
     /**
-     * Die Adresse /produkte-verwalten/ funktioniert nur mit sprechenden Permalinks.
+     * Warnt im Backend, wenn sprechende Permalinks fehlen, weil /produkte-verwalten/ sonst nicht erreichbar ist.
      */
     public static function permalink_notice(): void
     {

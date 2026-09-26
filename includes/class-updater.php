@@ -33,6 +33,8 @@ final class Updater
     }
 
     /**
+     * Meldet WordPress die neueste Version aus den GitHub-Releases. Antwortet GitHub nicht, gilt die installierte Version als aktuell.
+     *
      * @param array<string, mixed>|false $update
      * @param array<string, string>      $plugin_data
      * @return array<string, mixed>|false

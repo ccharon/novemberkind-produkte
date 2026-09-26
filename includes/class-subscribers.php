@@ -60,7 +60,9 @@ final class Subscribers
     }
 
     /**
-     * @return array<int, array<string, mixed>> alle Abonnenten, neueste zuerst
+     * Alle Abonnenten, bestätigt und unbestätigt, neueste zuerst.
+     *
+     * @return array<int, array<string, mixed>>
      * @phpstan-return array<int, Subscriber>
      */
     public static function all(): array
@@ -71,6 +73,8 @@ final class Subscribers
     }
 
     /**
+     * Abonnenten, die ihre Anmeldung bestätigt haben.
+     *
      * @return array<int, array<string, mixed>>
      * @phpstan-return array<int, Subscriber>
      */
@@ -80,6 +84,8 @@ final class Subscribers
     }
 
     /**
+     * Zahl der bestätigten und der unbestätigten Anmeldungen.
+     *
      * @return array{confirmed: int, pending: int}
      */
     public static function counts(): array
@@ -93,6 +99,8 @@ final class Subscribers
     }
 
     /**
+     * Ein Abonnent oder null, wenn es ihn nicht gibt.
+     *
      * @return array<string, mixed>|null
      * @phpstan-return Subscriber|null
      */
@@ -104,6 +112,8 @@ final class Subscribers
     }
 
     /**
+     * Der älteste Eintrag einer Adresse oder null.
+     *
      * @return array<string, mixed>|null
      * @phpstan-return Subscriber|null
      */
@@ -130,6 +140,8 @@ final class Subscribers
     }
 
     /**
+     * Abonnent zum Token aus einem Link, verglichen in konstanter Zeit, oder null.
+     *
      * @return array<string, mixed>|null
      * @phpstan-return Subscriber|null
      */
@@ -313,6 +325,8 @@ final class Subscribers
     }
 
     /**
+     * Meldet den Export der Anmeldung bei den Datenschutz-Werkzeugen von WordPress an.
+     *
      * @return array<mixed>
      */
     public function register_exporter(mixed $exporters): array
@@ -324,6 +338,8 @@ final class Subscribers
     }
 
     /**
+     * Meldet das Löschen der Anmeldung bei den Datenschutz-Werkzeugen von WordPress an.
+     *
      * @return array<mixed>
      */
     public function register_eraser(mixed $erasers): array
@@ -401,6 +417,9 @@ final class Subscribers
         );
     }
 
+    /**
+     * Bezeichnung der Quelle einer Anmeldung: Kasse oder Formular.
+     */
     public static function source_label(string $source): string
     {
         return $source === 'checkout' ? __('Kasse', 'novemberkind-produkte') : __('Formular', 'novemberkind-produkte');

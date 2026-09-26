@@ -52,7 +52,9 @@ final class Newsletters
     }
 
     /**
-     * @return array<int, array<string, mixed>> alle Ausgaben, zuletzt geänderte zuerst
+     * Alle Ausgaben, zuletzt geänderte zuerst.
+     *
+     * @return array<int, array<string, mixed>>
      * @phpstan-return array<int, Issue>
      */
     public static function all(): array
@@ -63,6 +65,8 @@ final class Newsletters
     }
 
     /**
+     * Eine Ausgabe oder null, wenn es sie nicht gibt.
+     *
      * @return array<string, mixed>|null
      * @phpstan-return Issue|null
      */
@@ -74,7 +78,7 @@ final class Newsletters
     }
 
     /**
-     * Ob eine Ausgabe noch geändert werden darf. Laufende und versendete bleiben als Nachweis unverändert.
+     * Ob eine Ausgabe gesperrt ist. Laufende und versendete bleiben als Nachweis unverändert.
      *
      * @param array<string, mixed> $issue
      */

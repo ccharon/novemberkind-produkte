@@ -64,6 +64,8 @@ final class Suggestions
     }
 
     /**
+     * Holt einen Vorschlag für Titel, Beschreibung und Schlagwörter und bereinigt ihn. Speichert nichts.
+     *
      * @param array<string, mixed> $input Formularwerte
      * @return array{mode: string, title: string, description: string, tags: string[]}|\WP_Error
      */
@@ -222,8 +224,8 @@ final class Suggestions
     }
 
     /**
-     * Nur Textauszeichnungen, keine Bilder. Links bleiben nur mit Adressen, die schon in Vorlage oder bisheriger
-     * Beschreibung stehen, damit Text im Foto Claude keine fremden Links unterschieben kann.
+     * Behält nur Textauszeichnungen und entfernt Bilder. Links bleiben nur mit Adressen, die schon in Vorlage oder
+     * bisheriger Beschreibung stehen, damit Text im Foto Claude keine fremden Links unterschieben kann.
      */
     public static function clean_html(string $html, string $known): string
     {

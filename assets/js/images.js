@@ -50,6 +50,7 @@
 		return { blob: jpeg, name: `${baseName}.jpg` };
 	}
 
+	// Ob eine Datei ein Foto ist. HEIC und HEIF erkennt der Browser nicht immer am Typ, deshalb auch an der Endung.
 	function isImage(file) {
 		return file.type.startsWith('image/') || /\.hei[cf]$/i.test(file.name);
 	}

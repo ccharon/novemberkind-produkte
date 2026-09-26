@@ -42,6 +42,8 @@ final class Pages
     }
 
     /**
+     * Übersicht aller Produkte, gruppiert nach Kategorie.
+     *
      * @phpstan-return Page
      * @return array<string, mixed>
      */
@@ -51,6 +53,8 @@ final class Pages
     }
 
     /**
+     * Auswahl der Produktart für ein neues Produkt.
+     *
      * @phpstan-return Page
      * @return array<string, mixed>
      */
@@ -60,6 +64,8 @@ final class Pages
     }
 
     /**
+     * Leeres Formular für eine Produktart.
+     *
      * @phpstan-return Page
      * @return array<string, mixed>
      */
@@ -77,6 +83,8 @@ final class Pages
     }
 
     /**
+     * Formular für ein bestehendes Produkt. Produkte ohne Vorlage öffnen in der WooCommerce-Maske.
+     *
      * @phpstan-return Page
      * @return array<string, mixed>
      */
@@ -99,6 +107,8 @@ final class Pages
     }
 
     /**
+     * Liste der Aktionen.
+     *
      * @phpstan-return Page
      * @return array<string, mixed>
      */
@@ -108,6 +118,8 @@ final class Pages
     }
 
     /**
+     * Formular für eine neue (`$id` = „neu“) oder bestehende Aktion.
+     *
      * @phpstan-return Page
      * @return array<string, mixed>
      */
@@ -124,6 +136,8 @@ final class Pages
     }
 
     /**
+     * Liste der Gutscheine.
+     *
      * @phpstan-return Page
      * @return array<string, mixed>
      */
@@ -133,6 +147,8 @@ final class Pages
     }
 
     /**
+     * Formular für einen neuen (`$id` = „neu“) oder eigenen Gutschein. Gutscheine aus WooCommerce öffnen in der WooCommerce-Maske.
+     *
      * @phpstan-return Page
      * @return array<string, mixed>
      */
@@ -154,6 +170,8 @@ final class Pages
     }
 
     /**
+     * Liste der Ausgaben. Setzt vorher hängende Versände fort und startet überfällige geplante Ausgaben.
+     *
      * @phpstan-return Page
      * @return array<string, mixed>
      */
@@ -165,6 +183,8 @@ final class Pages
     }
 
     /**
+     * Liste der Abonnenten. Löscht vorher abgelaufene unbestätigte Anmeldungen.
+     *
      * @phpstan-return Page
      * @return array<string, mixed>
      */
@@ -176,6 +196,8 @@ final class Pages
     }
 
     /**
+     * Formular für eine neue (`$id` = „neu“) oder bestehende Ausgabe.
+     *
      * @phpstan-return Page
      * @return array<string, mixed>
      */

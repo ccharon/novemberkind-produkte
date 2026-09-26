@@ -35,7 +35,7 @@ final class Coupons
 
     /**
      * Versand-Gutscheine setzen die Kosten aller Versandarten auf 0. So braucht der Shop keine eigene Versandart „Kostenloser Versand“.
-     * Ohne Typangabe, weil auch andere Plugins diesen Filter auslösen.
+     * Nimmt beliebige Werte an, weil auch andere Plugins diesen Filter auslösen.
      */
     public function free_shipping_rates(mixed $rates): mixed
     {
@@ -62,7 +62,9 @@ final class Coupons
     }
 
     /**
-     * @return array<int, array<string, mixed>> alle Gutscheine, neueste zuerst
+     * Alle Gutscheine des Shops, auch die aus WooCommerce, neueste zuerst.
+     *
+     * @return array<int, array<string, mixed>>
      * @phpstan-return array<int, Coupon>
      */
     public static function all(): array
@@ -80,6 +82,8 @@ final class Coupons
     }
 
     /**
+     * Ein Gutschein oder null, wenn die ID kein Gutschein ist.
+     *
      * @return array<string, mixed>|null
      * @phpstan-return Coupon|null
      */
@@ -93,6 +97,8 @@ final class Coupons
     }
 
     /**
+     * Werte eines Gutscheins für Liste und Formular.
+     *
      * @return array<string, mixed>
      * @phpstan-return Coupon
      */
@@ -134,6 +140,8 @@ final class Coupons
     }
 
     /**
+     * Legt einen eigenen Gutschein an oder ändert ihn. Gutscheine aus WooCommerce ändert das Plugin nicht.
+     *
      * @param array<string, mixed> $data Rohdaten aus dem Formular
      * @return array<string, mixed>|\WP_Error
      * @phpstan-return Coupon|\WP_Error

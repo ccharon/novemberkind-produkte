@@ -55,6 +55,8 @@ final class Input
     }
 
     /**
+     * Positive ganze Zahl, sonst 0.
+     *
      * @param array<mixed> $data
      */
     public static function id(array $data, string $key): int

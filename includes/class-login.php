@@ -24,7 +24,7 @@ final class Login
 
     /**
      * Shop-Manager landen nach dem Login direkt in der Produktverwaltung, Administratoren im Backend.
-     * Ohne Typangaben, weil auch andere Plugins diesen Filter auslösen; ein Typfehler würde die Anmeldung abbrechen.
+     * Nimmt beliebige Werte an, weil auch andere Plugins diesen Filter auslösen; ein Typfehler würde die Anmeldung abbrechen.
      */
     public function login_redirect(mixed $redirect_to, mixed $requested = '', mixed $user = null): mixed
     {

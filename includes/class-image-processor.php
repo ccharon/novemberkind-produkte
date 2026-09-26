@@ -20,7 +20,7 @@ final class ImageProcessor
     private const MAIL_SUFFIX = '-mail.jpg';
 
     /**
-     * Räumt beim Löschen eines Fotos auch die JPEG-Fassungen für Mails weg.
+     * Meldet an, dass beim Löschen eines Fotos auch seine JPEG-Fassungen für Mails verschwinden.
      */
     public function register(): void
     {
@@ -110,6 +110,8 @@ final class ImageProcessor
     }
 
     /**
+     * Nimmt ein hochgeladenes Foto an und legt es als WebP in der Mediathek ab.
+     *
      * @param array<string, mixed> $file Eintrag aus `$_FILES`
      * @return int|\WP_Error Attachment-ID
      */

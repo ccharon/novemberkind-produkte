@@ -130,7 +130,7 @@ final class NewsletterSignup
     }
 
     /**
-     * Formulare, die noch an admin-post.php senden. Zurück geht es über den Referer.
+     * Nimmt Formulare aus Seiten-Caches an, die an admin-post.php senden, und leitet über den Referer zurück.
      */
     public function handle_signup(): void
     {
@@ -209,7 +209,8 @@ final class NewsletterSignup
     }
 
     /**
-     * Ohne Typangaben, weil auch andere Plugins diesen Hook auslösen, teils mit anderen Argumenten.
+     * Meldet die Adresse einer Bestellung an, wenn der Haken an der klassischen Kasse gesetzt ist.
+     * Nimmt beliebige Werte an, weil auch andere Plugins diesen Hook auslösen, teils mit anderen Argumenten.
      */
     public function classic_checkout_processed(mixed $order_id = 0, mixed $posted = [], mixed $order = null): void
     {
@@ -235,6 +236,10 @@ final class NewsletterSignup
         ]);
     }
 
+    /**
+     * Meldet die Adresse einer Bestellung an, wenn der Haken an der Block-Kasse gesetzt ist.
+     * Nimmt beliebige Werte an, weil auch andere Plugins diesen Hook auslösen.
+     */
     public function block_checkout_processed(mixed $order = null): void
     {
         if (!$order instanceof \WC_Order) {

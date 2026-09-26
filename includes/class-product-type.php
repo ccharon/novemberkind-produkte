@@ -33,6 +33,8 @@ final class ProductType
     }
 
     /**
+     * Alle Produktarten aus includes/product-types.php, erweiterbar über den Filter `novemberkind_produkte_types`.
+     *
      * @return array<string, self>
      */
     public static function all(): array
@@ -172,6 +174,8 @@ final class ProductType
     }
 
     /**
+     * Eingabefelder des Formulars zusätzlich zum Motiv, z. B. „format“ oder „size“.
+     *
      * @return string[]
      */
     public function fields(): array
@@ -188,6 +192,8 @@ final class ProductType
     }
 
     /**
+     * Ein Wert aus der Vorlage, z. B. „category“, oder null.
+     *
      * @return mixed
      */
     public function config(string $key)
@@ -359,6 +365,8 @@ final class ProductType
     }
 
     /**
+     * Beschreibungstext aus der Vorlage mit den Eingaben des Formulars.
+     *
      * @param array<string, string> $context
      */
     public function description(array $context): string
@@ -435,6 +443,8 @@ final class ProductType
     }
 
     /**
+     * Maße in cm aus der Vorlage, ersetzt durch Format oder eingegebene Maße.
+     *
      * @param array<string, string> $context
      * @return array{length?: string, width?: string, height?: string}
      */

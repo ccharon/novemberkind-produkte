@@ -33,7 +33,7 @@ final class Originals
 
     /**
      * Nimmt ein verkauftes Unikat aus Shop, Kategorie und Suche und zeigt es wieder, wenn es erneut vorrätig ist.
-     * Ohne Typangaben, weil auch andere Plugins diesen Hook auslösen.
+     * Nimmt beliebige Werte an, weil auch andere Plugins diesen Hook auslösen.
      */
     public function update_visibility(mixed $product_id, mixed $stock_status = '', mixed $product = null): void
     {
@@ -57,8 +57,8 @@ final class Originals
     }
 
     /**
-     * Zeigt bei verkauften Unikaten „Verkauft“ statt „Nicht vorrätig“. Ohne Typangaben, weil auch andere Plugins
-     * diesen Filter auslösen; ein Typfehler würde die Produktseite abbrechen.
+     * Zeigt bei verkauften Unikaten „Verkauft“ statt „Nicht vorrätig“. Nimmt beliebige Werte an, weil auch andere
+     * Plugins diesen Filter auslösen; ein Typfehler würde die Produktseite abbrechen.
      */
     public function availability_text(mixed $text, mixed $product = null): mixed
     {

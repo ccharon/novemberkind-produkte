@@ -74,7 +74,9 @@ final class Campaigns
     }
 
     /**
-     * @return array<int, array<string, mixed>> alle Aktionen, zuletzt gestartete zuerst
+     * Alle Aktionen, zuletzt gestartete zuerst, für die Dauer der Anfrage zwischengespeichert.
+     *
+     * @return array<int, array<string, mixed>>
      * @phpstan-return array<int, Campaign>
      */
     public static function all(): array
@@ -96,6 +98,8 @@ final class Campaigns
     }
 
     /**
+     * Eine Aktion oder null, wenn es sie nicht gibt.
+     *
      * @phpstan-return Campaign|null
      * @return array<string, mixed>|null
      */
@@ -105,6 +109,8 @@ final class Campaigns
     }
 
     /**
+     * Status einer Aktion zum Zeitpunkt `$now`, ohne Angabe jetzt. Eine Aktion mit Ende vor dem Beginn gilt als beendet.
+     *
      * @phpstan-param Campaign $campaign
      * @param array<string, mixed> $campaign
      * @return string planned, running oder ended
@@ -135,6 +141,8 @@ final class Campaigns
     }
 
     /**
+     * Aktionen, die gerade laufen.
+     *
      * @return array<int, array<string, mixed>>
      * @phpstan-return array<int, Campaign>
      */
@@ -365,7 +373,7 @@ final class Campaigns
 
     /**
      * Senkt Preis und Angebotspreis beim Auslesen. Grundlage ist immer der normale Preis.
-     * Ohne Typangaben, weil auch andere Plugins diese Filter auslösen.
+     * Nimmt beliebige Werte an, weil auch andere Plugins diese Filter auslösen.
      */
     public function filter_price(mixed $price, mixed $product = null): mixed
     {
@@ -419,7 +427,8 @@ final class Campaigns
     }
 
     /**
-     * Damit WooCommerce zwischengespeicherte Preisspannen bei Start, Ende oder Änderung einer Aktion neu berechnet.
+     * Nimmt die laufenden Aktionen in den Hash der Preisspannen auf, damit WooCommerce sie bei Start, Ende oder Änderung
+     * einer Aktion neu berechnet.
      *
      * @param array<int|string, mixed> $hash
      * @return array<int|string, mixed>

@@ -125,8 +125,8 @@ final class App
     }
 
     /**
-     * Eine Regel für alles unter dem Pfad, die Seite wählt maybe_render() über ROUTES.
-     * Ändert sich die Regel, etwa über den Filter für den Pfad, wird sie einmal neu geschrieben.
+     * Legt eine Rewrite-Regel für alles unter dem Pfad an; die Seite wählt maybe_render() über ROUTES.
+     * Ändert sich die Regel, etwa über den Filter für den Pfad, schreibt WordPress die Regeln einmal neu.
      */
     public function add_rewrite_rules(): void
     {

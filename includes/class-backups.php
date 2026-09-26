@@ -36,7 +36,7 @@ final class Backups
     }
 
     /**
-     * Legt eine Sicherung des aktuellen Stands an und behält danach nur die neuesten drei.
+     * Legt eine Sicherung des aktuellen Stands an und behält danach nur die neuesten (Backups::KEEP).
      */
     public function create(\WC_Product $product): int|\WP_Error
     {
@@ -80,7 +80,9 @@ final class Backups
     }
 
     /**
-     * @return \WP_Post[] neueste zuerst
+     * Sicherungen eines Produkts, neueste zuerst.
+     *
+     * @return \WP_Post[]
      */
     public function for_product(int $product_id): array
     {

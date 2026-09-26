@@ -7,8 +7,8 @@
 	// Fehler bleiben länger stehen, damit man sie in Ruhe lesen kann
 	const TOAST_ERROR_MS = 8000;
 
-	// Speicher im Browser. Ist er gesperrt, etwa im privaten Modus, gilt der Standardwert und nichts wird gemerkt.
-	// Werte bleiben im bisherigen Format: Text als Text, Listen und Objekte als JSON.
+	// Speicher im Browser, localStorage oder mit area = 'sessionStorage'. Ist er gesperrt, etwa im privaten Modus,
+	// gilt der Standardwert und nichts wird gemerkt. get und set speichern Text, getJSON und setJSON Listen und Objekte.
 	const storage = {
 		get(key, fallback = null, area = 'localStorage') {
 			try {
@@ -43,6 +43,7 @@
 		},
 	};
 
+	// Kurze Meldung unten auf der Seite; type ist success, info oder error. Fehler bleiben länger stehen.
 	let toastTimer;
 	function showToast(message, type = 'success') {
 		const toast = document.querySelector('[data-nkp-toast]');
@@ -56,7 +57,8 @@
 		toastTimer = setTimeout(() => { toast.hidden = true; }, type === 'error' ? TOAST_ERROR_MS : TOAST_MS);
 	}
 
-	// Fehler des Servers tragen die Meldung und die Meldungen je Feld (error.fields)
+	// Schickt eine AJAX-Aktion mit Nonce an den Server und liefert die Daten der Antwort.
+	// Ein Fehler trägt die Meldung für den Hinweis und die Meldungen je Feld in error.fields.
 	async function post(action, body) {
 		const { i18n } = config;
 		body.append('action', action);
@@ -82,7 +84,7 @@
 		return json.data;
 	}
 
-	// Foto im Browser verkleinern und in die Mediathek hochladen; liefert id, url (Vorschau) und full
+	// Verkleinert ein Foto im Browser und lädt es in die Mediathek; liefert id, url (Vorschau) und full
 	async function upload(file) {
 		const { blob, name } = await window.novemberkindBilder.resize(file, {
 			maxWidth: config.maxWidth,
@@ -94,8 +96,10 @@
 		return post('novemberkind_produkte_upload', body);
 	}
 
+	// Ob eine Datei ein Foto ist, auch HEIC vom iPhone
 	const isImage = (file) => window.novemberkindBilder.isImage(file);
 
+	// Entfernt alle Fehlermeldungen und Markierungen am Feld
 	function clearFieldErrors(form) {
 		form.querySelectorAll('[data-error-for]').forEach((el) => {
 			el.hidden = true;
@@ -104,6 +108,7 @@
 		form.querySelectorAll('[aria-invalid]').forEach((el) => el.removeAttribute('aria-invalid'));
 	}
 
+	// Zeigt die Meldungen je Feld unter den Feldern und setzt den Fokus auf das erste fehlerhafte Feld
 	function showFieldErrors(form, fields) {
 		let firstInput = null;
 		let firstError = null;
@@ -129,6 +134,7 @@
 		}
 	}
 
+	// Ersetzt ein Element durch ein gleichwertiges mit anderem Tag, der Inhalt bleibt
 	function renameElement(element, tag) {
 		const replacement = document.createElement(tag);
 		replacement.append(...element.childNodes);
@@ -136,7 +142,7 @@
 		return replacement;
 	}
 
-	// strong und em statt b, i und Stil-Spans der Browser
+	// Macht aus b, i und Stil-Spans der Browser strong und em
 	function cleanInline(root) {
 		root.querySelectorAll('b').forEach((b) => renameElement(b, 'strong'));
 		root.querySelectorAll('i').forEach((i) => renameElement(i, 'em'));
@@ -159,7 +165,7 @@
 		});
 	}
 
-	// Auszeichnungen ohne sichtbaren Text entfernen, den Inhalt behalten
+	// Entfernt Auszeichnungen ohne sichtbaren Text und behält ihren Inhalt
 	function unwrapEmpty(root, selector) {
 		root.querySelectorAll(selector).forEach((element) => {
 			if (!element.textContent.trim()) {
@@ -168,7 +174,7 @@
 		});
 	}
 
-	// Geschützte Leerzeichen der Browser als normale Leerzeichen
+	// Ersetzt geschützte Leerzeichen der Browser durch normale
 	function plainSpaces(root) {
 		root.normalize();
 		const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
@@ -177,7 +183,7 @@
 		}
 	}
 
-	// Editor mit Absätzen, Einfügen als reiner Text, gemerkter Markierung und Knöpfen. Ein Knopf ruft
+	// Richtet einen Editor ein: Absätze, Einfügen als reiner Text, gemerkte Markierung und Knöpfe. Ein Knopf ruft
 	// execCommand mit seinem data-nkp-command auf oder den gleichnamigen Eintrag aus commands;
 	// liefert der false, ist nichts geändert. Safari verliert die Markierung beim Klick auf einen Knopf trotz preventDefault.
 	function initEditor(editor, buttons = [], commands = {}) {
@@ -238,6 +244,7 @@
 		});
 	}
 
+	// Fragt beim Verlassen der Seite nach, solange isDirty() true liefert
 	function warnUnsaved(isDirty) {
 		window.addEventListener('beforeunload', (event) => {
 			if (isDirty()) {
@@ -247,9 +254,10 @@
 		});
 	}
 
-	// Ein Formular mit Speichern: merkt ungespeicherte Änderungen und laufende Uploads, sperrt den Knopf beim Senden
-	// und zeigt Fehler am Feld. Mehrere Skripte einer Seite bekommen für dasselbe Formular denselben Controller.
 	const controllers = new WeakMap();
+
+	// Steuert ein Formular mit Speichern: merkt ungespeicherte Änderungen und laufende Uploads, sperrt den Knopf beim
+	// Senden und zeigt Fehler am Feld. Mehrere Skripte einer Seite bekommen für dasselbe Formular denselben Controller.
 	function formController(form) {
 		if (controllers.has(form)) {
 			return controllers.get(form);
@@ -280,6 +288,7 @@
 				}
 				return true;
 			},
+			// Lädt ein Foto hoch und zählt es als laufenden Upload
 			async upload(file) {
 				controller.uploads++;
 				try {
@@ -313,6 +322,7 @@
 					}
 				}
 			},
+			// Speichert über controller.action und ruft bei Erfolg controller.onSaved mit der Antwort
 			async save() {
 				if (controller.saving || !submitButton || !controller.ready() || !confirms.every((confirm) => confirm() !== false)) {
 					return;
