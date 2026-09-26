@@ -247,6 +247,103 @@
 		});
 	}
 
+	// Ein Formular mit Speichern: merkt ungespeicherte Änderungen und laufende Uploads, sperrt den Knopf beim Senden
+	// und zeigt Fehler am Feld. Mehrere Skripte einer Seite bekommen für dasselbe Formular denselben Controller.
+	const controllers = new WeakMap();
+	function formController(form) {
+		if (controllers.has(form)) {
+			return controllers.get(form);
+		}
+		const submitButton = form.querySelector('[data-nkp-submit]');
+		const prepares = [];
+		const confirms = [];
+		const controller = {
+			dirty: false,
+			uploads: 0,
+			saving: false,
+			// Aktion und Reaktion auf Erfolg legt das Skript des Formulars fest
+			action: '',
+			onSaved: () => {},
+			// Vor jedem Senden, z. B. um den Editor-Inhalt ins versteckte Feld zu schreiben
+			beforeSend(prepare) {
+				prepares.push(prepare);
+			},
+			// Rückfrage vor dem Speichern; liefert sie false, wird nicht gespeichert
+			confirmSave(confirm) {
+				confirms.push(confirm);
+			},
+			// Speichern, Testmail und Vorschlag warten, bis alle Fotos hochgeladen sind
+			ready() {
+				if (controller.uploads > 0) {
+					showToast(config.i18n.waitForUpload, 'info');
+					return false;
+				}
+				return true;
+			},
+			async upload(file) {
+				controller.uploads++;
+				try {
+					return await upload(file);
+				} finally {
+					controller.uploads--;
+				}
+			},
+			// Schickt das Formular an eine Aktion; der Knopf ist solange gesperrt. Liefert die Daten oder null.
+			async send(action, button, busyText) {
+				if (!controller.ready()) {
+					return null;
+				}
+				const label = button?.textContent;
+				clearFieldErrors(form);
+				prepares.forEach((prepare) => prepare());
+				if (button) {
+					button.disabled = true;
+					button.textContent = busyText;
+				}
+				try {
+					return await post(action, new FormData(form));
+				} catch (error) {
+					showFieldErrors(form, error.fields);
+					showToast(error.message, 'error');
+					return null;
+				} finally {
+					if (button) {
+						button.disabled = false;
+						button.textContent = label;
+					}
+				}
+			},
+			async save() {
+				if (controller.saving || !submitButton || !controller.ready() || !confirms.every((confirm) => confirm() !== false)) {
+					return;
+				}
+				controller.saving = true;
+				const data = await controller.send(controller.action, submitButton, config.i18n.saving);
+				controller.saving = false;
+				if (data) {
+					controller.dirty = false;
+					controller.onSaved(data);
+				}
+			},
+		};
+
+		const markDirty = (event) => {
+			if (!event.target.closest?.('[data-nkp-not-dirty]')) {
+				controller.dirty = true;
+			}
+		};
+		form.addEventListener('input', markDirty);
+		form.addEventListener('change', markDirty);
+		form.addEventListener('submit', (event) => {
+			event.preventDefault();
+			controller.save();
+		});
+		onSaveShortcut(() => controller.save());
+		warnUnsaved(() => controller.dirty);
+		controllers.set(form, controller);
+		return controller;
+	}
+
 	window.novemberkindBasis = {
 		config,
 		storage,
@@ -263,5 +360,6 @@
 		initEditor,
 		onSaveShortcut,
 		warnUnsaved,
+		formController,
 	};
 })();

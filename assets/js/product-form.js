@@ -16,14 +16,10 @@
 
 	const { config, showToast, post } = base;
 	const i18n = { ...config.i18n, ...window.novemberkindProdukte?.i18n };
-	const submitButton = form.querySelector('[data-nkp-submit]');
+	const controller = base.formController(form);
 	const gallery = form.querySelector('[data-nkp-gallery]');
 	const galleryAdd = form.querySelector('[data-nkp-gallery-add]');
 	const galleryTemplate = document.querySelector('[data-nkp-gallery-item]');
-
-	let dirty = false;
-	let pendingUploads = 0;
-	let saving = false;
 
 	// ---------------------------------------------------------------- Fotos
 
@@ -38,10 +34,9 @@
 		image.src = preview;
 		image.hidden = false;
 		photo.classList.add('has-image', 'is-uploading');
-		pendingUploads++;
 
 		try {
-			const data = await base.upload(file);
+			const data = await controller.upload(file);
 			idInput.value = data.id;
 			image.src = data.url;
 			markDirty();
@@ -58,7 +53,6 @@
 		} finally {
 			URL.revokeObjectURL(preview);
 			photo.classList.remove('is-uploading');
-			pendingUploads--;
 		}
 	}
 
@@ -120,10 +114,8 @@
 	// ---------------------------------------------------------------- Speichern
 
 	function markDirty() {
-		dirty = true;
+		controller.dirty = true;
 	}
-
-	form.addEventListener('input', markDirty);
 
 	// Vorschau, wie das Produkt im Shop heißen wird
 	const motifInput = form.elements.motif;
@@ -133,9 +125,6 @@
 		namePreview.hidden = motif === '';
 		namePreview.querySelector('strong').textContent = motifInput.dataset.nkpNamePattern.replace('%s', motif);
 	});
-	form.addEventListener('change', markDirty);
-
-	base.warnUnsaved(() => dirty);
 
 	function renderBackups(backups) {
 		const section = document.querySelector('[data-nkp-backups]');
@@ -312,8 +301,7 @@
 	let suggestion = null;
 
 	suggestButton?.addEventListener('click', async () => {
-		if (pendingUploads > 0) {
-			showToast(i18n.waitForUpload, 'info');
+		if (!controller.ready()) {
 			return;
 		}
 		suggestButton.disabled = true;
@@ -363,40 +351,14 @@
 
 	// ---------------------------------------------------------------- Speichern
 
-	async function save() {
-		if (saving) {
-			return;
-		}
-		if (pendingUploads > 0) {
-			showToast(i18n.waitForUpload, 'info');
-			return;
-		}
-
-		saving = true;
-		base.clearFieldErrors(form);
-		submitButton.disabled = true;
-		submitButton.textContent = i18n.saving;
-
-		try {
-			form.elements.description.value = cleanHTML();
-			const data = await post('novemberkind_produkte_save', new FormData(form));
-			dirty = false;
-			applySaved(data);
-			showToast(data.message);
-		} catch (error) {
-			base.showFieldErrors(form, error.fields);
-			showToast(error.message, 'error');
-		} finally {
-			saving = false;
-			submitButton.disabled = false;
-			submitButton.textContent = i18n.save;
-		}
-	}
-
-	form.addEventListener('submit', (event) => {
-		event.preventDefault();
-		save();
+	controller.action = 'novemberkind_produkte_save';
+	controller.beforeSend(() => {
+		form.elements.description.value = cleanHTML();
 	});
+	controller.onSaved = (data) => {
+		applySaved(data);
+		showToast(data.message);
+	};
 
 	// Safari rechnet Felder mit festem Seitenverhältnis nach dem Drehen nicht immer neu
 	const relayoutPhotos = () => {
@@ -408,6 +370,4 @@
 	};
 	window.addEventListener('orientationchange', () => setTimeout(relayoutPhotos, RELAYOUT_DELAY_MS));
 	window.screen.orientation?.addEventListener('change', () => setTimeout(relayoutPhotos, RELAYOUT_DELAY_MS));
-
-	base.onSaveShortcut(save);
 })();

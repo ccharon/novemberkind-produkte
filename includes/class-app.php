@@ -30,7 +30,7 @@ final class App
         'gutscheine/(neu|\d+)'  => ['coupon_form', 'coupons', 'forms'],
         'newsletter'            => ['newsletters', 'newsletter', 'forms'],
         'newsletter/abonnenten' => ['subscribers', 'newsletter', 'forms'],
-        'newsletter/(neu|\d+)'  => ['newsletter_form', 'newsletter', 'forms'],
+        'newsletter/(neu|\d+)'  => ['newsletter_form', 'newsletter', 'newsletter-form'],
     ];
 
     /**
@@ -257,6 +257,7 @@ final class App
         $script('overview', 'assets/js/overview.js', ['novemberkind-produkte-common']);
         $script('product-form', 'assets/js/product-form.js', ['novemberkind-produkte-common']);
         $script('forms', 'assets/js/forms.js', ['novemberkind-produkte-common']);
+        $script('newsletter-form', 'assets/js/newsletter-form.js', ['novemberkind-produkte-forms']);
         $script('vine', 'assets/js/vine.js', ['novemberkind-produkte-common']);
 
         wp_localize_script('novemberkind-produkte-common', 'novemberkindConfig', [
@@ -286,7 +287,7 @@ final class App
                 'resetText'    => __('Deine Änderungen an der Beschreibung gehen dabei verloren. Trotzdem neu erstellen?', 'novemberkind-produkte'),
             ],
         ]);
-        wp_localize_script('novemberkind-produkte-forms', 'novemberkindFormulare', [
+        wp_localize_script('novemberkind-produkte-newsletter-form', 'novemberkindNewsletter', [
             'i18n' => [
                 'testSending' => __('Wird verschickt …', 'novemberkind-produkte'),
                 'linkPrompt'  => __('Adresse des Links, z. B. https://novemberkind.art/shop/', 'novemberkind-produkte'),

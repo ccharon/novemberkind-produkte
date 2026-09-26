@@ -135,7 +135,7 @@ $status_labels = [
             </div>
 
             <div class="nkp-picker" data-nkp-show-for="scope:products" <?php echo $scope === 'products' ? '' : 'hidden'; ?>>
-                <input type="search" class="nkp-picker__filter" data-nkp-product-filter autocomplete="off"
+                <input type="search" class="nkp-picker__filter" data-nkp-product-filter data-nkp-not-dirty autocomplete="off"
                        placeholder="<?php esc_attr_e('Name oder Artikelnummer suchen', 'novemberkind-produkte'); ?>"
                        aria-label="<?php esc_attr_e('Produkte filtern', 'novemberkind-produkte'); ?>">
                 <div class="nkp-picker__list">

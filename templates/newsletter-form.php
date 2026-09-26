@@ -132,7 +132,7 @@ $badge = ['draft' => 'draft', 'scheduled' => 'campaign-planned', 'sending' => 'c
             <h2 class="nkp-panel__title"><?php esc_html_e('Produkte zeigen', 'novemberkind-produkte'); ?></h2>
             <p class="nkp-field__hint"><?php esc_html_e('Erscheinen unter dem Text mit Foto, Name und Preis zum Zeitpunkt des Versands.', 'novemberkind-produkte'); ?></p>
             <div class="nkp-picker">
-                <input type="search" class="nkp-picker__filter" data-nkp-product-filter autocomplete="off"
+                <input type="search" class="nkp-picker__filter" data-nkp-product-filter data-nkp-not-dirty autocomplete="off"
                        placeholder="<?php esc_attr_e('Name oder Artikelnummer suchen', 'novemberkind-produkte'); ?>"
                        aria-label="<?php esc_attr_e('Produkte filtern', 'novemberkind-produkte'); ?>">
                 <div class="nkp-picker__list">
