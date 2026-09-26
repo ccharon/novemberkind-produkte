@@ -801,6 +801,10 @@ check('Entwurf gespeichert, Betreff unverändert', $draft['status'] === 'draft' 
 check('Inhalt ohne Skript', !str_contains($draft['content'], 'script') && str_contains($draft['content'], '<strong>du</strong>'));
 $rendered = NewsletterMail::render($draft);
 check('Mail mit Vorschauzeile, Produkt und Abmeldelink', str_contains($rendered['html'], 'Neue Sticker') && str_contains($rendered['html'], 'Sticker: Newslettertest') && str_contains($rendered['html'], 'nkp-newsletter=abmelden&#038;t=' . NewsletterMail::TOKEN_PLACEHOLDER));
+$store_address = get_option('woocommerce_store_address');
+update_option('woocommerce_store_address', 'Teststraße 12');
+check('Fuß der Mail ohne Anschrift, mit Shopname', !str_contains(NewsletterMail::render($draft)['html'], 'Teststraße') && preg_match('/#d7dce2;">\s*' . preg_quote(esc_html(get_bloginfo('name')), '/') . '\s*</', $rendered['html']) === 1);
+update_option('woocommerce_store_address', $store_address);
 $logo_url = (string) wp_get_attachment_image_url((int) get_option('site_logo'), 'medium');
 check('Mail mit dem Logo des Shops im Kopf', $logo_url !== '' && str_contains($rendered['html'], 'src="' . $logo_url . '"'));
 check('Textfassung mit Link und Preis', str_contains($rendered['text'], 'hier entlang (https://example.org/neu/)') && str_contains($rendered['text'], '2,50'));

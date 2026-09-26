@@ -9,7 +9,6 @@
  * @var string                $unsubscribe_url Abmeldelink, leer bei der Bestätigungsmail
  * @var string                $shop            Name des Shops
  * @var string                $home            Startseite des Shops
- * @var string[]              $footer          Name und Adresse
  * @var string                $imprint         Impressum, falls bekannt
  * @var string                $privacy         Datenschutzerklärung, falls bekannt
  * @var string                $logo            Logo des Shops, leer ohne Logo
@@ -70,7 +69,7 @@ $footer_link = 'color:#ffffff;text-decoration:underline;';
         </tr>
         <tr>
             <td align="center" style="background:<?php echo esc_attr($colors['footer']); ?>;padding:28px 16px;font-size:13px;line-height:1.7;color:#d7dce2;">
-                <?php echo esc_html(implode(' · ', $footer)); ?>
+                <?php echo esc_html($shop); ?>
                 <?php if ($imprint !== '' || $privacy !== '') : ?>
                     <br>
                 <?php endif; ?>

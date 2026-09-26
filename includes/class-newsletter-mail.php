@@ -167,13 +167,12 @@ final class NewsletterMail
     }
 
     /**
-     * Rahmen der Mail: Kopf mit Logo oder Shopname, Inhalt, Fuß mit Adresse und rechtlichen Links.
+     * Rahmen der Mail: Kopf mit Logo oder Shopname, Inhalt, Fuß mit Shopname und rechtlichen Links.
      */
     private static function layout(string $subject, string $preheader, string $content, string $unsubscribe_url): string
     {
         $shop    = get_bloginfo('name');
         $home    = home_url('/');
-        $footer  = self::footer_lines();
         $imprint = function_exists('wc_gzd_get_page_permalink') ? (string) wc_gzd_get_page_permalink('imprint') : '';
         $privacy = get_privacy_policy_url();
         $logo    = self::logo_url();
@@ -199,19 +198,6 @@ final class NewsletterMail
         }
 
         return $url ?: '';
-    }
-
-    /**
-     * Name und Adresse des Shops aus den WooCommerce-Einstellungen.
-     *
-     * @return string[]
-     */
-    private static function footer_lines(): array
-    {
-        $street = trim(get_option('woocommerce_store_address', '') . ' ' . get_option('woocommerce_store_address_2', ''));
-        $city   = trim(get_option('woocommerce_store_postcode', '') . ' ' . get_option('woocommerce_store_city', ''));
-
-        return array_values(array_filter([wp_specialchars_decode(get_bloginfo('name'), ENT_QUOTES), $street, $city]));
     }
 
     /**
