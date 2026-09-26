@@ -16,8 +16,10 @@ final class Subscribers
     public const POST_TYPE = 'novemberkind_abo';
     public const META = '_novemberkind_produkte_subscriber';
     public const META_TOKEN = '_novemberkind_produkte_token';
-    // Die Adresse steht im Metafeld, weil WordPress im Titel für Besucher & zu &amp; macht
+    // Die Adresse steht nur im Metafeld, weil WordPress im Titel für Besucher & zu &amp; macht
     public const META_EMAIL = '_novemberkind_produkte_email';
+    private const TITLE = 'Abonnent';
+    private const PRIVACY_GROUP = 'novemberkind-produkte-newsletter';
     public const SOURCES = ['form', 'checkout'];
     public const PENDING_DAYS = 7;
     // Schützt Postfächer davor, über das öffentliche Formular mit Bestätigungsmails überhäuft zu werden
@@ -37,6 +39,11 @@ final class Subscribers
         add_action('admin_post_' . self::CSV_ACTION, [$this, 'download_csv']);
         // Täglich, damit unbestätigte Adressen auch ohne neue Anmeldungen nach der Frist verschwinden
         add_action(self::CLEANUP_HOOK, [$this, 'cleanup']);
+        // Werkzeuge > Personenbezogene Daten exportieren und löschen. Nach Priorität 10, weil Germanized
+        // dort eine neue Liste zurückgibt und damit alle vorher angemeldeten verwirft.
+        add_filter('wp_privacy_personal_data_exporters', [$this, 'register_exporter'], 20);
+        add_filter('wp_privacy_personal_data_erasers', [$this, 'register_eraser'], 20);
+        add_action('admin_init', [$this, 'add_privacy_policy_content']);
         add_action('init', static function (): void {
             if (!wp_next_scheduled(self::CLEANUP_HOOK)) {
                 wp_schedule_event(time() + HOUR_IN_SECONDS, 'daily', self::CLEANUP_HOOK);
@@ -123,16 +130,29 @@ final class Subscribers
      */
     public static function find(string $email): ?array
     {
-        $posts = get_posts([
+        $ids = self::ids_for_email($email);
+
+        return $ids ? self::get($ids[0]) : null;
+    }
+
+    /**
+     * Alle Einträge einer Adresse. Zwei gleichzeitige Anmeldungen können dieselbe Adresse doppelt anlegen.
+     *
+     * @return int[]
+     */
+    private static function ids_for_email(string $email): array
+    {
+        return array_map('intval', get_posts([
             'post_type'      => self::POST_TYPE,
             'post_status'    => 'private',
             'meta_key'       => self::META_EMAIL, // phpcs:ignore WordPress.DB.SlowDBQuery -- wenige Einträge
-            'meta_value'     => strtolower($email), // phpcs:ignore WordPress.DB.SlowDBQuery -- wenige Einträge
-            'posts_per_page' => 1,
+            'meta_value'     => strtolower(trim($email)), // phpcs:ignore WordPress.DB.SlowDBQuery -- wenige Einträge
+            'posts_per_page' => -1,
+            'orderby'        => 'ID',
+            'order'          => 'ASC',
+            'fields'         => 'ids',
             'no_found_rows'  => true,
-        ]);
-
-        return $posts ? self::from_post($posts[0]) : null;
+        ]));
     }
 
     /**
@@ -182,7 +202,7 @@ final class Subscribers
         $id = $existing['id'] ?? wp_insert_post([
             'post_type'   => self::POST_TYPE,
             'post_status' => 'private',
-            'post_title'  => $email,
+            'post_title'  => self::TITLE,
         ], true);
         if (is_wp_error($id) || $id === 0) {
             return new \WP_Error('save', __('Die Anmeldung hat nicht geklappt. Bitte versuche es später noch einmal.', 'novemberkind-produkte'));
@@ -232,14 +252,24 @@ final class Subscribers
         if ($subscriber === null) {
             return false;
         }
-        // Zwei gleichzeitige Anmeldungen können dieselbe Adresse doppelt anlegen, abgemeldet werden alle
-        foreach (self::all() as $other) {
-            if ($other['email'] === $subscriber['email']) {
-                $this->remove($other['id']);
-            }
-        }
+        $this->remove_email($subscriber['email']);
 
         return true;
+    }
+
+    /**
+     * Löscht alle Einträge einer Adresse.
+     *
+     * @return int Zahl der gelöschten Einträge
+     */
+    public function remove_email(string $email): int
+    {
+        $removed = 0;
+        foreach (self::ids_for_email($email) as $id) {
+            $removed += (int) $this->remove($id);
+        }
+
+        return $removed;
     }
 
     /**
@@ -315,6 +345,95 @@ final class Subscribers
         // BOM, damit Excel die Umlaute richtig liest
         echo "\xEF\xBB\xBF" . self::csv(); // phpcs:ignore WordPress.Security.EscapeOutput -- CSV mit Content-Type text/csv und nosniff
         exit;
+    }
+
+    /**
+     * @return array<mixed>
+     */
+    public function register_exporter(mixed $exporters): array
+    {
+        return (is_array($exporters) ? $exporters : []) + [self::PRIVACY_GROUP => [
+            'exporter_friendly_name' => __('Newsletter', 'novemberkind-produkte'),
+            'callback'               => [$this, 'export_personal_data'],
+        ]];
+    }
+
+    /**
+     * @return array<mixed>
+     */
+    public function register_eraser(mixed $erasers): array
+    {
+        return (is_array($erasers) ? $erasers : []) + [self::PRIVACY_GROUP => [
+            'eraser_friendly_name' => __('Newsletter', 'novemberkind-produkte'),
+            'callback'             => [$this, 'erase_personal_data'],
+        ]];
+    }
+
+    /**
+     * Anmeldung einer Adresse für den Datenexport von WordPress.
+     *
+     * @return array{data: array<int, array<string, mixed>>, done: bool}
+     */
+    public function export_personal_data(mixed $email): array
+    {
+        $items = [];
+        foreach (self::ids_for_email(is_string($email) ? $email : '') as $id) {
+            $subscriber = self::get($id);
+            if ($subscriber === null) {
+                continue;
+            }
+            $items[] = [
+                'group_id'    => self::PRIVACY_GROUP,
+                'group_label' => __('Newsletter', 'novemberkind-produkte'),
+                'item_id'     => 'newsletter-' . $id,
+                'data'        => [
+                    ['name' => __('E-Mail-Adresse', 'novemberkind-produkte'), 'value' => $subscriber['email']],
+                    ['name' => __('Status', 'novemberkind-produkte'), 'value' => $subscriber['status'] === 'confirmed' ? __('Bestätigt', 'novemberkind-produkte') : __('Nicht bestätigt', 'novemberkind-produkte')],
+                    ['name' => __('Angemeldet', 'novemberkind-produkte'), 'value' => wp_date('Y-m-d H:i', $subscriber['created'])],
+                    ['name' => __('Bestätigt', 'novemberkind-produkte'), 'value' => $subscriber['confirmed'] ? wp_date('Y-m-d H:i', $subscriber['confirmed']) : ''],
+                    ['name' => __('Quelle', 'novemberkind-produkte'), 'value' => self::source_label($subscriber['source'])],
+                ],
+            ];
+        }
+
+        return ['data' => $items, 'done' => true];
+    }
+
+    /**
+     * Löscht die Anmeldung einer Adresse für die Löschanfrage von WordPress.
+     *
+     * @return array{items_removed: bool, items_retained: bool, messages: string[], done: bool}
+     */
+    public function erase_personal_data(mixed $email): array
+    {
+        $removed = $this->remove_email(is_string($email) ? $email : '');
+
+        return ['items_removed' => $removed > 0, 'items_retained' => false, 'messages' => [], 'done' => true];
+    }
+
+    /**
+     * Textvorschlag für die Datenschutzerklärung unter Einstellungen > Datenschutz.
+     */
+    public function add_privacy_policy_content(): void
+    {
+        if (!function_exists('wp_add_privacy_policy_content')) {
+            return;
+        }
+        $paragraphs = [
+            __('Wenn du dich für den Newsletter anmeldest, speichern wir deine E-Mail-Adresse, die Zeitpunkte von Anmeldung und Bestätigung und ob du dich über das Formular oder an der Kasse angemeldet hast. Rechtsgrundlage ist deine Einwilligung nach Art. 6 Abs. 1 lit. a DSGVO.', 'novemberkind-produkte'),
+            sprintf(
+                /* translators: %d: Tage bis zur Löschung */
+                __('Nach der Anmeldung bekommst du eine Mail mit einem Link zur Bestätigung (Double-Opt-In). Ohne Bestätigung löschen wir die Adresse nach %d Tagen.', 'novemberkind-produkte'),
+                self::PENDING_DAYS
+            ),
+            __('Zum Schutz vor Missbrauch merken wir uns beim Anmelden über das Formular für eine Stunde einen nicht umkehrbaren Hashwert deiner IP-Adresse. Die IP-Adresse selbst speichern wir nicht.', 'novemberkind-produkte'),
+            __('Wir werten nicht aus, ob du den Newsletter öffnest oder Links darin anklickst.', 'novemberkind-produkte'),
+            __('Abmelden kannst du dich jederzeit über den Link in jeder Mail. Deine Adresse wird dann gelöscht.', 'novemberkind-produkte'),
+        ];
+        wp_add_privacy_policy_content(
+            __('Novemberkind Produkte: Newsletter', 'novemberkind-produkte'),
+            '<h2>' . esc_html__('Newsletter', 'novemberkind-produkte') . '</h2><p>' . implode('</p><p>', array_map('esc_html', $paragraphs)) . '</p>'
+        );
     }
 
     public static function source_label(string $source): string

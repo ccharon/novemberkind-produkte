@@ -24,6 +24,7 @@ final class Backups
     {
         add_action('init', [$this, 'register_post_type']);
         add_action('admin_post_' . self::DOWNLOAD_ACTION, [$this, 'download']);
+        add_action('before_delete_post', [$this, 'delete_for_product']);
     }
 
     /**
@@ -158,6 +159,21 @@ final class Backups
         header(sprintf('Content-Disposition: %s; filename="%s"', $inline ? 'inline' : 'attachment', sanitize_file_name($filename)));
         echo self::snapshot($backup->ID); // phpcs:ignore WordPress.Security.EscapeOutput -- JSON mit Content-Type application/json und nosniff
         exit;
+    }
+
+    /**
+     * Löscht die Sicherungen eines Produkts, wenn es endgültig gelöscht wird. Der Papierkorb behält sie.
+     */
+    public function delete_for_product(mixed $post_id): void
+    {
+        if (!is_numeric($post_id) || get_post_type((int) $post_id) !== 'product') {
+            return;
+        }
+        foreach ($this->for_product((int) $post_id) as $backup) {
+            if (get_post_type($backup) === self::POST_TYPE) {
+                wp_delete_post($backup->ID, true);
+            }
+        }
     }
 
     /**

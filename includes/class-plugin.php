@@ -12,6 +12,7 @@ defined('ABSPATH') || exit;
 final class Plugin
 {
     public const CAPABILITY = 'edit_products';
+    private const DB_VERSION_OPTION = 'novemberkind_produkte_db_version';
 
     /**
      * Startet alle Teile des Plugins; ohne WooCommerce nur den Updater.
@@ -20,6 +21,7 @@ final class Plugin
     {
         // Updates auch ohne aktives WooCommerce, damit sich ein fehlerhaftes Release beheben lässt
         (new Updater())->register();
+        self::upgrade();
 
         if (!class_exists(\WooCommerce::class)) {
             return;
@@ -58,11 +60,21 @@ final class Plugin
     }
 
     /**
-     * Merkt sich bei der Aktivierung, ob der Server WebP schreiben kann.
+     * Passt gespeicherte Daten einmalig an den Stand dieser Version an. Updates über WordPress
+     * lösen keinen Aktivierungs-Hook aus, deshalb bei jedem Laden mit einer gemerkten Version.
      */
-    public static function activate(): void
+    public static function upgrade(): void
     {
-        update_option('novemberkind_produkte_webp_supported', self::webp_supported() ? 'yes' : 'no');
+        $version = (int) get_option(self::DB_VERSION_OPTION, 0);
+        $steps   = [
+            1 => static fn() => delete_option('novemberkind_produkte_webp_supported'),
+        ];
+        foreach ($steps as $step => $run) {
+            if ($version < $step) {
+                $run();
+                update_option(self::DB_VERSION_OPTION, $step, true);
+            }
+        }
     }
 
     /**

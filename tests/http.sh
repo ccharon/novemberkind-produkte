@@ -62,6 +62,7 @@ ADMIN_JAR=$TMP/admin-cookies
 curl -s -c "$ADMIN_JAR" -b "$ADMIN_JAR" -o /dev/null "$BASE/wp-login.php"
 check 'Administrator landet nach Login im Backend' \
   "$(location -c "$ADMIN_JAR" -b "$ADMIN_JAR" -d 'log=admin&pwd=password&testcookie=1' "$BASE/wp-login.php")" "$BASE/wp-admin/"
+check 'Textvorschlag für die Datenschutzerklärung' "$(curl -s -b "$ADMIN_JAR" "$BASE/wp-admin/options-privacy.php?tab=policyguide" | grep -c 'Double-Opt-In')" 1
 
 bin/wp user get kunde >/dev/null 2>&1 || bin/wp user create kunde kunde@example.org --role=customer --user_pass=password >/dev/null
 CUSTOMER_JAR=$TMP/customer-cookies

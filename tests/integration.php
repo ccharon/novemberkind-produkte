@@ -69,6 +69,12 @@ wp_set_current_user(get_user_by('login', 'shop')->ID);
 $service   = new ProductService();
 $germanized = function_exists('wc_gzd_get_product');
 
+section('Datenbank-Stand');
+update_option('novemberkind_produkte_webp_supported', 'yes');
+update_option('novemberkind_produkte_db_version', 0);
+NovemberkindProdukte\Plugin::upgrade();
+check('Upgrade entfernt die alte WebP-Option und merkt sich den Stand', get_option('novemberkind_produkte_webp_supported') === false && (int) get_option('novemberkind_produkte_db_version') === 1);
+
 section('Eingaben einlesen');
 foreach (['24,90' => '24.90', '24.90' => '24.90', '1.234,50' => '1234.50', '5' => '5.00', ' 9,5 € ' => '9.50'] as $in => $out) {
     check("Preis „{$in}“ → {$out}", ProductService::parse_price($in) === $out);
@@ -489,6 +495,13 @@ check('ohne Sicherung wird nichts gespeichert', is_wp_error($blocked) && wc_get_
 foreach ($backups->for_product($backup_button->get_id()) as $leftover) {
     wp_delete_post($leftover->ID, true);
 }
+$doomed = $service->save(ProductType::get('button'), ['sku' => ShopData::next_sku(), 'motif' => 'Löschtest', 'price' => '4,5']);
+$doomed = $service->save(ProductType::get('button'), ['sku' => $doomed->get_sku(), 'motif' => 'Löschtest', 'price' => '4,6'], $doomed->get_id());
+$doomed_id = $doomed->get_id();
+$doomed->delete(false);
+check('Papierkorb behält die Sicherungen', count($backups->for_product($doomed_id)) === 1);
+wc_get_product($doomed_id)->delete(true);
+check('endgültig gelöschtes Produkt nimmt seine Sicherungen mit', $backups->for_product($doomed_id) === [] && get_posts(['post_type' => NovemberkindProdukte\Backups::POST_TYPE, 'post_status' => 'any', 'post_parent' => $doomed_id, 'fields' => 'ids']) === []);
 
 section('Angebotspreis im Formular');
 $offer = $service->save(ProductType::get('sticker'), ['sku' => ShopData::next_sku(), 'motif' => 'Angebotstest', 'price' => '2,5', 'sale' => '1,99', 'width' => '5', 'height' => '5', 'finish' => 'matt']);
@@ -740,6 +753,16 @@ $subscribers->cleanup();
 check('Aufräumen lässt frische und alte bestätigte Adressen stehen', Subscribers::get($fresh['id']) !== null && Subscribers::find('test-abo@example.org') !== null);
 check('Aufräumen läuft täglich über WP-Cron', wp_get_schedule(Subscribers::CLEANUP_HOOK) === 'daily');
 check('CSV mit bestätigter Adresse', str_contains(Subscribers::csv(), '"test-abo@example.org";') && !str_contains(Subscribers::csv(), 'test-alt@'));
+check('Adresse steht nicht im Titel des Eintrags', !str_contains(get_the_title($pending['id']), '@'));
+$exporters = apply_filters('wp_privacy_personal_data_exporters', []);
+$erasers = apply_filters('wp_privacy_personal_data_erasers', []);
+check('beim Datenexport und Löschen von WordPress angemeldet', isset($exporters['novemberkind-produkte-newsletter'], $erasers['novemberkind-produkte-newsletter']));
+$exported = call_user_func($exporters['novemberkind-produkte-newsletter']['callback'], 'Test-Abo@example.org', 1);
+check('Datenexport enthält Adresse, Status und Quelle', count($exported['data']) === 1 && $exported['done'] && in_array('test-abo@example.org', array_column($exported['data'][0]['data'], 'value'), true) && in_array('Kasse', array_column($exported['data'][0]['data'], 'value'), true));
+$subscribers->subscribe('test-loeschen@example.org', 'form');
+$erased = call_user_func($erasers['novemberkind-produkte-newsletter']['callback'], 'test-loeschen@example.org', 1);
+check('Löschanfrage entfernt die Anmeldung', $erased['items_removed'] && $erased['done'] && Subscribers::find('test-loeschen@example.org') === null);
+check('Löschanfrage für unbekannte Adresse', call_user_func($erasers['novemberkind-produkte-newsletter']['callback'], 'unbekannt@example.org', 1)['items_removed'] === false);
 $formula = $confirm_new('=1+1@example.org');
 check('CSV entschärft Werte, die wie Formeln aussehen', str_contains(Subscribers::csv(), '"\'=1+1@example.org";'));
 
