@@ -408,7 +408,7 @@
 	});
 
 	form.addEventListener('input', (event) => {
-		if (event.target !== filter) {
+		if (event.target !== filter && !event.target.hasAttribute('data-nkp-not-dirty')) {
 			dirty = true;
 		}
 	});

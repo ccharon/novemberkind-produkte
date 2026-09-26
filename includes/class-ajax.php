@@ -70,13 +70,22 @@ final class Ajax
     }
 
     /**
-     * Schickt den aktuellen Stand des Formulars an die Adresse des angemeldeten Kontos.
+     * Schickt den aktuellen Stand des Formulars an die Adresse aus dem Feld „Testmail an“ und merkt sie sich.
      */
     public function test_newsletter(): void
     {
         $this->authorize(Newsletters::CAPABILITY);
 
-        $email = wp_get_current_user()->user_email;
+        $user = wp_get_current_user();
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
+        $email = strtolower(trim(sanitize_email(wp_unslash(Plugin::input($_POST, 'test_email', Newsletters::test_email($user))))));
+        if (!is_email($email)) {
+            wp_send_json_error([
+                'message' => __('Bitte prüfe die markierten Felder.', 'novemberkind-produkte'),
+                'fields'  => ['test_email' => __('Bitte gib eine gültige E-Mail-Adresse ein.', 'novemberkind-produkte')],
+            ], 422);
+        }
+
         // phpcs:ignore WordPress.Security.NonceVerification.Missing -- in authorize() geprüft
         $result = (new Newsletters())->send_test($_POST, $email);
         if (is_wp_error($result)) {
@@ -85,6 +94,7 @@ final class Ajax
                 'fields'  => $result->get_error_data() ?: new \stdClass(),
             ], 422);
         }
+        update_user_meta($user->ID, Newsletters::META_TEST_EMAIL, $email);
 
         /* translators: %s: E-Mail-Adresse */
         wp_send_json_success(['message' => sprintf(__('Die Testmail ist an %s unterwegs.', 'novemberkind-produkte'), $email)]);

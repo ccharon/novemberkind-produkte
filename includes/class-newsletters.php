@@ -16,6 +16,8 @@ final class Newsletters
     public const POST_TYPE = 'novemberkind_ausgabe';
     public const META = '_novemberkind_produkte_newsletter';
     public const META_QUEUE = '_novemberkind_produkte_queue';
+    // Am Benutzerkonto: zuletzt benutzte Adresse für Testmails
+    public const META_TEST_EMAIL = '_novemberkind_produkte_test_email';
     public const CAPABILITY = 'manage_woocommerce';
     public const STATUSES = ['draft', 'scheduled', 'sending', 'sent'];
     public const SEND_MODES = ['draft', 'now', 'scheduled'];
@@ -369,6 +371,16 @@ final class Newsletters
         $value = constant('NOVEMBERKIND_PRODUKTE_NEWSLETTER_PER_MINUTE');
 
         return is_numeric($value) ? max(1, min(self::BATCH_SIZE_MAX, (int) $value)) : self::BATCH_SIZE;
+    }
+
+    /**
+     * Adresse für Testmails: die zuletzt benutzte, sonst die des Kontos.
+     */
+    public static function test_email(\WP_User $user): string
+    {
+        $email = get_user_meta($user->ID, self::META_TEST_EMAIL, true);
+
+        return is_string($email) && is_email($email) ? $email : $user->user_email;
     }
 
     /**

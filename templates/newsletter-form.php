@@ -8,6 +8,7 @@
  * @var int    $recipients bestätigte Abonnenten
  * @var int    $remaining  noch nicht verschickt
  * @var string $from       Absender
+ * @var string $test_email Empfänger der Testmail
  */
 
 declare(strict_types=1);
@@ -186,13 +187,18 @@ $badge = ['draft' => 'draft', 'scheduled' => 'campaign-planned', 'sending' => 'c
                     echo esc_html(sprintf(__('Absender: %s', 'novemberkind-produkte'), $from));
                     ?>
                 </p>
+                <label class="nkp-field">
+                    <span class="nkp-field__label"><?php esc_html_e('Testmail an', 'novemberkind-produkte'); ?></span>
+                    <input type="email" name="test_email" autocomplete="email" inputmode="email" value="<?php echo esc_attr($test_email); ?>" data-nkp-not-dirty>
+                    <?php $field_error('test_email'); ?>
+                </label>
             </section>
         <?php endif; ?>
     </fieldset>
 
     <?php if (!$is_locked) : ?>
         <div class="nkp-campaign-form__actions">
-            <button type="button" class="nkp-button nkp-button--secondary" data-nkp-test="novemberkind_produkte_test_newsletter"><?php esc_html_e('Testmail an mich', 'novemberkind-produkte'); ?></button>
+            <button type="button" class="nkp-button nkp-button--secondary" data-nkp-test="novemberkind_produkte_test_newsletter"><?php esc_html_e('Testmail schicken', 'novemberkind-produkte'); ?></button>
             <button type="submit" class="nkp-button nkp-button--primary" data-nkp-submit><?php esc_html_e('Speichern', 'novemberkind-produkte'); ?></button>
         </div>
     <?php endif; ?>

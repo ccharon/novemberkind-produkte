@@ -512,6 +512,7 @@ final class App
             'recipients' => Subscribers::counts()['confirmed'],
             'remaining'  => $issue ? Newsletters::remaining($issue['id']) : 0,
             'from'       => NewsletterMail::from_label(),
+            'test_email' => Newsletters::test_email(wp_get_current_user()),
         ];
     }
 

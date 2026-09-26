@@ -216,6 +216,12 @@ check 'Knopf bestätigt die Anmeldung' "$(curl -s -o /dev/null -w '%{http_code}'
 
 check 'Testmail erfolgreich' "$(ajax -d action=novemberkind_produkte_test_newsletter -d "nonce=$nonce" -d subject=HTTP-Test --data-urlencode 'content=<p>Hallo</p>')" 200
 check 'Testmail angekommen' "$(mail_text shop@example.org | grep -c 'Hallo')" 1
+bin/wp user meta delete shop _novemberkind_produkte_test_email >/dev/null 2>&1 || true
+check 'Feld „Testmail an“ mit der Adresse des Kontos' "$(curl -s -b "$JAR" "$APP/newsletter/neu/" | grep -c 'name="test_email"[^>]*value="shop@example.org"')" 1
+check 'ungültiger Empfänger der Testmail liefert Fehler am Feld' "$(ajax -d action=novemberkind_produkte_test_newsletter -d "nonce=$nonce" -d subject=HTTP-Test -d test_email=keine-adresse --data-urlencode 'content=<p>Hallo</p>')/$(grep -c '"test_email"' "$TMP/body")" 422/1
+check 'Testmail an eine andere Adresse' "$(ajax -d action=novemberkind_produkte_test_newsletter -d "nonce=$nonce" -d subject=HTTP-Test -d test_email=Heike@Example.org --data-urlencode 'content=<p>Hallo Heike</p>')/$(mail_text heike@example.org | grep -c 'Hallo Heike')" 200/1
+check 'Formular merkt sich den Empfänger der Testmail' "$(curl -s -b "$JAR" "$APP/newsletter/neu/" | grep -c 'name="test_email"[^>]*value="heike@example.org"')" 1
+bin/wp user meta delete shop _novemberkind_produkte_test_email >/dev/null
 check 'Verschicken erfolgreich' "$(ajax -d action=novemberkind_produkte_save_newsletter -d "nonce=$nonce" -d subject=HTTP-Newsletter --data-urlencode 'content=<p>Neuigkeiten</p>' -d send=now)" 200
 issue_id=$(grep -oP '"id":\K\d+' "$TMP/body")
 bin/wp action-scheduler run --hooks=novemberkind_produkte_newsletter_batch --quiet >/dev/null 2>&1
