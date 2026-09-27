@@ -76,6 +76,7 @@ require $tests_dir . '/02-produkte.php';
 require $tests_dir . '/03-aktionen-gutscheine.php';
 require $tests_dir . '/04-newsletter.php';
 require $tests_dir . '/05-updater.php';
+require $tests_dir . '/06-abwesenheit.php';
 
 check('unbekannte Produkt-ID liefert Fehler', is_wp_error($service->save(ProductType::get('card'), ['motif' => 'x'], 999999)));
 

@@ -31,6 +31,7 @@ if (is_readable(__DIR__ . '/vendor/autoload.php')) {
 }
 
 require_once __DIR__ . '/includes/class-plugin.php';
+require_once __DIR__ . '/includes/class-absences.php';
 require_once __DIR__ . '/includes/class-admin-page.php';
 require_once __DIR__ . '/includes/class-ajax.php';
 require_once __DIR__ . '/includes/class-app.php';

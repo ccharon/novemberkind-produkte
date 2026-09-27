@@ -29,6 +29,7 @@ final class Plugin
 
         (new Backups())->register();
         (new Campaigns())->register();
+        (new Absences())->register();
         (new Coupons())->register();
         (new Subscribers())->register();
         (new ImageProcessor())->register();

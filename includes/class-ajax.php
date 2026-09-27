@@ -36,6 +36,8 @@ final class Ajax
             'save_newsletter'   => [Newsletters::CAPABILITY],
             'test_newsletter'   => [Newsletters::CAPABILITY],
             'remove_subscriber' => [Newsletters::CAPABILITY],
+            'save_absence'      => [],
+            'end_absence'       => [],
         ];
     }
 
@@ -318,5 +320,24 @@ final class Ajax
         }
 
         self::back_to_list([], App::newsletter_url('abonnenten'), static fn(): string => __('Ausgetragen. Die Adresse ist gelöscht.', 'novemberkind-produkte'));
+    }
+
+    /**
+     * Legt eine Abwesenheit an oder ändert sie.
+     */
+    private function save_absence(): void
+    {
+        self::back_to_list((new Absences())->save($_POST, Input::id($_POST, 'id')), App::absences_url(), static fn(array $absence): string => Absences::status($absence) === 'running'
+            ? __('Gespeichert. Der Hinweis ist jetzt im Shop zu sehen.', 'novemberkind-produkte')
+            /* translators: 1: Datum, 2: Uhrzeit */
+            : self::at(__('Gespeichert. Die Abwesenheit beginnt am %1$s um %2$s Uhr.', 'novemberkind-produkte'), $absence['start']));
+    }
+
+    /**
+     * Beendet eine laufende Abwesenheit sofort oder sagt eine geplante ab.
+     */
+    private function end_absence(): void
+    {
+        self::back_to_list((new Absences())->end(Input::id($_POST, 'id')), App::absences_url(), static fn(): string => __('Die Abwesenheit ist beendet. Im Shop gelten wieder die normalen Lieferzeiten.', 'novemberkind-produkte'));
     }
 }

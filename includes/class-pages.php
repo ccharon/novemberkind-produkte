@@ -136,6 +136,35 @@ final class Pages
     }
 
     /**
+     * Liste der Abwesenheiten.
+     *
+     * @phpstan-return Page
+     * @return array<string, mixed>
+     */
+    public function absences(): array
+    {
+        return self::page('absences', __('Abwesenheit', 'novemberkind-produkte'), ['absences' => Absences::all()]);
+    }
+
+    /**
+     * Formular für eine neue (`$id` = „neu“) oder bestehende Abwesenheit.
+     *
+     * @phpstan-return Page
+     * @return array<string, mixed>
+     */
+    public function absence_form(string $id): array
+    {
+        $absence = $id === 'neu' ? null : Absences::get((int) $id);
+
+        return self::page(
+            'absence-form',
+            $absence ? __('Abwesenheit', 'novemberkind-produkte') : __('Neue Abwesenheit', 'novemberkind-produkte'),
+            $id === 'neu' || $absence ? ['absence' => $absence] : null,
+            __('Diese Abwesenheit gibt es nicht mehr.', 'novemberkind-produkte')
+        );
+    }
+
+    /**
      * Liste der Gutscheine.
      *
      * @phpstan-return Page

@@ -147,6 +147,22 @@ check 'Aktionen: nach dem Ende wieder Normalpreis in der Übersicht' "$(card_on_
 check 'Aktionen: beendete Aktion lässt sich nicht ändern' "$(ajax -d action=novemberkind_produkte_save_campaign -d "nonce=$nonce" -d "id=$campaign_id" -d name=x -d percent=5 -d "start_date=$today" -d start_time=00:00 -d "end_date=$tomorrow" -d scope=all)" 422
 [ -n "$campaign_id" ] && bin/wp post delete "$campaign_id" --force >/dev/null
 
+# Abwesenheit
+check 'Abwesenheit: Liste lädt' "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$APP/abwesenheit/")" 200
+check 'Abwesenheit: Formular lädt' "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$APP/abwesenheit/neu/")" 200
+check 'Abwesenheit: unbekannte Abwesenheit liefert 404' "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$APP/abwesenheit/999999/")" 404
+check 'Abwesenheit: ohne Nonce abgelehnt' "$(ajax -d action=novemberkind_produkte_save_absence -d nonce=falsch -d start=now)" 403
+check 'Abwesenheit: geplant ohne Datum liefert 422' "$(ajax -d action=novemberkind_produkte_save_absence -d "nonce=$nonce" -d start=later -d end=open)" 422
+# Eine von Hand angelegte Abwesenheit würde sich überschneiden
+if [ -z "$(bin/wp eval 'echo NovemberkindProdukte\Absences::current() ? 1 : "";')" ]; then
+  check 'Abwesenheit: Speichern erfolgreich' "$(ajax -d action=novemberkind_produkte_save_absence -d "nonce=$nonce" -d start=now -d end=until -d "end_at_date=$tomorrow" -d end_at_time=10:00 --data-urlencode 'text=HTTP-Abwesenheit')" 200
+  absence_id=$(grep -oP '"id":\K\d+' "$TMP/body")
+  check 'Abwesenheit: Hinweis im Warenkorb' "$(curl -s "$BASE/cart/" | grep -c 'HTTP-Abwesenheit')" 1
+  check 'Abwesenheit: Beenden erfolgreich' "$(ajax -d action=novemberkind_produkte_end_absence -d "nonce=$nonce" -d "id=$absence_id")" 200
+  check 'Abwesenheit: nach dem Ende kein Hinweis im Warenkorb' "$(curl -s "$BASE/cart/" | grep -c 'HTTP-Abwesenheit')" 0
+  [ -n "$absence_id" ] && bin/wp post delete "$absence_id" --force >/dev/null
+fi
+
 # Gutscheine
 check 'Gutscheine: Liste lädt' "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$APP/gutscheine/")" 200
 check 'Gutscheine: Formular lädt' "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$APP/gutscheine/neu/")" 200
