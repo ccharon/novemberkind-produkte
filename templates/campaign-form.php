@@ -143,5 +143,13 @@ include __DIR__ . '/form-header.php';
             <?php endif; ?>
             <button type="submit" class="nkp-button nkp-button--primary" data-nkp-submit><?php esc_html_e('Speichern', 'novemberkind-produkte'); ?></button>
         </div>
+    <?php else : ?>
+        <div class="nkp-simple-form__actions">
+            <?php
+            Html::delete_button('novemberkind_produkte_delete_campaign', Campaigns::is_recent_reference($campaign)
+                ? __('Die Aktion endete vor weniger als 30 Tagen. Ohne sie fehlt bei neuen Aktionen für dieselben Produkte der Hinweis zur 30-Tage-Regel. Trotzdem endgültig löschen?', 'novemberkind-produkte')
+                : __('Die Aktion wird endgültig gelöscht. Löschen?', 'novemberkind-produkte'));
+            ?>
+        </div>
     <?php endif; ?>
 </form>

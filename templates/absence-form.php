@@ -116,5 +116,9 @@ include __DIR__ . '/form-header.php';
             <?php endif; ?>
             <button type="submit" class="nkp-button nkp-button--primary" data-nkp-submit><?php esc_html_e('Speichern', 'novemberkind-produkte'); ?></button>
         </div>
+    <?php else : ?>
+        <div class="nkp-simple-form__actions">
+            <?php Html::delete_button('novemberkind_produkte_delete_absence', __('Die Abwesenheit wird endgültig gelöscht. Löschen?', 'novemberkind-produkte')); ?>
+        </div>
     <?php endif; ?>
 </form>

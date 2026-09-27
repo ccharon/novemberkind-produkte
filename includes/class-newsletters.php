@@ -226,6 +226,45 @@ final class Newsletters
     }
 
     /**
+     * Löscht eine Ausgabe endgültig, außer während des Versands. Eine geplante wird dabei abgesagt.
+     *
+     * @return true|\WP_Error
+     */
+    public function delete(int $id): bool|\WP_Error
+    {
+        if (!self::lock($id)) {
+            return new \WP_Error('busy', __('Der Newsletter wird gerade gespeichert oder verschickt. Bitte lade die Seite neu.', 'novemberkind-produkte'));
+        }
+        try {
+            $issue = self::get($id);
+            if ($issue === null) {
+                return new \WP_Error('not_found', __('Diesen Newsletter gibt es nicht mehr.', 'novemberkind-produkte'));
+            }
+            if (!self::is_deletable($issue)) {
+                return new \WP_Error('sending', __('Der Newsletter wird gerade verschickt. Löschen geht, sobald der Versand fertig ist.', 'novemberkind-produkte'));
+            }
+            $this->unschedule($id);
+            if (!wp_delete_post($id, true)) {
+                return new \WP_Error('delete', __('Der Newsletter konnte nicht gelöscht werden.', 'novemberkind-produkte'));
+            }
+
+            return true;
+        } finally {
+            self::unlock($id);
+        }
+    }
+
+    /**
+     * Ob eine Ausgabe gelöscht werden darf: alles außer einem laufenden Versand.
+     *
+     * @param array<string, mixed> $issue
+     */
+    public static function is_deletable(array $issue): bool
+    {
+        return $issue['status'] !== 'sending';
+    }
+
+    /**
      * Schickt den aktuellen Stand des Formulars an eine Adresse, ohne zu speichern.
      *
      * @param array<string, mixed> $data

@@ -145,7 +145,10 @@ check 'Aktionen: Produktseite im Shop zeigt den Aktionspreis' "$(curl -s "$plain
 check 'Aktionen: Beenden erfolgreich' "$(ajax -d action=novemberkind_produkte_end_campaign -d "nonce=$nonce" -d "id=$campaign_id")" 200
 check 'Aktionen: nach dem Ende wieder Normalpreis in der Übersicht' "$(card_on_sale "$plain_name")" nein
 check 'Aktionen: beendete Aktion lässt sich nicht ändern' "$(ajax -d action=novemberkind_produkte_save_campaign -d "nonce=$nonce" -d "id=$campaign_id" -d name=x -d percent=5 -d "start_date=$today" -d start_time=00:00 -d "end_date=$tomorrow" -d scope=all)" 422
-[ -n "$campaign_id" ] && bin/wp post delete "$campaign_id" --force >/dev/null
+check 'Aktionen: Formular der beendeten Aktion bietet Löschen an' "$(curl -s -b "$JAR" "$APP/aktionen/$campaign_id/" | grep -c 'data-nkp-action="novemberkind_produkte_delete_campaign"')" 1
+check 'Aktionen: Löschen ohne Nonce abgelehnt' "$(ajax -d action=novemberkind_produkte_delete_campaign -d nonce=falsch -d "id=$campaign_id")" 403
+check 'Aktionen: Löschen erfolgreich' "$(ajax -d action=novemberkind_produkte_delete_campaign -d "nonce=$nonce" -d "id=$campaign_id")" 200
+check 'Aktionen: gelöschte Aktion liefert 404' "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$APP/aktionen/$campaign_id/")" 404
 
 # Abwesenheit
 check 'Abwesenheit: Liste lädt' "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$APP/abwesenheit/")" 200
@@ -160,7 +163,8 @@ if [ -z "$(bin/wp eval 'echo NovemberkindProdukte\Absences::current() ? 1 : "";'
   check 'Abwesenheit: Hinweis im Warenkorb' "$(curl -s "$BASE/cart/" | grep -c 'HTTP-Abwesenheit')" 1
   check 'Abwesenheit: Beenden erfolgreich' "$(ajax -d action=novemberkind_produkte_end_absence -d "nonce=$nonce" -d "id=$absence_id")" 200
   check 'Abwesenheit: nach dem Ende kein Hinweis im Warenkorb' "$(curl -s "$BASE/cart/" | grep -c 'HTTP-Abwesenheit')" 0
-  [ -n "$absence_id" ] && bin/wp post delete "$absence_id" --force >/dev/null
+  check 'Abwesenheit: Löschen erfolgreich' "$(ajax -d action=novemberkind_produkte_delete_absence -d "nonce=$nonce" -d "id=$absence_id")" 200
+  check 'Abwesenheit: gelöschte Abwesenheit liefert 404' "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$APP/abwesenheit/$absence_id/")" 404
 fi
 
 # Gutscheine
@@ -172,6 +176,8 @@ check 'Gutscheine: Speichern erfolgreich' "$(ajax -d action=novemberkind_produkt
 coupon_id=$(grep -oP '"id":\K\d+' "$TMP/body")
 check 'Gutscheine: Deaktivieren erfolgreich' "$(ajax -d action=novemberkind_produkte_toggle_coupon -d "nonce=$nonce" -d "id=$coupon_id" -d value=off)" 200
 check 'Gutscheine: Status Entwurf' "$(bin/wp post get "$coupon_id" --field=post_status)" draft
+check 'Gutscheine: Löschen erfolgreich' "$(ajax -d action=novemberkind_produkte_delete_coupon -d "nonce=$nonce" -d "id=$coupon_id")" 200
+check 'Gutscheine: gelöschter Gutschein im Papierkorb' "$(bin/wp post get "$coupon_id" --field=post_status)" trash
 [ -n "$coupon_id" ] && bin/wp post delete "$coupon_id" --force >/dev/null
 
 # Newsletter, Mails landen in Mailpit
@@ -198,6 +204,7 @@ curl -s -c "$LIMITED_JAR" -b "$LIMITED_JAR" -o /dev/null -d 'log=nurprodukte&pwd
 check 'Newsletter-Seiten ohne manage_woocommerce gesperrt' "$(curl -s -b "$LIMITED_JAR" -o /dev/null -w '%{http_code}' "$APP/newsletter/")" 403
 limited_nonce=$(curl -s -b "$LIMITED_JAR" "$APP/neu/button/" | grep -oP 'var novemberkindConfig = .*?"nonce":"\K[a-f0-9]+')
 check 'Newsletter speichern ohne manage_woocommerce abgelehnt' "$(curl -s -b "$LIMITED_JAR" -o /dev/null -w '%{http_code}' -d action=novemberkind_produkte_save_newsletter -d "nonce=$limited_nonce" -d subject=x --data-urlencode 'content=<p>x</p>' "$BASE/wp-admin/admin-ajax.php")" 403
+check 'Newsletter löschen ohne manage_woocommerce abgelehnt' "$(curl -s -b "$LIMITED_JAR" -o /dev/null -w '%{http_code}' -d action=novemberkind_produkte_delete_newsletter -d "nonce=$limited_nonce" -d id=1 "$BASE/wp-admin/admin-ajax.php")" 403
 bin/wp user delete nurprodukte --yes >/dev/null
 bin/wp role delete nkp_nur_produkte >/dev/null
 
@@ -279,7 +286,7 @@ order_id=$(json "d.get('order_id', '')")
 check 'Haken an der Block-Kasse startet die Anmeldung' "$(subscriber_status http-kasse@example.org)" pending
 bin/wp eval '$s = NovemberkindProdukte\Subscribers::find("http-kasse@example.org"); $s && (new NovemberkindProdukte\Subscribers())->remove($s["id"]);' >/dev/null
 [ -n "$order_id" ] && bin/wp eval "wc_get_order($order_id)?->delete(true);" >/dev/null
-[ -n "$issue_id" ] && bin/wp post delete "$issue_id" --force >/dev/null
+check 'Newsletter: verschickter Newsletter gelöscht' "$(ajax -d action=novemberkind_produkte_delete_newsletter -d "nonce=$nonce" -d "id=$issue_id")" 200
 
 echo
 if [ "$failures" -eq 0 ]; then echo 'Alle HTTP-Tests bestanden.'; else echo "$failures HTTP-Test(s) fehlgeschlagen."; fi

@@ -254,6 +254,28 @@ final class Absences
     }
 
     /**
+     * Löscht eine beendete Abwesenheit endgültig.
+     *
+     * @return true|\WP_Error
+     */
+    public function delete(int $id): bool|\WP_Error
+    {
+        $absence = self::get($id);
+        if ($absence === null) {
+            return new \WP_Error('not_found', __('Diese Abwesenheit gibt es nicht mehr.', 'novemberkind-produkte'));
+        }
+        if (self::status($absence) !== 'ended') {
+            return new \WP_Error('active', __('Nur beendete Abwesenheiten lassen sich löschen.', 'novemberkind-produkte'));
+        }
+        if (!wp_delete_post($id, true)) {
+            return new \WP_Error('delete', __('Die Abwesenheit konnte nicht gelöscht werden.', 'novemberkind-produkte'));
+        }
+        self::flush();
+
+        return true;
+    }
+
+    /**
      * Zeitraum für Listen und Meldungen, z. B. „10.10.2026 09:00 bis 24.10.2026 18:00“.
      *
      * @phpstan-param Absence $absence

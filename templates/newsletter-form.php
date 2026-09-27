@@ -183,10 +183,20 @@ include __DIR__ . '/form-header.php';
         <?php endif; ?>
     </fieldset>
 
-    <?php if (!$is_locked) : ?>
+    <?php if (!$is_locked || Newsletters::is_deletable($issue)) : ?>
         <div class="nkp-simple-form__actions">
-            <button type="button" class="nkp-button nkp-button--secondary" data-nkp-test="novemberkind_produkte_test_newsletter"><?php esc_html_e('Testmail schicken', 'novemberkind-produkte'); ?></button>
-            <button type="submit" class="nkp-button nkp-button--primary" data-nkp-submit><?php esc_html_e('Speichern', 'novemberkind-produkte'); ?></button>
+            <?php if (!$is_new && Newsletters::is_deletable($issue)) : ?>
+                <?php
+                Html::delete_button('novemberkind_produkte_delete_newsletter', match ($issue_status) {
+                    'scheduled' => __('Der Newsletter wird nicht verschickt und endgültig gelöscht. Löschen?', 'novemberkind-produkte'),
+                    default     => __('Der Newsletter wird endgültig gelöscht. Löschen?', 'novemberkind-produkte'),
+                });
+                ?>
+            <?php endif; ?>
+            <?php if (!$is_locked) : ?>
+                <button type="button" class="nkp-button nkp-button--secondary" data-nkp-test="novemberkind_produkte_test_newsletter"><?php esc_html_e('Testmail schicken', 'novemberkind-produkte'); ?></button>
+                <button type="submit" class="nkp-button nkp-button--primary" data-nkp-submit><?php esc_html_e('Speichern', 'novemberkind-produkte'); ?></button>
+            <?php endif; ?>
         </div>
     <?php endif; ?>
 </form>

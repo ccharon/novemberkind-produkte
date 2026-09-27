@@ -239,6 +239,39 @@ final class Coupons
     }
 
     /**
+     * Legt einen eigenen, deaktivierten oder abgelaufenen Gutschein in den Papierkorb von WooCommerce.
+     * Bestellungen behalten den Code, ein Administrator kann ihn dort wiederherstellen.
+     *
+     * @return true|\WP_Error
+     */
+    public function delete(int $id): bool|\WP_Error
+    {
+        $existing = self::get($id);
+        if ($existing === null || !$existing['own']) {
+            return new \WP_Error('not_found', __('Diesen Gutschein gibt es nicht oder er wird in WooCommerce bearbeitet.', 'novemberkind-produkte'));
+        }
+        if (!self::is_deletable($existing)) {
+            return new \WP_Error('active', __('Nur deaktivierte oder abgelaufene Gutscheine lassen sich löschen.', 'novemberkind-produkte'));
+        }
+        if (!(new \WC_Coupon($id))->delete()) {
+            return new \WP_Error('delete', __('Der Gutschein konnte nicht gelöscht werden.', 'novemberkind-produkte'));
+        }
+
+        return true;
+    }
+
+    /**
+     * Ob ein Gutschein gelöscht werden darf: eigener, der im Shop nicht mehr einlösbar ist.
+     *
+     * @param array<string, mixed> $coupon
+     * @phpstan-param Coupon $coupon
+     */
+    public static function is_deletable(array $coupon): bool
+    {
+        return $coupon['own'] && (!$coupon['active'] || $coupon['expired']);
+    }
+
+    /**
      * Ob Gutscheincodes in den WooCommerce-Einstellungen eingeschaltet sind.
      */
     public static function enabled(): bool

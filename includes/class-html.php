@@ -56,6 +56,19 @@ final class Html
     }
 
     /**
+     * Knopf „Löschen“ für ein Formular; forms.js fragt mit `$confirm` nach und ruft die AJAX-Aktion `$action` auf.
+     */
+    public static function delete_button(string $action, string $confirm): void
+    {
+        printf(
+            '<button type="button" class="nkp-button nkp-button--secondary nkp-button--delete" data-nkp-action="%s" data-nkp-confirm="%s">%s</button>',
+            esc_attr($action),
+            esc_attr($confirm),
+            esc_html__('Löschen', 'novemberkind-produkte')
+        );
+    }
+
+    /**
      * Plakette mit Farbe und Text, z. B. für den Status einer Aktion.
      *
      * @param array{badge: string, label: string} $state

@@ -995,6 +995,16 @@ body.nkp-page {
 	color: var(--nkp-accent-dark);
 }
 
+.nkp-button--delete {
+	color: var(--nkp-error);
+	margin-right: auto;
+}
+
+.nkp-button--delete:hover:not(:disabled) {
+	border-color: var(--nkp-error);
+	color: var(--nkp-error);
+}
+
 .nkp-suggest {
 	align-items: center;
 	background: var(--nkp-surface-soft);
