@@ -3,7 +3,7 @@
 /**
  * Plugin Name:          Novemberkind Produkte
  * Description:          Einfache Produktverwaltung für WooCommerce: Übersicht, Anlegen und Bearbeiten mit automatischer Bildverkleinerung.
- * Version:              0.5.2
+ * Version:              0.6.0
  * Requires at least:    6.5
  * Requires PHP:         8.1
  * Requires Plugins:     woocommerce
@@ -22,7 +22,7 @@ namespace NovemberkindProdukte;
 
 defined('ABSPATH') || exit;
 
-const VERSION = '0.5.2';
+const VERSION = '0.6.0';
 const PLUGIN_FILE = __FILE__;
 
 // Anthropic-SDK für Vorschläge; ohne vendor/ läuft das Plugin ohne diese Funktion
@@ -31,6 +31,7 @@ if (is_readable(__DIR__ . '/vendor/autoload.php')) {
 }
 
 require_once __DIR__ . '/includes/class-plugin.php';
+require_once __DIR__ . '/includes/class-absences.php';
 require_once __DIR__ . '/includes/class-admin-page.php';
 require_once __DIR__ . '/includes/class-ajax.php';
 require_once __DIR__ . '/includes/class-app.php';

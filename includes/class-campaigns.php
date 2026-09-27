@@ -264,6 +264,39 @@ final class Campaigns
     }
 
     /**
+     * Löscht eine beendete Aktion endgültig. Laufende und geplante bleiben, bis sie beendet sind.
+     *
+     * @return true|\WP_Error
+     */
+    public function delete(int $id): bool|\WP_Error
+    {
+        $campaign = self::get($id);
+        if ($campaign === null) {
+            return new \WP_Error('not_found', __('Diese Aktion gibt es nicht mehr.', 'novemberkind-produkte'));
+        }
+        if (self::status($campaign) !== 'ended') {
+            return new \WP_Error('active', __('Nur beendete Aktionen lassen sich löschen.', 'novemberkind-produkte'));
+        }
+        if (!wp_delete_post($id, true)) {
+            return new \WP_Error('delete', __('Die Aktion konnte nicht gelöscht werden.', 'novemberkind-produkte'));
+        }
+        self::flush();
+
+        return true;
+    }
+
+    /**
+     * Ob eine beendete Aktion noch als Vergleich für die 30-Tage-Regel neuer Aktionen zählt.
+     *
+     * @phpstan-param Campaign $campaign
+     * @param array<string, mixed> $campaign
+     */
+    public static function is_recent_reference(array $campaign): bool
+    {
+        return $campaign['end'] > $campaign['start'] && $campaign['end'] > time() - self::REFERENCE_DAYS * DAY_IN_SECONDS;
+    }
+
+    /**
      * Alle Produkte (Hauptprodukte), für die eine Aktion gilt.
      *
      * @phpstan-param Campaign $campaign

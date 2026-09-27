@@ -1,0 +1,23 @@
+/* Novemberkind Produkte: Hinweis zur Abwesenheit im Shop. Schrift kommt vom Theme, Farben wie auf novemberkind.art. */
+
+.nkp-absence {
+	background: #d2e4fc;
+	border-left: 4px solid #3a5f95;
+	border-radius: 3px;
+	color: #526077;
+	margin: 0 0 1.5em;
+	padding: 14px 18px;
+}
+
+.nkp-absence p {
+	margin: 0;
+	padding: 0;
+}
+
+.nkp-absence .nkp-absence__text {
+	margin-bottom: 4px;
+}
+
+.nkp-absence .nkp-absence__shipping {
+	font-weight: 600;
+}

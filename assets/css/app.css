@@ -995,6 +995,16 @@ body.nkp-page {
 	color: var(--nkp-accent-dark);
 }
 
+.nkp-button--delete {
+	color: var(--nkp-error);
+	margin-right: auto;
+}
+
+.nkp-button--delete:hover:not(:disabled) {
+	border-color: var(--nkp-error);
+	color: var(--nkp-error);
+}
+
 .nkp-suggest {
 	align-items: center;
 	background: var(--nkp-surface-soft);
@@ -1581,7 +1591,8 @@ body.nkp-page {
 	outline-offset: -3px;
 }
 
-.nkp-entry__percent {
+.nkp-entry__percent,
+.nkp-entry__date {
 	color: var(--nkp-accent-dark);
 	font-family: var(--nkp-font-heading);
 	font-size: 22px;
@@ -1589,7 +1600,8 @@ body.nkp-page {
 	white-space: nowrap;
 }
 
-.nkp-entry--ended .nkp-entry__percent {
+.nkp-entry--ended .nkp-entry__percent,
+.nkp-entry--ended .nkp-entry__date {
 	color: var(--nkp-text-muted);
 }
 
@@ -1610,6 +1622,11 @@ body.nkp-page {
 
 .nkp-entry__note--warning {
 	color: var(--nkp-draft-text);
+}
+
+.nkp-panel__group {
+	display: grid;
+	gap: 22px;
 }
 
 .nkp-simple-form {

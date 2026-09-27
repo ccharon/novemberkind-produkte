@@ -84,6 +84,9 @@ include __DIR__ . '/form-header.php';
     </section>
 
     <div class="nkp-simple-form__actions">
+        <?php if (!$is_new && Coupons::is_deletable($coupon)) : ?>
+            <?php Html::delete_button('novemberkind_produkte_delete_coupon', __('Der Gutschein wird gelöscht. Bestellungen, in denen er eingelöst wurde, behalten den Code. Löschen?', 'novemberkind-produkte')); ?>
+        <?php endif; ?>
         <?php if (!$is_new) : ?>
             <?php if ($coupon['active']) : ?>
                 <button type="button" class="nkp-button nkp-button--secondary" data-nkp-action="novemberkind_produkte_toggle_coupon" data-nkp-value="off"

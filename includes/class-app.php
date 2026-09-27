@@ -31,6 +31,8 @@ final class App
         'newsletter'            => ['newsletters', 'newsletter', 'forms'],
         'newsletter/abonnenten' => ['subscribers', 'newsletter', 'forms'],
         'newsletter/(neu|\d+)'  => ['newsletter_form', 'newsletter', 'newsletter-form'],
+        'abwesenheit'           => ['absences', 'absences', 'forms'],
+        'abwesenheit/(neu|\d+)' => ['absence_form', 'absences', 'forms'],
     ];
 
     /**
@@ -45,6 +47,7 @@ final class App
             'campaigns'  => ['url' => self::campaigns_url(), 'label' => __('Aktionen', 'novemberkind-produkte'), 'capability' => ''],
             'coupons'    => ['url' => self::coupons_url(), 'label' => __('Gutscheine', 'novemberkind-produkte'), 'capability' => Coupons::CAPABILITY],
             'newsletter' => ['url' => self::newsletter_url(), 'label' => __('Newsletter', 'novemberkind-produkte'), 'capability' => Newsletters::CAPABILITY],
+            'absences'   => ['url' => self::absences_url(), 'label' => __('Abwesenheit', 'novemberkind-produkte'), 'capability' => ''],
         ];
     }
 
@@ -102,6 +105,14 @@ final class App
     public static function newsletter_url(int|string $page = ''): string
     {
         return self::url('newsletter/' . $page);
+    }
+
+    /**
+     * Adresse der Liste der Abwesenheiten oder, mit ID oder „neu“, eines Formulars.
+     */
+    public static function absences_url(int|string $absence = ''): string
+    {
+        return self::url('abwesenheit/' . $absence);
     }
 
     /**

@@ -36,6 +36,12 @@ final class Ajax
             'save_newsletter'   => [Newsletters::CAPABILITY],
             'test_newsletter'   => [Newsletters::CAPABILITY],
             'remove_subscriber' => [Newsletters::CAPABILITY],
+            'save_absence'      => [],
+            'end_absence'       => [],
+            'delete_campaign'   => [],
+            'delete_coupon'     => [Coupons::CAPABILITY],
+            'delete_newsletter' => [Newsletters::CAPABILITY],
+            'delete_absence'    => [],
         ];
     }
 
@@ -318,5 +324,71 @@ final class Ajax
         }
 
         self::back_to_list([], App::newsletter_url('abonnenten'), static fn(): string => __('Ausgetragen. Die Adresse ist gelöscht.', 'novemberkind-produkte'));
+    }
+
+    /**
+     * Legt eine Abwesenheit an oder ändert sie.
+     */
+    private function save_absence(): void
+    {
+        self::back_to_list((new Absences())->save($_POST, Input::id($_POST, 'id')), App::absences_url(), static fn(array $absence): string => Absences::status($absence) === 'running'
+            ? __('Gespeichert. Der Hinweis ist jetzt im Shop zu sehen.', 'novemberkind-produkte')
+            /* translators: 1: Datum, 2: Uhrzeit */
+            : self::at(__('Gespeichert. Die Abwesenheit beginnt am %1$s um %2$s Uhr.', 'novemberkind-produkte'), $absence['start']));
+    }
+
+    /**
+     * Beendet eine laufende Abwesenheit sofort oder sagt eine geplante ab.
+     */
+    private function end_absence(): void
+    {
+        self::back_to_list((new Absences())->end(Input::id($_POST, 'id')), App::absences_url(), static fn(): string => __('Die Abwesenheit ist beendet. Im Shop gelten wieder die normalen Lieferzeiten.', 'novemberkind-produkte'));
+    }
+
+    /**
+     * Löscht eine beendete Aktion.
+     */
+    private function delete_campaign(): void
+    {
+        self::delete_entry((new Campaigns())->delete(...), App::campaigns_url(), __('Die Aktion ist gelöscht.', 'novemberkind-produkte'));
+    }
+
+    /**
+     * Legt einen deaktivierten oder abgelaufenen Gutschein in den Papierkorb.
+     */
+    private function delete_coupon(): void
+    {
+        self::delete_entry((new Coupons())->delete(...), App::coupons_url(), __('Der Gutschein ist gelöscht.', 'novemberkind-produkte'));
+    }
+
+    /**
+     * Löscht einen Newsletter, der nicht gerade verschickt wird.
+     */
+    private function delete_newsletter(): void
+    {
+        self::delete_entry((new Newsletters())->delete(...), App::newsletter_url(), __('Der Newsletter ist gelöscht.', 'novemberkind-produkte'));
+    }
+
+    /**
+     * Löscht eine beendete Abwesenheit.
+     */
+    private function delete_absence(): void
+    {
+        self::delete_entry((new Absences())->delete(...), App::absences_url(), __('Die Abwesenheit ist gelöscht.', 'novemberkind-produkte'));
+    }
+
+    /**
+     * Prüft das Recht zum Löschen am Eintrag, löscht ihn und zeigt danach die Liste mit einer Meldung.
+     *
+     * @param callable(int): (true|\WP_Error) $delete
+     */
+    private static function delete_entry(callable $delete, string $url, string $message): never
+    {
+        $id = Input::id($_POST, 'id');
+        if ($id && get_post($id) !== null && !current_user_can('delete_post', $id)) {
+            self::deny();
+        }
+        $result = $delete($id);
+        self::back_to_list(is_wp_error($result) ? $result : ['id' => $id], $url, static fn(): string => $message);
     }
 }

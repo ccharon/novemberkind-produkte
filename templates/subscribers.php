@@ -27,11 +27,6 @@ $list_intro   = [
         count($confirmed),
         $pending
     ),
-    sprintf(
-        /* translators: %s: Shortcode */
-        __('Das Anmeldeformular erscheint im Shop überall, wo %s steht, zum Beispiel im Footer. An der Kasse gibt es einen eigenen Haken.', 'novemberkind-produkte'),
-        '[' . NewsletterSignup::SHORTCODE . ']'
-    ),
 ];
 include __DIR__ . '/list-header.php';
 ?>
