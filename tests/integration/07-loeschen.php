@@ -54,3 +54,27 @@ $absence  = $absences->save(['start' => 'later', ...$at('start_at', time() + 30 
 check('geplante Abwesenheit lässt sich nicht löschen', is_wp_error($absences->delete($absence['id'])) && Absences::get($absence['id']) !== null);
 $absences->end($absence['id']);
 check('beendete Abwesenheit gelöscht', $absences->delete($absence['id']) === true && Absences::get($absence['id']) === null && get_post($absence['id']) === null);
+
+// Jede Löschfunktion lehnt Einträge anderer Arten ab und lässt sie unverändert
+$other_campaign = $campaigns->save(['name' => 'Fremd-ID-Test', 'percent' => '10', ...$at('start', time()), ...$at('end', time() + DAY_IN_SECONDS), 'scope' => 'all']);
+$campaigns->end($other_campaign['id']);
+$other_absence = $absences->save(['start' => 'later', ...$at('start_at', time() + 40 * DAY_IN_SECONDS), 'end' => 'open']);
+$absences->end($other_absence['id']);
+$other_issue = $newsletters->save(['subject' => 'Fremd-ID-Test', 'content' => '<p>x</p>', 'send' => 'draft']);
+$other_coupon = $coupons->save(['code' => 'FREMD-ID-TEST', 'kind' => 'percent', 'percent' => '10']);
+$coupons->set_active($other_coupon['id'], false);
+$other_product = wc_get_products(['limit' => 1, 'return' => 'ids'])[0];
+$other_backup = wp_insert_post(['post_type' => 'novemberkind_backup', 'post_status' => 'private', 'post_parent' => $other_product, 'post_title' => 'Fremd-ID-Test']);
+$entries = ['Aktion' => [$campaigns, $other_campaign['id']], 'Abwesenheit' => [$absences, $other_absence['id']], 'Newsletter' => [$newsletters, $other_issue['id']], 'Gutschein' => [$coupons, $other_coupon['id']]];
+$untouched = true;
+foreach ($entries as $name => [$deleter]) {
+    $targets = [$other_product, $other_backup, ...array_map(static fn(array $entry): int => $entry[1], array_diff_key($entries, [$name => true]))];
+    foreach ($targets as $target) {
+        $status = get_post_status($target);
+        $untouched = $untouched && is_wp_error($deleter->delete($target)) && get_post_status($target) === $status;
+    }
+}
+check('Löschfunktionen lehnen Produkte, Sicherungen und Einträge anderer Bereiche ab', $untouched);
+foreach ([$other_campaign['id'], $other_absence['id'], $other_issue['id'], $other_coupon['id'], $other_backup] as $id) {
+    wp_delete_post($id, true);
+}
