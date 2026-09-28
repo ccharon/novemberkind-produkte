@@ -113,7 +113,7 @@ final class Coupons
             'kind'     => $shipping ? 'shipping' : ($coupon->get_discount_type() === 'percent' ? 'percent' : 'other'),
             'percent'  => (int) $coupon->get_amount(),
             // WooCommerce lässt den Gutschein um 0 Uhr am Ablaufdatum enden, das Formular zeigt den letzten gültigen Tag
-            'expires'  => $expires ? wp_date('Y-m-d', $expires->getTimestamp() - DAY_IN_SECONDS) : '',
+            'expires'  => $expires ? (new \DateTimeImmutable('@' . $expires->getTimestamp()))->setTimezone(Time::zone())->modify('-1 day')->format('Y-m-d') : '',
             'once'     => $coupon->get_usage_limit_per_user() === 1,
             'active'   => $coupon->get_status() === 'publish',
             'expired'  => $expires !== null && $expires->getTimestamp() <= time(),
@@ -179,13 +179,13 @@ final class Coupons
         $expires_raw = Input::text($data, 'expires');
         $expires     = null;
         if ($expires_raw !== '') {
-            $day = \DateTimeImmutable::createFromFormat('!Y-m-d', $expires_raw, wp_timezone());
-            if ($day === false || $day->format('Y-m-d') !== $expires_raw) {
+            $next_day = Time::day_start($expires_raw, 1);
+            if ($next_day === null) {
                 $errors['expires'] = __('Bitte wähle ein gültiges Datum.', 'novemberkind-produkte');
-            } elseif ($day->modify('+1 day')->getTimestamp() <= time()) {
+            } elseif ($next_day <= time()) {
                 $errors['expires'] = __('Das Datum liegt in der Vergangenheit.', 'novemberkind-produkte');
             } else {
-                $expires = $day->modify('+1 day')->getTimestamp();
+                $expires = $next_day;
             }
         }
 

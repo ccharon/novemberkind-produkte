@@ -53,6 +53,7 @@ require_once __DIR__ . '/includes/class-originals.php';
 require_once __DIR__ . '/includes/class-pages.php';
 require_once __DIR__ . '/includes/class-subscribers.php';
 require_once __DIR__ . '/includes/class-suggestions.php';
+require_once __DIR__ . '/includes/class-time.php';
 require_once __DIR__ . '/includes/class-updater.php';
 if (interface_exists(\Psr\Http\Client\ClientInterface::class)) {
     require_once __DIR__ . '/includes/class-wp-http-client.php';

@@ -128,7 +128,7 @@ final class Ajax
      */
     private static function at(string $message, int $timestamp): string
     {
-        return sprintf($message, wp_date('d.m.Y', $timestamp), wp_date('H:i', $timestamp));
+        return sprintf($message, Time::format('d.m.Y', $timestamp), Time::format('H:i', $timestamp));
     }
 
     /**

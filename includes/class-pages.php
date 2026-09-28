@@ -347,7 +347,7 @@ final class Pages
             match ($field) {
                 'format'         => $context['format'] = 'quer',
                 'bookmark_width' => $context['width'] = '7',
-                'year'           => $context['year'] = gmdate('Y'),
+                'year'           => $context['year'] = Time::format('Y'),
                 'size'           => $context += ['width' => '', 'height' => ''],
                 default          => $context[$field] = '',
             };

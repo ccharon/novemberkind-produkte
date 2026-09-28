@@ -31,11 +31,11 @@ $describe = static function (array $issue): string {
         /* translators: 1: bisher verschickt, 2: Empfänger insgesamt */
         'sending'   => sprintf(__('%1$d von %2$d verschickt', 'novemberkind-produkte'), $issue['sent'] + $issue['failed'], $issue['recipients']),
         /* translators: %s: Datum und Uhrzeit */
-        'scheduled' => sprintf(__('geht am %s Uhr raus', 'novemberkind-produkte'), wp_date('d.m.Y H:i', $issue['scheduled'])),
+        'scheduled' => sprintf(__('geht am %s Uhr raus', 'novemberkind-produkte'), Time::format('d.m.Y H:i', $issue['scheduled'])),
         'sent'      => sprintf(
             /* translators: 1: Datum, 2: Anzahl der Empfänger */
             _n('am %1$s an %2$d Empfänger', 'am %1$s an %2$d Empfänger', $issue['sent'], 'novemberkind-produkte'),
-            wp_date('d.m.Y', $issue['finished'] ?: $issue['scheduled']),
+            Time::format('d.m.Y', $issue['finished'] ?: $issue['scheduled']),
             $issue['sent']
         ) . ($issue['failed'] > 0 ? ' · ' . sprintf(
             /* translators: %d: Anzahl */
@@ -43,7 +43,7 @@ $describe = static function (array $issue): string {
             $issue['failed']
         ) : ''),
         /* translators: %s: Datum */
-        default     => sprintf(__('zuletzt geändert am %s', 'novemberkind-produkte'), wp_date('d.m.Y', $issue['modified'])),
+        default     => sprintf(__('zuletzt geändert am %s', 'novemberkind-produkte'), Time::format('d.m.Y', $issue['modified'])),
     };
 };
 ?>

@@ -136,8 +136,8 @@ plain_url=${plain#*$'\t'}
 card_on_sale() {
   curl -s -b "$JAR" "$APP/" | awk -v name="data-name=\"$1\"" 'index($0, name) { found = 1 } found && /nkp-card__price/ { print (index($0, "<del") ? "ja" : "nein"); exit }'
 }
-today=$(bin/wp eval "echo wp_date('Y-m-d');")
-tomorrow=$(bin/wp eval "echo wp_date('Y-m-d', time() + DAY_IN_SECONDS);")
+today=$(bin/wp eval "echo \\NovemberkindProdukte\\Time::format('Y-m-d');")
+tomorrow=$(bin/wp eval "echo \\NovemberkindProdukte\\Time::format('Y-m-d', time() + DAY_IN_SECONDS);")
 check 'Aktionen: Speichern erfolgreich' "$(ajax -d action=novemberkind_produkte_save_campaign -d "nonce=$nonce" -d name=HTTP-Aktion -d percent=10 -d "start_date=$today" -d start_time=00:00 -d "end_date=$tomorrow" -d scope=all)" 200
 campaign_id=$(grep -oP '"id":\K\d+' "$TMP/body")
 check 'Aktionen: Übersicht zeigt den Aktionspreis durchgestrichen' "$(card_on_sale "$plain_name")" ja

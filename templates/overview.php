@@ -96,7 +96,7 @@ defined('ABSPATH') || exit;
                                 <span class="nkp-badge nkp-badge--future">
                                     <?php
                                     /* translators: %s: Datum und Uhrzeit der Veröffentlichung */
-                                    echo esc_html(sprintf(__('Geplant %s', 'novemberkind-produkte'), wp_date('d.m. H:i', $product->get_date_created()->getTimestamp())));
+                                    echo esc_html(sprintf(__('Geplant %s', 'novemberkind-produkte'), Time::format('d.m. H:i', $product->get_date_created()->getTimestamp())));
                                     ?>
                                 </span>
                             <?php else : ?>
@@ -118,7 +118,7 @@ defined('ABSPATH') || exit;
                             <?php endif; ?>
                         </p>
                         <?php if ($modified) : ?>
-                            <p class="nkp-card__date"><?php echo esc_html(wp_date('d.m.Y', $modified->getTimestamp())); ?></p>
+                            <p class="nkp-card__date"><?php echo esc_html(Time::format('d.m.Y', $modified->getTimestamp())); ?></p>
                         <?php endif; ?>
                     </div>
                 </a>

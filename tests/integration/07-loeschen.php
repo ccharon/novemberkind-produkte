@@ -13,7 +13,7 @@ use NovemberkindProdukte\Newsletters;
 defined('ABSPATH') || exit(1);
 
 section('Löschen');
-$at = static fn(string $key, int $timestamp): array => ["{$key}_date" => wp_date('Y-m-d', $timestamp), "{$key}_time" => wp_date('H:i', $timestamp)];
+$at = static fn(string $key, int $timestamp): array => ["{$key}_date" => \NovemberkindProdukte\Time::format('Y-m-d', $timestamp), "{$key}_time" => \NovemberkindProdukte\Time::format('H:i', $timestamp)];
 
 $campaigns = new Campaigns();
 $campaign  = $campaigns->save(['name' => 'Löschtest', 'percent' => '10', ...$at('start', time()), ...$at('end', time() + DAY_IN_SECONDS), 'scope' => 'all']);

@@ -42,10 +42,10 @@ final class Html
             <legend class="nkp-field__label"><?php echo esc_html($legend); ?></legend>
             <div class="nkp-moment__inputs">
                 <input type="date" name="<?php echo esc_attr($name); ?>_date" <?php echo !empty($options['required']) ? 'required' : ''; ?>
-                       value="<?php echo esc_attr($timestamp ? wp_date('Y-m-d', $timestamp) : ''); ?>"
+                       value="<?php echo esc_attr($timestamp ? Time::format('Y-m-d', $timestamp) : ''); ?>"
                        aria-label="<?php echo esc_attr(sprintf(/* translators: %s: z. B. Beginn */ __('%s, Datum', 'novemberkind-produkte'), $label)); ?>">
                 <input type="time" name="<?php echo esc_attr($name); ?>_time" step="60"
-                       value="<?php echo esc_attr($timestamp ? wp_date('H:i', $timestamp) : $default_time); ?>"
+                       value="<?php echo esc_attr($timestamp ? Time::format('H:i', $timestamp) : $default_time); ?>"
                        aria-label="<?php echo esc_attr(sprintf(/* translators: %s: z. B. Beginn */ __('%s, Uhrzeit', 'novemberkind-produkte'), $label)); ?>">
             </div>
             <?php if ($options['error'] ?? true) : ?>

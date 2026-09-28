@@ -114,19 +114,16 @@ final class Input
     }
 
     /**
-     * Zeitpunkt aus den Feldern `<prefix>_date` und `<prefix>_time` in der Zeitzone des Shops.
+     * Zeitpunkt aus den Feldern `<prefix>_date` und `<prefix>_time` in der Zeitzone von WordPress.
      * Fehlt die Uhrzeit, gilt `$default_time`. Fehler meldet das Formular unter `<prefix>`.
      *
      * @param array<mixed> $data
      */
     public static function datetime(array $data, string $prefix, string $default_time = '00:00'): ?int
     {
-        $time  = self::text($data, $prefix . '_time');
-        $value = self::text($data, $prefix . '_date') . 'T' . ($time !== '' ? $time : $default_time);
-        $parsed = \DateTimeImmutable::createFromFormat('!Y-m-d\TH:i', $value, wp_timezone());
+        $time = self::text($data, $prefix . '_time');
 
-        // Der Vergleich verwirft Werte, die PHP stillschweigend umrechnet, z. B. den 31.02.
-        return $parsed !== false && $parsed->format('Y-m-d\TH:i') === $value ? $parsed->getTimestamp() : null;
+        return Time::parse(self::text($data, $prefix . '_date'), $time !== '' ? $time : $default_time);
     }
 
     /**

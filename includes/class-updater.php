@@ -145,7 +145,7 @@ final class Updater
                 /* translators: 1: Fehlerbeschreibung, 2: Uhrzeit des nächsten Versuchs */
                 __('Update-Prüfung bei GitHub fehlgeschlagen: %1$s. Nächster Versuch um %2$s Uhr oder sofort über Dashboard > Aktualisierungen > Erneut prüfen.', 'novemberkind-produkte'),
                 $cached['error'],
-                wp_date('H:i', (int) $cached['checked'] + self::RETRY)
+                Time::format('H:i', (int) $cached['checked'] + self::RETRY)
             ))
         );
 

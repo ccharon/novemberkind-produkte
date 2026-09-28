@@ -64,7 +64,7 @@ include __DIR__ . '/form-header.php';
             echo esc_html(sprintf(
                 /* translators: 1: Datum und Uhrzeit, 2: Anzahl der Empfänger */
                 _n('Verschickt am %1$s Uhr an %2$d Empfänger.', 'Verschickt am %1$s Uhr an %2$d Empfänger.', $issue['sent'], 'novemberkind-produkte'),
-                wp_date('d.m.Y H:i', $issue['finished']),
+                Time::format('d.m.Y H:i', $issue['finished']),
                 $issue['sent']
             ));
             if ($issue['failed'] > 0) {

@@ -306,7 +306,7 @@ final class ProductType
 
                 case 'year':
                     $context['year'] = $value('year');
-                    if (!preg_match('/^(19|20)\d\d$/', $context['year']) || (int) $context['year'] > (int) gmdate('Y')) {
+                    if (!preg_match('/^(19|20)\d\d$/', $context['year']) || (int) $context['year'] > (int) Time::format('Y')) {
                         $errors['year'] = __('Bitte gib das Jahr vierstellig ein, z. B. 2026.', 'novemberkind-produkte');
                     }
                     break;

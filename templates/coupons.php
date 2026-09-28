@@ -21,7 +21,7 @@ $describe = static function (array $coupon): string {
     }];
     if ($coupon['expires'] !== '') {
         /* translators: %s: Datum */
-        $parts[] = sprintf(__('gültig bis %s', 'novemberkind-produkte'), wp_date('d.m.Y', (new \DateTimeImmutable($coupon['expires'], wp_timezone()))->getTimestamp()));
+        $parts[] = sprintf(__('gültig bis %s', 'novemberkind-produkte'), Time::format('d.m.Y', (int) Time::day_start($coupon['expires'])));
     }
     if ($coupon['once']) {
         $parts[] = __('einmal pro Kunde', 'novemberkind-produkte');
