@@ -54,8 +54,8 @@ include __DIR__ . '/list-header.php';
                                 echo esc_html(sprintf(
                                     /* translators: 1: Beginn, 2: Ende */
                                     __('%1$s bis %2$s', 'novemberkind-produkte'),
-                                    wp_date('d.m.Y H:i', $campaign['start']),
-                                    wp_date('d.m.Y H:i', $campaign['end'])
+                                    Time::format('d.m.Y H:i', $campaign['start']),
+                                    Time::format('d.m.Y H:i', $campaign['end'])
                                 ));
                                 ?>
                                 · <?php echo esc_html(Campaigns::scope_label($campaign)); ?>

@@ -54,9 +54,29 @@ check('IDs ohne Dubletten, 0 und Listen in Listen', $input::ids(['ids' => ['3', 
 check('einzelne ID als Liste', $input::ids(['ids' => '5'], 'ids') === [5]);
 check('Auswahl außerhalb der erlaubten Werte ergibt den Standard', $input::choice(['s' => 'hack'], 's', ['a', 'b'], 'a') === 'a' && $input::choice(['s' => 'b'], 's', ['a', 'b'], 'a') === 'b');
 check('Prozent von 1 bis zur Grenze', $input::percent(['p' => '90'], 'p', 90) === 90 && $input::percent(['p' => '91'], 'p', 90) === null && $input::percent(['p' => '0'], 'p', 90) === null && $input::percent(['p' => '5.5'], 'p', 90) === null);
-check('Zeitpunkt aus Datum und Uhrzeit in der Zeitzone des Shops', $input::datetime(['start_date' => '2030-10-01', 'start_time' => '18:00'], 'start') === (new DateTimeImmutable('2030-10-01 18:00', wp_timezone()))->getTimestamp());
-check('Zeitpunkt ohne Uhrzeit nimmt die Vorgabe', $input::datetime(['end_date' => '2030-10-01'], 'end', '23:59') === (new DateTimeImmutable('2030-10-01 23:59', wp_timezone()))->getTimestamp());
+check('Zeitpunkt aus Datum und Uhrzeit in der Zeitzone des Shops', $input::datetime(['start_date' => '2030-10-01', 'start_time' => '18:00'], 'start') === (new DateTimeImmutable('2030-10-01 18:00', \NovemberkindProdukte\Time::zone()))->getTimestamp());
+check('Zeitpunkt ohne Uhrzeit nimmt die Vorgabe', $input::datetime(['end_date' => '2030-10-01'], 'end', '23:59') === (new DateTimeImmutable('2030-10-01 23:59', \NovemberkindProdukte\Time::zone()))->getTimestamp());
 check('31. Februar wird abgelehnt', $input::datetime(['d_date' => '2030-02-31'], 'd') === null);
+
+section('Zeitzone');
+$time = \NovemberkindProdukte\Time::class;
+$utc = static fn(string $value): int => (new DateTimeImmutable($value, new DateTimeZone('UTC')))->getTimestamp();
+$old_timezone = [get_option('timezone_string'), get_option('gmt_offset')];
+update_option('timezone_string', '');
+update_option('gmt_offset', '0');
+check('Zeitzone kommt aus WordPress', $time::parse('2026-09-28', '18:00') === $utc('2026-09-28 18:00'));
+update_option('timezone_string', 'Europe/Berlin');
+check('Sommerzeit: 18:00 in Berlin ist 16:00 UTC', $time::parse('2026-09-28', '18:00') === $utc('2026-09-28 16:00'));
+check('Winterzeit: 18:00 in Berlin ist 17:00 UTC', $time::parse('2026-11-02', '18:00') === $utc('2026-11-02 17:00'));
+check('Anzeige in Berlin', $time::format('d.m.Y H:i', $utc('2026-12-31 23:30')) === '01.01.2027 00:30');
+check('Umstellung auf Winterzeit: der Tag hat 25 Stunden', $time::day_start('2026-10-26') - $time::day_start('2026-10-25') === 25 * HOUR_IN_SECONDS);
+check('Umstellung auf Sommerzeit: der Tag hat 23 Stunden', $time::day_start('2027-03-28', 1) - $time::day_start('2027-03-28') === 23 * HOUR_IN_SECONDS);
+check('Uhrzeit in der Lücke der Sommerzeit rückt vor', $time::parse('2027-03-28', '02:30') === $utc('2027-03-28 01:30'));
+check('doppelte Uhrzeit bei Winterzeit gilt noch als Sommerzeit', $time::parse('2026-10-25', '02:30') === $utc('2026-10-25 00:30'));
+check('ungültige Uhrzeit wird abgelehnt', $time::parse('2026-10-01', '24:00') === null && $time::parse('2026-10-01', '9:00') === null);
+check('Datum ohne führende Null wird abgelehnt', $time::parse('2026-1-01') === null);
+update_option('timezone_string', $old_timezone[0]);
+update_option('gmt_offset', $old_timezone[1]);
 check('Text ohne Slashes und Tags', $input::text(['t' => ' Otter \\"Olli\\" <b>x</b> '], 't') === 'Otter "Olli" x');
 check('Motiv aus „Button: Sophie“', ProductType::get('button')->motif_from_name('Button: Sophie') === 'Sophie');
 check('Motiv beim Lesezeichen ist der Name', ProductType::get('bookmark')->motif_from_name('Kaffee to go') === 'Kaffee to go');
@@ -69,4 +89,4 @@ check('Sticker ohne Oberfläche und Maße', array_values(array_intersect(['finis
 check('Original ohne Technik, Jahr, Text und Preis', array_values(array_intersect(['technique', 'year', 'text', 'price'], $errors($service->save(ProductType::get('original'), ['motif' => 'x'])))) === ['technique', 'year', 'text', 'price']);
 check('Artikelnummer im falschen Format', in_array('sku', $errors($service->save(ProductType::get('card'), ['sku' => 'B12'])), true));
 check('Artikelnummer klein geschrieben wird akzeptiert', !in_array('sku', $errors($service->save(ProductType::get('card'), ['sku' => 'a999998'])), true));
-check('Jahr in der Zukunft wird abgelehnt', in_array('year', $errors($service->save(ProductType::get('original'), ['year' => (string) ((int) gmdate('Y') + 1)])), true));
+check('Jahr in der Zukunft wird abgelehnt', in_array('year', $errors($service->save(ProductType::get('original'), ['year' => (string) ((int) \NovemberkindProdukte\Time::format('Y') + 1)])), true));

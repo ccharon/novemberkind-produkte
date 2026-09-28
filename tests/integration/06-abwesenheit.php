@@ -13,7 +13,7 @@ defined('ABSPATH') || exit(1);
 
 section('Abwesenheiten');
 $absences = new Absences();
-$at = static fn(string $key, int $timestamp): array => ["{$key}_date" => wp_date('Y-m-d', $timestamp), "{$key}_time" => wp_date('H:i', $timestamp)];
+$at = static fn(string $key, int $timestamp): array => ["{$key}_date" => \NovemberkindProdukte\Time::format('Y-m-d', $timestamp), "{$key}_time" => \NovemberkindProdukte\Time::format('H:i', $timestamp)];
 $absence_ids = [];
 // Abwesenheiten, die in der Testumgebung von Hand angelegt wurden, zählen hier nicht
 Absences::flush();
@@ -53,16 +53,16 @@ if ($germanized) {
 $back = strtotime('+4 days 10:00', time());
 $running = $absences->save(['end' => 'until', ...$at('end_at', $back), 'text' => 'Urlaub'], $open['id']);
 check('laufende Abwesenheit bekommt ein Ende, Beginn bleibt', is_array($running) && $running['start'] === $open['start'] && $running['end'] === $back);
-check('Hinweis nennt den Versandtag', str_contains(do_shortcode('[' . Absences::SHORTCODE . ']'), 'ab dem ' . wp_date('j. F', $back) . ' verschickt'));
+check('Hinweis nennt den Versandtag', str_contains(do_shortcode('[' . Absences::SHORTCODE . ']'), 'ab dem ' . \NovemberkindProdukte\Time::format('j. F', $back) . ' verschickt'));
 if ($germanized) {
-    check('Lieferzeit mit Datum ergänzt', str_contains(wc_gzd_get_product(wc_get_product($absence_card->get_id()))->get_delivery_time_html(), '1-3 Werktage ab ' . wp_date('d.m.', $back)));
+    check('Lieferzeit mit Datum ergänzt', str_contains(wc_gzd_get_product(wc_get_product($absence_card->get_id()))->get_delivery_time_html(), '1-3 Werktage ab ' . \NovemberkindProdukte\Time::format('d.m.', $back)));
 }
 
 $ended = $absences->end($open['id']);
 check('Jetzt beenden', is_array($ended) && Absences::status($ended) === 'ended' && Absences::current() === null);
 check('beendete Abwesenheit lässt sich nicht ändern', is_wp_error($absences->save(['end' => 'open'], $open['id'])));
 if ($germanized) {
-    check('Lieferzeit nach dem Ende wieder normal', !str_contains(wc_gzd_get_product(wc_get_product($absence_card->get_id()))->get_delivery_time_html(), wp_date('d.m.', $back)));
+    check('Lieferzeit nach dem Ende wieder normal', !str_contains(wc_gzd_get_product(wc_get_product($absence_card->get_id()))->get_delivery_time_html(), \NovemberkindProdukte\Time::format('d.m.', $back)));
 }
 
 $start = time() + 2 * DAY_IN_SECONDS;
@@ -71,7 +71,7 @@ $absence_ids[] = is_array($planned) ? $planned['id'] : 0;
 check('geplante Abwesenheit', is_array($planned) && Absences::status($planned) === 'planned');
 check('vor der Ankündigung kein Hinweis', Absences::current() === null);
 check('nach der Ankündigung angekündigt', Absences::current(time() + DAY_IN_SECONDS + 60)['id'] === $planned['id']);
-check('Ankündigung nennt den Zeitraum', str_starts_with(Absences::shipping_line($planned), 'Vom ' . wp_date('j. F', $start)));
+check('Ankündigung nennt den Zeitraum', str_starts_with(Absences::shipping_line($planned), 'Vom ' . \NovemberkindProdukte\Time::format('j. F', $start)));
 check('während der Laufzeit aktiv', Absences::current($start + 60)['id'] === $planned['id']);
 $cancelled = $absences->end($planned['id']);
 check('Nicht starten', is_array($cancelled) && Absences::status($cancelled) === 'ended' && Absences::current($start + 60) === null);

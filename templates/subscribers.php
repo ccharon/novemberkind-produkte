@@ -43,9 +43,9 @@ include __DIR__ . '/list-header.php';
                         <?php
                         echo esc_html($subscriber['status'] === 'confirmed'
                             /* translators: 1: Datum, 2: Formular oder Kasse */
-                            ? sprintf(__('seit %1$s · %2$s', 'novemberkind-produkte'), wp_date('d.m.Y', $subscriber['confirmed']), Subscribers::source_label($subscriber['source']))
+                            ? sprintf(__('seit %1$s · %2$s', 'novemberkind-produkte'), Time::format('d.m.Y', $subscriber['confirmed']), Subscribers::source_label($subscriber['source']))
                             /* translators: %s: Datum */
-                            : sprintf(__('wartet seit %s auf Bestätigung', 'novemberkind-produkte'), wp_date('d.m.Y', $subscriber['created'])));
+                            : sprintf(__('wartet seit %s auf Bestätigung', 'novemberkind-produkte'), Time::format('d.m.Y', $subscriber['created'])));
                         ?>
                     </span>
                 </span>

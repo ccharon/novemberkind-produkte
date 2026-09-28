@@ -48,7 +48,7 @@ include __DIR__ . '/list-header.php';
             <?php foreach ($by_status[$section_status] as $absence) : ?>
                 <li class="nkp-entry nkp-entry--<?php echo esc_attr($section_status); ?>">
                     <a class="nkp-entry__link" href="<?php echo esc_url(App::absences_url($absence['id'])); ?>">
-                        <span class="nkp-entry__date"><?php echo esc_html(wp_date('d.m.', $absence['start'])); ?></span>
+                        <span class="nkp-entry__date"><?php echo esc_html(Time::format('d.m.', $absence['start'])); ?></span>
                         <span class="nkp-entry__main">
                             <strong class="nkp-entry__name"><?php echo esc_html(Absences::period_label($absence)); ?></strong>
                             <span class="nkp-entry__meta">
@@ -58,7 +58,7 @@ include __DIR__ . '/list-header.php';
                                 <span class="nkp-entry__note">
                                     <?php
                                     /* translators: 1: Datum, 2: Uhrzeit */
-                                    echo esc_html(sprintf(__('Im Shop angekündigt ab %1$s, %2$s Uhr', 'novemberkind-produkte'), wp_date('d.m.Y', $absence['announce']), wp_date('H:i', $absence['announce'])));
+                                    echo esc_html(sprintf(__('Im Shop angekündigt ab %1$s, %2$s Uhr', 'novemberkind-produkte'), Time::format('d.m.Y', $absence['announce']), Time::format('H:i', $absence['announce'])));
                                     ?>
                                 </span>
                             <?php endif; ?>

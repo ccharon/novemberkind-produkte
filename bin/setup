@@ -41,6 +41,7 @@ wp language plugin install woocommerce woocommerce-germanized de_DE || true
 wp rewrite structure '/%postname%/'
 wp transient delete _wc_gzd_setup_wizard_redirect >/dev/null
 
+wp option update timezone_string Europe/Berlin
 wp option update woocommerce_currency EUR
 wp option update woocommerce_default_country DE
 wp option update woocommerce_price_thousand_sep .

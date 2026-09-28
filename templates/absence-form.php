@@ -41,7 +41,7 @@ include __DIR__ . '/form-header.php';
                 <p>
                     <?php
                     /* translators: 1: Datum, 2: Uhrzeit */
-                    echo esc_html(sprintf(__('Läuft seit %1$s, %2$s Uhr.', 'novemberkind-produkte'), wp_date('d.m.Y', $absence['start']), wp_date('H:i', $absence['start'])));
+                    echo esc_html(sprintf(__('Läuft seit %1$s, %2$s Uhr.', 'novemberkind-produkte'), Time::format('d.m.Y', $absence['start']), Time::format('H:i', $absence['start'])));
                     ?>
                 </p>
             <?php else : ?>

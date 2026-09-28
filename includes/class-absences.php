@@ -283,14 +283,14 @@ final class Absences
      */
     public static function period_label(array $absence): string
     {
-        $start = wp_date('d.m.Y H:i', $absence['start']);
+        $start = Time::format('d.m.Y H:i', $absence['start']);
         if ($absence['end'] === 0) {
             /* translators: %s: Beginn */
             return sprintf(__('ab %s, Ende offen', 'novemberkind-produkte'), $start);
         }
 
         /* translators: 1: Beginn, 2: Ende */
-        return sprintf(__('%1$s bis %2$s', 'novemberkind-produkte'), $start, wp_date('d.m.Y H:i', $absence['end']));
+        return sprintf(__('%1$s bis %2$s', 'novemberkind-produkte'), $start, Time::format('d.m.Y H:i', $absence['end']));
     }
 
     /**
@@ -301,7 +301,7 @@ final class Absences
      */
     public static function shipping_line(array $absence, ?int $now = null): string
     {
-        $day = static fn(int $timestamp): string => wp_date('j. F', $timestamp);
+        $day = static fn(int $timestamp): string => Time::format('j. F', $timestamp);
         if (self::status($absence, $now) === 'planned') {
             return $absence['end'] === 0
                 /* translators: %s: Beginn, z. B. 10. Oktober */
@@ -363,7 +363,7 @@ final class Absences
             /* translators: %s: übliche Lieferzeit, z. B. 1-3 Werktage */
             ? sprintf(__('%s nach meiner Rückkehr', 'novemberkind-produkte'), $name)
             /* translators: 1: übliche Lieferzeit, z. B. 1-3 Werktage, 2: Datum */
-            : sprintf(__('%1$s ab %2$s', 'novemberkind-produkte'), $name, wp_date('d.m.', $absence['end']));
+            : sprintf(__('%1$s ab %2$s', 'novemberkind-produkte'), $name, Time::format('d.m.', $absence['end']));
 
         return str_replace('>' . $name . '</span>', '>' . esc_html($adjusted) . '</span>', $html);
     }

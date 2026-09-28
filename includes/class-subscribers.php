@@ -299,8 +299,8 @@ final class Subscribers
         foreach (self::confirmed() as $subscriber) {
             $rows[] = [
                 $subscriber['email'],
-                wp_date('Y-m-d H:i', $subscriber['created']),
-                wp_date('Y-m-d H:i', $subscriber['confirmed']),
+                Time::format('Y-m-d H:i', $subscriber['created']),
+                Time::format('Y-m-d H:i', $subscriber['confirmed']),
                 self::source_label($subscriber['source']),
             ];
         }
@@ -321,7 +321,7 @@ final class Subscribers
         Plugin::require_capability(Newsletters::CAPABILITY);
 
         // BOM, damit Excel die Umlaute richtig liest
-        Plugin::send_file('newsletter-abonnenten-' . wp_date('Y-m-d') . '.csv', 'text/csv; charset=utf-8', "\xEF\xBB\xBF" . self::csv());
+        Plugin::send_file('newsletter-abonnenten-' . Time::format('Y-m-d') . '.csv', 'text/csv; charset=utf-8', "\xEF\xBB\xBF" . self::csv());
     }
 
     /**
@@ -370,8 +370,8 @@ final class Subscribers
                 'data'        => [
                     ['name' => __('E-Mail-Adresse', 'novemberkind-produkte'), 'value' => $subscriber['email']],
                     ['name' => __('Status', 'novemberkind-produkte'), 'value' => $subscriber['status'] === 'confirmed' ? __('Bestätigt', 'novemberkind-produkte') : __('Nicht bestätigt', 'novemberkind-produkte')],
-                    ['name' => __('Angemeldet', 'novemberkind-produkte'), 'value' => wp_date('Y-m-d H:i', $subscriber['created'])],
-                    ['name' => __('Bestätigt', 'novemberkind-produkte'), 'value' => $subscriber['confirmed'] ? wp_date('Y-m-d H:i', $subscriber['confirmed']) : ''],
+                    ['name' => __('Angemeldet', 'novemberkind-produkte'), 'value' => Time::format('Y-m-d H:i', $subscriber['created'])],
+                    ['name' => __('Bestätigt', 'novemberkind-produkte'), 'value' => $subscriber['confirmed'] ? Time::format('Y-m-d H:i', $subscriber['confirmed']) : ''],
                     ['name' => __('Quelle', 'novemberkind-produkte'), 'value' => self::source_label($subscriber['source'])],
                 ],
             ];

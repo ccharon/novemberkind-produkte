@@ -39,7 +39,7 @@ foreach ([$bottom_id, $middle_id, $top_id] as $term_id) {
 
 section('Rabattaktionen');
 $campaigns = new Campaigns();
-$when = static fn(string $key, int $timestamp): array => ["{$key}_date" => wp_date('Y-m-d', $timestamp), "{$key}_time" => wp_date('H:i', $timestamp)];
+$when = static fn(string $key, int $timestamp): array => ["{$key}_date" => \NovemberkindProdukte\Time::format('Y-m-d', $timestamp), "{$key}_time" => \NovemberkindProdukte\Time::format('H:i', $timestamp)];
 $campaign_ids = [];
 // Aktionen, die in der Testumgebung von Hand angelegt wurden, dürfen die Preise hier nicht beeinflussen
 Campaigns::flush();
@@ -58,9 +58,9 @@ $fresh = static fn(WC_Product $product): WC_Product => wc_get_product($product->
 $invalid = $campaigns->save(['name' => '', 'percent' => '95', ...$when('start', time()), ...$when('end', time() - 3600), 'scope' => 'categories']);
 check('Aktion: Pflichtfelder und Grenzen werden geprüft', is_wp_error($invalid) && array_keys($invalid->get_error_data()) === ['name', 'percent', 'end', 'categories']);
 
-$date_only = $campaigns->save(['name' => 'Nur Datum', 'percent' => '5', 'start_date' => wp_date('Y-m-d', time() + DAY_IN_SECONDS), 'end_date' => wp_date('Y-m-d', time() + 2 * DAY_IN_SECONDS), 'scope' => 'products', 'products' => [$sticker_a->get_id()]]);
+$date_only = $campaigns->save(['name' => 'Nur Datum', 'percent' => '5', 'start_date' => \NovemberkindProdukte\Time::format('Y-m-d', time() + DAY_IN_SECONDS), 'end_date' => \NovemberkindProdukte\Time::format('Y-m-d', time() + 2 * DAY_IN_SECONDS), 'scope' => 'products', 'products' => [$sticker_a->get_id()]]);
 $campaign_ids[] = $date_only['id'];
-check('ohne Uhrzeit beginnt eine Aktion um 0:00 und endet um 23:59', wp_date('H:i', $date_only['start']) === '00:00' && wp_date('H:i', $date_only['end']) === '23:59');
+check('ohne Uhrzeit beginnt eine Aktion um 0:00 und endet um 23:59', \NovemberkindProdukte\Time::format('H:i', $date_only['start']) === '00:00' && \NovemberkindProdukte\Time::format('H:i', $date_only['end']) === '23:59');
 $campaigns->end($date_only['id']);
 
 $sticker_term = ShopData::category_ids(['Physische Produkte', 'Sticker'])[1];
@@ -130,13 +130,21 @@ section('Gutscheine');
 $coupons = new Coupons();
 $coupon_errors = $coupons->save(['code' => 'ÄÖ', 'kind' => 'percent', 'percent' => '0', 'expires' => '2020-01-01']);
 check('Gutschein: Code, Rabatt und Datum werden geprüft', is_wp_error($coupon_errors) && array_keys($coupon_errors->get_error_data()) === ['code', 'percent', 'expires']);
-$percent_coupon = $coupons->save(['code' => 'test-zehn', 'kind' => 'percent', 'percent' => '10', 'expires' => wp_date('Y-m-d', time() + 7 * DAY_IN_SECONDS)]);
+$percent_coupon = $coupons->save(['code' => 'test-zehn', 'kind' => 'percent', 'percent' => '10', 'expires' => \NovemberkindProdukte\Time::format('Y-m-d', time() + 7 * DAY_IN_SECONDS)]);
 $shipping_coupon = $coupons->save(['code' => 'TEST-VERSAND', 'kind' => 'shipping', 'once' => '1']);
 $coupon_ids = [$percent_coupon['id'], $shipping_coupon['id']];
 check('Code wird groß angezeigt und doppelte Codes abgelehnt', $percent_coupon['code'] === 'TEST-ZEHN' && is_wp_error($coupons->save(['code' => 'Test-Zehn', 'kind' => 'percent', 'percent' => '5'])));
 $wc_percent = new WC_Coupon($percent_coupon['id']);
 check('Prozent-Gutschein gilt nicht für reduzierte Produkte', $wc_percent->get_discount_type() === 'percent' && (int) $wc_percent->get_amount() === 10 && $wc_percent->get_exclude_sale_items());
-check('gültig bis einschließlich: Ende um 0 Uhr am Folgetag', $wc_percent->get_date_expires()->getTimestamp() === (new DateTimeImmutable($percent_coupon['expires'] . ' +1 day', wp_timezone()))->getTimestamp());
+check('gültig bis einschließlich: Ende um 0 Uhr am Folgetag', $wc_percent->get_date_expires()->getTimestamp() === (new DateTimeImmutable($percent_coupon['expires'] . ' +1 day', \NovemberkindProdukte\Time::zone()))->getTimestamp());
+$old_timezone = get_option('timezone_string');
+update_option('timezone_string', 'Europe/Berlin');
+foreach (['2026-10-25' => '2026-10-25 23:00', '2027-03-28' => '2027-03-28 22:00'] as $last_day => $end_utc) {
+    $dst_coupon = $coupons->save(['code' => 'test-umstellung', 'kind' => 'percent', 'percent' => '5', 'expires' => $last_day]);
+    check("Gutschein bis $last_day (Zeitumstellung) endet um 0 Uhr Berliner Zeit und zeigt denselben Tag", (new WC_Coupon($dst_coupon['id']))->get_date_expires()->getTimestamp() === (new DateTimeImmutable($end_utc, new DateTimeZone('UTC')))->getTimestamp() && $dst_coupon['expires'] === $last_day);
+    wp_delete_post($dst_coupon['id'], true);
+}
+update_option('timezone_string', $old_timezone);
 check('Versand-Gutschein einmal pro Kunde', $shipping_coupon['kind'] === 'shipping' && $shipping_coupon['once'] && (new WC_Coupon($shipping_coupon['id']))->get_usage_limit_per_user() === 1);
 
 wp_set_current_user(get_user_by('login', 'shop')->ID);
@@ -158,7 +166,7 @@ $shipping_before = (float) WC()->cart->get_shipping_total();
 WC()->cart->apply_coupon('test-zehn');
 WC()->cart->calculate_totals();
 check('Warenkorb: 10 % nur auf die nicht reduzierten Sticker', abs((float) WC()->cart->get_discount_total() + (float) WC()->cart->get_discount_tax() - 0.5) < 0.001);
-$sticker_sale = (new Campaigns())->save(['name' => 'Gutscheintest', 'percent' => '20', 'start_date' => wp_date('Y-m-d', time() - 120), 'start_time' => wp_date('H:i', time() - 120), 'end_date' => wp_date('Y-m-d', time() + 3600), 'end_time' => wp_date('H:i', time() + 3600), 'scope' => 'products', 'products' => [$coupon_sticker->get_id()]]);
+$sticker_sale = (new Campaigns())->save(['name' => 'Gutscheintest', 'percent' => '20', 'start_date' => \NovemberkindProdukte\Time::format('Y-m-d', time() - 120), 'start_time' => \NovemberkindProdukte\Time::format('H:i', time() - 120), 'end_date' => \NovemberkindProdukte\Time::format('Y-m-d', time() + 3600), 'end_time' => \NovemberkindProdukte\Time::format('H:i', time() + 3600), 'scope' => 'products', 'products' => [$coupon_sticker->get_id()]]);
 WC()->cart->calculate_totals();
 check('Warenkorb: kein Gutschein-Rabatt auf Produkte aus einer Aktion', (float) WC()->cart->get_discount_total() === 0.0);
 wp_delete_post($sticker_sale['id'], true);

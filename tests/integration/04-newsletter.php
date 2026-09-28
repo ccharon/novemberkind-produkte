@@ -117,14 +117,14 @@ check('Tags im Betreff werden entfernt', $newsletters->parse(['subject' => '<b>F
 $mails = [];
 check('Testmail an eine Adresse', $newsletters->send_test(wp_slash($issue_data), 'shop@example.org') === true && count($mails) === 1 && $mails[0]['subject'] === '[Test] Tee & Kekse \\o/');
 
-$past = $newsletters->save(wp_slash(['send' => 'scheduled', 'send_date' => wp_date('Y-m-d', time() - DAY_IN_SECONDS), 'send_time' => '10:00'] + $issue_data), $draft['id']);
+$past = $newsletters->save(wp_slash(['send' => 'scheduled', 'send_date' => \NovemberkindProdukte\Time::format('Y-m-d', time() - DAY_IN_SECONDS), 'send_time' => '10:00'] + $issue_data), $draft['id']);
 check('geplanter Versand in der Vergangenheit wird abgelehnt', is_wp_error($past) && array_keys($past->get_error_data()) === ['send']);
 $later = time() + DAY_IN_SECONDS;
-$planned = $newsletters->save(wp_slash(['send' => 'scheduled', 'send_date' => wp_date('Y-m-d', $later), 'send_time' => wp_date('H:i', $later)] + $issue_data), $draft['id']);
+$planned = $newsletters->save(wp_slash(['send' => 'scheduled', 'send_date' => \NovemberkindProdukte\Time::format('Y-m-d', $later), 'send_time' => \NovemberkindProdukte\Time::format('H:i', $later)] + $issue_data), $draft['id']);
 check('geplant mit Aufgabe im Action Scheduler', $planned['status'] === 'scheduled' && as_next_scheduled_action(Newsletters::HOOK_START, ['id' => $draft['id']], 'novemberkind-produkte') !== false);
 $newsletters->save(wp_slash($issue_data), $draft['id']);
 // Geplanter Zeitpunkt verstrichen, Aufgabe fehlt, etwa weil das Plugin deaktiviert war
-$newsletters->save(wp_slash(['send' => 'scheduled', 'send_date' => wp_date('Y-m-d', $later), 'send_time' => wp_date('H:i', $later)] + $issue_data), $draft['id']);
+$newsletters->save(wp_slash(['send' => 'scheduled', 'send_date' => \NovemberkindProdukte\Time::format('Y-m-d', $later), 'send_time' => \NovemberkindProdukte\Time::format('H:i', $later)] + $issue_data), $draft['id']);
 as_unschedule_all_actions(Newsletters::HOOK_START, ['id' => $draft['id']], 'novemberkind-produkte');
 $overdue = get_post_meta($draft['id'], Newsletters::META, true);
 update_post_meta($draft['id'], Newsletters::META, wp_slash(['scheduled' => time() - 60] + $overdue));
