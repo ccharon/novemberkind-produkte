@@ -41,7 +41,7 @@ fi
 rm "$target/composer.lock"
 
 # Tests, Werkzeuge und Bibliotheken anderer Sprachen aus den Abhängigkeiten entfernen
-find "$target/vendor" -depth -type d \( -name tests -o -name .github -o -name examples \) -exec rm -rf {} +
+find "$target/vendor" -depth -type d \( -name tests -o -name fixtures -o -name .github -o -name examples \) -exec rm -rf {} +
 webhooks="$target/vendor/standard-webhooks/standard-webhooks"
 find "$webhooks" -mindepth 1 -maxdepth 1 ! -name libraries ! -name composer.json ! -name LICENSE -exec rm -rf {} +
 find "$webhooks/libraries" -mindepth 1 -maxdepth 1 ! -name php -exec rm -rf {} +
