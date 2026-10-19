@@ -1814,38 +1814,36 @@ body.nkp-page {
 	padding: 8px 16px;
 }
 
-.nkp-editor__button--wide {
-	font-size: 14px;
-	padding: 0 10px;
-	width: auto;
+.nkp-simple-form--wide {
+	max-width: none;
 }
 
-.nkp-editor__content--mail {
-	font-size: 16px;
-	min-height: 260px;
+/* Designer für Newsletter: GrapesJS bringt eigene Stile mit, hier nur Größe und Rahmen */
+.nkp-designer {
+	border: 1px solid var(--nkp-border-strong);
+	border-radius: var(--nkp-radius-small);
+	height: max(600px, 80vh);
+	overflow: hidden;
 }
 
-.nkp-editor__content--mail h2 {
-	font-family: var(--nkp-font-heading);
-	font-size: 20px;
-	font-weight: 600;
-	margin: 18px 0 8px;
+.nkp-designer-small {
+	display: none;
 }
 
-.nkp-editor__content--mail a {
-	color: var(--nkp-accent-dark);
+@media (max-width: 760px) {
+	.nkp-designer-small {
+		color: var(--nkp-accent-dark);
+		display: block;
+	}
 }
 
-.nkp-editor__content--mail img {
-	border-radius: 6px;
+.nkp-mail-preview {
+	background: #ffffff;
+	border: 1px solid var(--nkp-border);
+	border-radius: var(--nkp-radius-small);
 	display: block;
-	height: auto;
-	margin: 8px 0;
-	max-width: 100%;
-}
-
-.nkp-editor__content--mail img[data-nkp-uploading] {
-	opacity: 0.5;
+	height: max(600px, 80vh);
+	width: 100%;
 }
 
 .nkp-public {

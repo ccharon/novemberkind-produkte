@@ -1,0 +1,11 @@
+{
+  "name": "novemberkind-produkte-assets",
+  "private": true,
+  "description": "Bibliotheken für den Newsletter-Designer. bin/vendor kopiert sie nach assets/vendor/, das Plugin braucht zur Laufzeit kein npm.",
+  "license": "GPL-2.0-or-later",
+  "dependencies": {
+    "font-awesome": "4.7.0",
+    "grapesjs": "0.23.8",
+    "grapesjs-mjml": "1.0.8"
+  }
+}

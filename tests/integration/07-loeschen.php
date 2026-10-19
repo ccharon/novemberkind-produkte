@@ -39,12 +39,12 @@ foreach ([$coupon['id'], $again['id'] ?? 0, $foreign_coupon->get_id()] as $id) {
 }
 
 $newsletters = new Newsletters();
-$draft = $newsletters->save(['subject' => 'Löschtest', 'content' => '<p>x</p>', 'send' => 'draft']);
+$draft = $newsletters->save(['subject' => 'Löschtest', ...newsletter_design(), 'send' => 'draft']);
 check('Newsletter-Entwurf gelöscht', $newsletters->delete($draft['id']) === true && Newsletters::get($draft['id']) === null);
-$planned_issue = $newsletters->save(['subject' => 'Löschtest geplant', 'content' => '<p>x</p>', 'send' => 'scheduled', ...$at('send', time() + DAY_IN_SECONDS)]);
+$planned_issue = $newsletters->save(['subject' => 'Löschtest geplant', ...newsletter_design(), 'send' => 'scheduled', ...$at('send', time() + DAY_IN_SECONDS)]);
 check('geplanter Newsletter gelöscht und abgesagt', $newsletters->delete($planned_issue['id']) === true
     && !as_has_scheduled_action(Newsletters::HOOK_START, ['id' => $planned_issue['id']], 'novemberkind-produkte'));
-$sending = $newsletters->save(['subject' => 'Löschtest Versand', 'content' => '<p>x</p>', 'send' => 'draft']);
+$sending = $newsletters->save(['subject' => 'Löschtest Versand', ...newsletter_design(), 'send' => 'draft']);
 update_post_meta($sending['id'], Newsletters::META, ['status' => 'sending'] + get_post_meta($sending['id'], Newsletters::META, true));
 check('Newsletter im Versand lässt sich nicht löschen', is_wp_error($newsletters->delete($sending['id'])) && Newsletters::get($sending['id']) !== null);
 wp_delete_post($sending['id'], true);
@@ -60,7 +60,7 @@ $other_campaign = $campaigns->save(['name' => 'Fremd-ID-Test', 'percent' => '10'
 $campaigns->end($other_campaign['id']);
 $other_absence = $absences->save(['start' => 'later', ...$at('start_at', time() + 40 * DAY_IN_SECONDS), 'end' => 'open']);
 $absences->end($other_absence['id']);
-$other_issue = $newsletters->save(['subject' => 'Fremd-ID-Test', 'content' => '<p>x</p>', 'send' => 'draft']);
+$other_issue = $newsletters->save(['subject' => 'Fremd-ID-Test', ...newsletter_design(), 'send' => 'draft']);
 $other_coupon = $coupons->save(['code' => 'FREMD-ID-TEST', 'kind' => 'percent', 'percent' => '10']);
 $coupons->set_active($other_coupon['id'], false);
 $other_product = wc_get_products(['limit' => 1, 'return' => 'ids'])[0];

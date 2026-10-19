@@ -9,6 +9,8 @@
  * @var int    $remaining  noch nicht verschickt
  * @var string $from       Absender
  * @var string $test_email Empfänger der Testmail
+ * @var string $design     MJML für den Designer
+ * @var string $preview    fertige Mail als Vorschau, nur bei gesperrten Ausgaben
  */
 
 declare(strict_types=1);
@@ -27,7 +29,6 @@ $scheduled = $issue_status === 'scheduled' ? $issue['scheduled'] : null;
 // Gewählte Produkte zuerst, damit die Auswahl ohne Scrollen sichtbar ist
 usort($products, static fn(array $a, array $b): int => (int) !in_array($a['id'], $chosen, true) <=> (int) !in_array($b['id'], $chosen, true));
 
-
 $form_back_url   = App::newsletter_url();
 $form_back_label = __('← Alle Newsletter', 'novemberkind-produkte');
 $form_eyebrow    = __('Newsletter', 'novemberkind-produkte');
@@ -36,7 +37,7 @@ $form_badge      = $is_new ? null : Newsletters::badge($issue_status);
 include __DIR__ . '/form-header.php';
 ?>
 
-<form class="nkp-simple-form" data-nkp-simple-form data-nkp-save="novemberkind_produkte_save_newsletter" novalidate
+<form class="nkp-simple-form nkp-simple-form--wide" data-nkp-simple-form data-nkp-save="novemberkind_produkte_save_newsletter" novalidate
       data-nkp-confirm-now="<?php
         echo esc_attr(sprintf(
             /* translators: %d: Anzahl der Empfänger */
@@ -78,6 +79,13 @@ include __DIR__ . '/form-header.php';
         </p>
     <?php endif; ?>
 
+    <?php if ($is_locked) : ?>
+        <section class="nkp-panel">
+            <h2 class="nkp-panel__title"><?php esc_html_e('Inhalt', 'novemberkind-produkte'); ?></h2>
+            <iframe class="nkp-mail-preview" sandbox srcdoc="<?php echo esc_attr($preview); ?>" title="<?php esc_attr_e('Vorschau der Mail', 'novemberkind-produkte'); ?>"></iframe>
+        </section>
+    <?php endif; ?>
+
     <fieldset class="nkp-simple-form__fields" <?php disabled($is_locked); ?>>
         <section class="nkp-panel">
             <label class="nkp-field">
@@ -94,29 +102,25 @@ include __DIR__ . '/form-header.php';
             </label>
         </section>
 
-        <section class="nkp-panel">
-            <h2 class="nkp-panel__title" id="nkp-newsletter-content-label"><?php esc_html_e('Text', 'novemberkind-produkte'); ?></h2>
-            <div class="nkp-editor">
-                <div class="nkp-editor__toolbar">
-                    <button type="button" class="nkp-editor__button" data-nkp-command="bold" title="<?php esc_attr_e('Fett', 'novemberkind-produkte'); ?>"><strong>F</strong></button>
-                    <button type="button" class="nkp-editor__button" data-nkp-command="italic" title="<?php esc_attr_e('Kursiv', 'novemberkind-produkte'); ?>"><em>K</em></button>
-                    <button type="button" class="nkp-editor__button nkp-editor__button--wide" data-nkp-command="heading" title="<?php esc_attr_e('Zwischenüberschrift', 'novemberkind-produkte'); ?>"><?php esc_html_e('Überschrift', 'novemberkind-produkte'); ?></button>
-                    <button type="button" class="nkp-editor__button nkp-editor__button--wide" data-nkp-command="link" title="<?php esc_attr_e('Markierten Text verlinken', 'novemberkind-produkte'); ?>"><?php esc_html_e('Link', 'novemberkind-produkte'); ?></button>
-                    <?php if (current_user_can('upload_files')) : ?>
-                        <button type="button" class="nkp-editor__button nkp-editor__button--wide" data-nkp-command="image" title="<?php esc_attr_e('Foto an der Cursorposition einfügen', 'novemberkind-produkte'); ?>"><?php esc_html_e('Foto', 'novemberkind-produkte'); ?></button>
-                        <input type="file" accept="image/*" hidden data-nkp-image-file>
-                    <?php endif; ?>
+        <?php if (!$is_locked) : ?>
+            <section class="nkp-panel nkp-designer-panel">
+                <h2 class="nkp-panel__title"><?php esc_html_e('Inhalt', 'novemberkind-produkte'); ?></h2>
+                <p class="nkp-field__hint"><?php esc_html_e('Kopf mit Logo und Fuß mit Impressum, Datenschutz und Abmeldelink kommen beim Versand automatisch dazu. Fotos lädst du über einen Doppelklick auf ein Bild hoch.', 'novemberkind-produkte'); ?></p>
+                <p class="nkp-designer-small"><?php esc_html_e('Zum Gestalten brauchst du einen größeren Bildschirm, am besten den Computer.', 'novemberkind-produkte'); ?></p>
+                <div class="nkp-designer">
+                    <div data-nkp-designer data-nkp-placeholder="<?php echo esc_url(Plugin::asset_url('assets/icons/image-placeholder.svg')); ?>"
+                         data-nkp-icons="<?php echo esc_url(Plugin::asset_url('assets/vendor/font-awesome/css/font-awesome.min.css')); ?>"></div>
                 </div>
-                <div class="nkp-editor__content nkp-editor__content--mail" contenteditable="<?php echo $is_locked ? 'false' : 'true'; ?>" role="textbox" aria-multiline="true"
-                     aria-labelledby="nkp-newsletter-content-label" data-nkp-editor><?php echo wp_kses_post($issue['content'] ?? ''); ?></div>
-            </div>
-            <input type="hidden" name="content" value="">
-            <?php Html::field_error('content'); ?>
-        </section>
+                <script type="application/json" data-nkp-designer-source><?php echo wp_json_encode($design, JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE); ?></script>
+                <input type="hidden" name="mjml" value="">
+                <input type="hidden" name="html" value="">
+                <?php Html::field_error('content'); ?>
+            </section>
+        <?php endif; ?>
 
         <section class="nkp-panel">
             <h2 class="nkp-panel__title"><?php esc_html_e('Produkte zeigen', 'novemberkind-produkte'); ?></h2>
-            <p class="nkp-field__hint"><?php esc_html_e('Erscheinen unter dem Text mit Foto, Name und Preis zum Zeitpunkt des Versands.', 'novemberkind-produkte'); ?></p>
+            <p class="nkp-field__hint"><?php esc_html_e('Erscheinen unter dem Inhalt mit Foto, Name und Preis zum Zeitpunkt des Versands.', 'novemberkind-produkte'); ?></p>
             <div class="nkp-picker">
                 <input type="search" class="nkp-picker__filter" data-nkp-product-filter data-nkp-not-dirty autocomplete="off"
                        placeholder="<?php esc_attr_e('Name oder Artikelnummer suchen', 'novemberkind-produkte'); ?>"

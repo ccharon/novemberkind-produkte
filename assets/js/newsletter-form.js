@@ -1,146 +1,93 @@
-/* Novemberkind Produkte, Newsletter-Formular: Editor mit Fotos, Testmail und Rückfrage vor dem Versand. */
+/* Novemberkind Produkte, Newsletter-Formular: Designer (GrapesJS mit MJML), Testmail und Rückfrage vor dem Versand. */
 (() => {
 	'use strict';
 
 	const base = window.novemberkindBasis;
 	const form = document.querySelector('[data-nkp-simple-form]');
-	const editor = form?.querySelector('[data-nkp-editor]');
-	if (!base || !editor) {
+	if (!base || !form) {
 		return;
 	}
 	const { config, showToast } = base;
 	const i18n = { ...config.i18n, ...window.novemberkindNewsletter?.i18n };
 	const controller = base.formController(form);
+	const MJML = 'grapesjs-mjml';
 
-	// Einheitliches HTML für die Mail: strong, em, h2, p und Links ohne Stile der Browser
-	function cleanHTML() {
-		const copy = editor.cloneNode(true);
-		copy.querySelectorAll('h1, h3, h4, h5, h6').forEach((h) => base.renameElement(h, 'h2'));
-		copy.querySelectorAll('div').forEach((div) => base.renameElement(div, 'p'));
-		base.cleanInline(copy);
-		const keep = { A: ['href'], IMG: ['src', 'alt', 'class'] };
-		copy.querySelectorAll('*').forEach((element) => {
-			[...element.attributes].forEach((attribute) => {
-				if (!keep[element.tagName]?.includes(attribute.name)) {
-					element.removeAttribute(attribute.name);
-				}
+	// Fotos, die schon im Newsletter stehen, damit sie in der Auswahl erscheinen
+	function imagesIn(mjml) {
+		return [...new Set([...mjml.matchAll(/<mj-image\b[^>]*\ssrc="([^"]+)"/g)].map((match) => match[1]))]
+			.filter((src) => /^https?:/.test(src))
+			.map((src) => ({ src }));
+	}
+
+	function initDesigner(container, mjml) {
+		const editor = window.grapesjs.init({
+			container,
+			height: '100%',
+			storageManager: false,
+			// Symbole der Oberfläche vom eigenen Server statt von einem CDN
+			cssIcons: container.dataset.nkpIcons,
+			components: mjml,
+			i18n: { locale: 'de', detectLocale: false, localeFallback: 'en', messages: { de: window.nkpGrapesLocaleDe } },
+			assetManager: {
+				assets: imagesIn(mjml),
+				// Nur Fotos aus der Mediathek, fremde Adressen fallen beim Versand ohnehin weg
+				showUrlInput: false,
+				multiUpload: true,
+				async uploadFile(event) {
+					const files = [...(event.dataTransfer?.files ?? event.target?.files ?? [])].filter(base.isImage);
+					if (event.target?.value) {
+						event.target.value = '';
+					}
+					for (const file of files) {
+						showToast(i18n.uploading, 'info');
+						try {
+							const data = await controller.upload(file);
+							editor.AssetManager.add({ src: data.full });
+							controller.dirty = true;
+							showToast(i18n.uploaded);
+						} catch (error) {
+							showToast(error.message, 'error');
+						}
+					}
+				},
+			},
+			plugins: [MJML],
+			pluginsOpts: {
+				[MJML]: {
+					i18n: { de: window.nkpMjmlLocaleDe },
+					imagePlaceholderSrc: container.dataset.nkpPlaceholder,
+					// Keine Webfonts von fremden Servern
+					fonts: {},
+					// Ohne Social-Icons und Hintergrundbilder, die von fremden Servern kämen, und ohne rohes HTML
+					blocks: ['mj-1-column', 'mj-2-columns', 'mj-3-columns', 'mj-text', 'mj-button', 'mj-image', 'mj-divider', 'mj-spacer', 'mj-navbar', 'mj-navbar-link', 'mj-wrapper'],
+				},
+			},
+		});
+
+		// Cmd+S speichert auch, wenn der Fokus im Designer liegt
+		editor.Keymaps.add('nkp:save', '⌘+s, ctrl+s', () => controller.save(), { force: true, prevent: true });
+		editor.on('load', () => {
+			editor.on('update', () => {
+				controller.dirty = true;
 			});
 		});
-		// Nur Fotos aus der Mediathek, an der Klasse wp-image-<ID> erkennt der Server die JPEG-Fassung für die Mail
-		copy.querySelectorAll('img').forEach((img) => {
-			if (!/^wp-image-\d+$/.test(img.className)) {
-				img.remove();
+		return editor;
+	}
+
+	const container = form.querySelector('[data-nkp-designer]');
+	const source = form.querySelector('[data-nkp-designer-source]');
+	if (container && source && window.grapesjs) {
+		const editor = initDesigner(container, JSON.parse(source.textContent));
+		// Die Mail entsteht im Browser, der Server prüft das Ergebnis und behält das MJML zum Weiterbearbeiten
+		controller.beforeSend(() => {
+			const result = editor.runCommand('mjml-code-to-html') ?? {};
+			form.elements.mjml.value = editor.getHtml().trim();
+			form.elements.html.value = result.html ?? '';
+			if (result.errors?.length) {
+				showToast(i18n.compileError, 'info');
 			}
 		});
-		base.unwrapEmpty(copy, 'strong, em, a');
-		// Lose Textstücke auf oberster Ebene in Absätze fassen, br trennt dabei Absätze
-		let paragraph = null;
-		[...copy.childNodes].forEach((node) => {
-			if (node.nodeType === Node.ELEMENT_NODE && ['P', 'H2'].includes(node.tagName)) {
-				paragraph = null;
-			} else if (node.nodeName === 'BR') {
-				paragraph = null;
-				node.remove();
-			} else {
-				paragraph ??= node.parentNode.insertBefore(document.createElement('p'), node);
-				paragraph.append(node);
-			}
-		});
-		copy.querySelectorAll('p, h2').forEach((block) => {
-			if (!block.textContent.trim() && !block.querySelector('img')) {
-				block.remove();
-			}
-		});
-		base.plainSpaces(copy);
-		return copy.innerHTML.trim();
 	}
-
-	function syncEditor() {
-		if (form.elements.content) {
-			form.elements.content.value = cleanHTML();
-		}
-	}
-
-	// Ohne Absatz tippt der Browser die erste Zeile als losen Text
-	function ensureParagraph() {
-		if (editor.isContentEditable && !editor.textContent.trim() && !editor.querySelector('p, h2')) {
-			editor.innerHTML = '<p><br></p>';
-		}
-	}
-
-	ensureParagraph();
-	editor.addEventListener('focus', ensureParagraph);
-	const editorState = base.initEditor(editor, form.querySelectorAll('[data-nkp-command]:not([data-nkp-command="image"])'), {
-		link(state) {
-			const { range } = state;
-			const current = range?.commonAncestorContainer.parentElement?.closest('a')?.getAttribute('href') ?? 'https://';
-			let url = window.prompt(i18n.linkPrompt, current);
-			if (url === null) {
-				return false;
-			}
-			url = url.trim();
-			state.range = range;
-			state.restore();
-			if (url === '' || url === 'https://') {
-				document.execCommand('unlink');
-			} else {
-				document.execCommand('createLink', false, /^(https?:|mailto:)/i.test(url) ? url : `https://${url}`);
-			}
-			return true;
-		},
-		heading(state) {
-			state.restore();
-			const node = window.getSelection().anchorNode;
-			const inHeading = (node instanceof Element ? node : node?.parentElement)?.closest('h2');
-			document.execCommand('formatBlock', false, inHeading ? '<p>' : '<h2>');
-			return true;
-		},
-	});
-	const restoreSelection = editorState.restore;
-
-	// Foto an der Cursorposition: erst die Vorschau, nach dem Upload die Adresse aus der Mediathek
-	async function insertImage(file) {
-		const preview = URL.createObjectURL(file);
-		const img = document.createElement('img');
-		img.src = preview;
-		img.alt = '';
-		img.dataset.nkpUploading = '1';
-		restoreSelection();
-		const range = window.getSelection().rangeCount ? window.getSelection().getRangeAt(0) : null;
-		if (range && editor.contains(range.commonAncestorContainer)) {
-			range.deleteContents();
-			range.insertNode(img);
-			range.setStartAfter(img);
-			range.collapse(true);
-		} else {
-			const paragraph = document.createElement('p');
-			paragraph.append(img);
-			editor.append(paragraph);
-		}
-		editor.dispatchEvent(new Event('input', { bubbles: true }));
-		try {
-			const data = await controller.upload(file);
-			img.src = data.full;
-			img.className = `wp-image-${data.id}`;
-			delete img.dataset.nkpUploading;
-			controller.dirty = true;
-		} catch (error) {
-			img.remove();
-			showToast(error.message, 'error');
-		} finally {
-			URL.revokeObjectURL(preview);
-		}
-	}
-
-	const imageInput = form.querySelector('[data-nkp-image-file]');
-	imageInput?.addEventListener('change', () => {
-		[...imageInput.files].filter(base.isImage).forEach(insertImage);
-		imageInput.value = '';
-	});
-	// click statt mousedown, weil iOS die Fotoauswahl nur direkt nach einem Tipp öffnet; mousedown hält den Fokus im Text
-	const imageButton = form.querySelector('[data-nkp-command="image"]');
-	imageButton?.addEventListener('mousedown', (event) => event.preventDefault());
-	imageButton?.addEventListener('click', () => imageInput?.click());
 
 	// Testmail mit dem aktuellen Stand, ohne zu speichern
 	form.querySelector('[data-nkp-test]')?.addEventListener('click', async (event) => {
@@ -151,6 +98,5 @@
 		}
 	});
 
-	controller.beforeSend(syncEditor);
 	controller.confirmSave(() => !form.dataset.nkpConfirmNow || form.elements.send?.value !== 'now' || window.confirm(form.dataset.nkpConfirmNow));
 })();

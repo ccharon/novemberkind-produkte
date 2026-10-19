@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Installiert die Bibliotheken aus package-lock.json und kopiert die Dateien für den Browser nach assets/vendor/.
+# Mit --check nur vergleichen: Fehler, wenn assets/vendor/ nicht zu package-lock.json passt.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+target=assets/vendor
+if [ "${1:-}" = '--check' ]; then
+  target=$(mktemp -d)
+  trap 'rm -rf "$target"' EXIT
+fi
+
+docker run --rm -u "$(id -u):$(id -g)" -v "$PWD:/app" -w /app -e npm_config_cache=/tmp/npm -e npm_config_update_notifier=false \
+  node:22-alpine npm ci --no-fund --no-audit --silent
+
+# Die Sprachdateien sind CommonJS. Eingepackt setzen sie eine globale Variable, damit sie ohne Build-Schritt laufen.
+wrap_locale() {
+  { echo "/* $3, aus $1 */"
+    echo "(function () { var exports = {};"
+    cat "$1"
+    echo "window.$2 = exports.default; })();"
+  } > "$3"
+}
+
+rm -rf "$target/grapesjs" "$target/grapesjs-mjml" "$target/font-awesome"
+mkdir -p "$target/grapesjs" "$target/grapesjs-mjml" "$target/font-awesome/css" "$target/font-awesome/fonts"
+# Ohne Verweis auf die Source Maps, die nicht mitkommen
+sed '/^\/\/# sourceMappingURL=/d' node_modules/grapesjs/dist/grapes.min.js > "$target/grapesjs/grapes.min.js"
+cp node_modules/grapesjs/dist/css/grapes.min.css node_modules/grapesjs/LICENSE "$target/grapesjs/"
+wrap_locale node_modules/grapesjs/locale/de.js nkpGrapesLocaleDe "$target/grapesjs/locale-de.js"
+sed '/^\/\/# sourceMappingURL=/d' node_modules/grapesjs-mjml/dist/index.js > "$target/grapesjs-mjml/grapesjs-mjml.min.js"
+cp node_modules/grapesjs-mjml/LICENSE "$target/grapesjs-mjml/"
+wrap_locale node_modules/grapesjs-mjml/locale/de.js nkpMjmlLocaleDe "$target/grapesjs-mjml/locale-de.js"
+sed -i "s#^/\* $target/#/* #; s# aus node_modules/# aus #" "$target"/*/locale-de.js
+# Symbole der Oberfläche von GrapesJS. Das Paket hat keine Lizenzdatei, die Angaben stehen in seiner README.
+cp node_modules/font-awesome/css/font-awesome.min.css "$target/font-awesome/css/"
+cp node_modules/font-awesome/fonts/fontawesome-webfont.* "$target/font-awesome/fonts/"
+echo 'Font Awesome 4.7.0 von Dave Gandy, https://fontawesome.com/v4/license/
+Schrift: SIL OFL 1.1, CSS: MIT' > "$target/font-awesome/LICENSE.txt"
+
+if [ "${1:-}" = '--check' ]; then
+  diff -r "$target" assets/vendor > /dev/null
+fi

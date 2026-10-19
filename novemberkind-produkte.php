@@ -44,6 +44,7 @@ require_once __DIR__ . '/includes/class-image-processor.php';
 require_once __DIR__ . '/includes/class-input.php';
 require_once __DIR__ . '/includes/class-login.php';
 require_once __DIR__ . '/includes/class-newsletter-mail.php';
+require_once __DIR__ . '/includes/class-newsletter-html.php';
 require_once __DIR__ . '/includes/class-newsletter-signup.php';
 require_once __DIR__ . '/includes/class-newsletters.php';
 require_once __DIR__ . '/includes/class-product-service.php';

@@ -88,7 +88,8 @@ final class NewsletterMail
     }
 
     /**
-     * Baut die Mail einer Ausgabe. Der Abmeldelink enthält TOKEN_PLACEHOLDER.
+     * Baut die Mail einer Ausgabe. Der Abmeldelink enthält TOKEN_PLACEHOLDER. Ausgaben ohne MJML stammen
+     * aus dem früheren Texteditor und bekommen dessen Gestaltung.
      *
      * @param array<string, mixed> $issue
      * @return array{html: string, text: string}
@@ -96,9 +97,13 @@ final class NewsletterMail
     public static function render(array $issue): array
     {
         $unsubscribe = NewsletterSignup::url('abmelden', self::TOKEN_PLACEHOLDER);
-        $content     = self::style_content((string) $issue['content']);
-        $cards       = array_filter(array_map([self::class, 'card'], (array) $issue['products']));
-        $html        = self::layout((string) $issue['subject'], (string) $issue['preheader'], $content . self::cards_html($cards), $unsubscribe);
+        $cards       = self::cards_html(array_filter(array_map([self::class, 'card'], (array) $issue['products'])));
+        if ((string) ($issue['mjml'] ?? '') !== '') {
+            $content = NewsletterHtml::mail_images((string) $issue['content']) . ($cards !== '' ? '<div style="padding:0 15px;">' . $cards . '</div>' : '');
+            $html    = self::layout((string) $issue['subject'], (string) $issue['preheader'], $content, $unsubscribe, (string) ($issue['css'] ?? ''));
+        } else {
+            $html = self::layout((string) $issue['subject'], (string) $issue['preheader'], self::style_content((string) $issue['content']) . $cards, $unsubscribe);
+        }
 
         return ['html' => $html, 'text' => self::to_text($html)];
     }
@@ -168,8 +173,9 @@ final class NewsletterMail
 
     /**
      * Rahmen der Mail: Kopf mit Logo oder Shopname, Inhalt, Fuß mit Shopname und rechtlichen Links.
+     * Mit $css stammt der Inhalt aus dem Designer, bringt eigene Abstände mit und $css kommt in den Kopf.
      */
-    private static function layout(string $subject, string $preheader, string $content, string $unsubscribe_url): string
+    private static function layout(string $subject, string $preheader, string $content, string $unsubscribe_url, ?string $css = null): string
     {
         $shop    = get_bloginfo('name');
         $home    = home_url('/');
@@ -343,7 +349,7 @@ final class NewsletterMail
      */
     public static function to_text(string $html): string
     {
-        $html = (string) preg_replace('#<(head|style|script)\b.*?</\1>#is', '', $html);
+        $html = (string) preg_replace('#<(head|style|script)\b.*?</\1>#is', '', str_replace("\r", '', $html));
         $html = (string) preg_replace('#<span[^>]*class="nkp-mail-preheader"[^>]*>.*?</span>#is', '', $html);
         $html = (string) preg_replace_callback('#<a\s[^>]*href="([^"]+)"[^>]*>(.*?)</a>#is', static function (array $link): string {
             $label = trim(wp_strip_all_tags($link[2]));

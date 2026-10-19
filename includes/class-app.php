@@ -249,6 +249,8 @@ final class App
         $title   = $page['title'];
         $section = $page['section'];
         $scripts = [...($page['script'] !== '' ? ['novemberkind-produkte-' . $page['script']] : []), 'novemberkind-produkte-vine'];
+        // Ein Skript kann gleichnamige Stile mitbringen, etwa den Designer im Newsletter-Formular
+        $styles  = ['novemberkind-produkte-app', ...($page['script'] !== '' && wp_style_is('novemberkind-produkte-' . $page['script'], 'registered') ? ['novemberkind-produkte-' . $page['script']] : [])];
         extract($page['data'], EXTR_SKIP); // phpcs:ignore WordPress.PHP.DontExtract -- Variablen für das Template
         include __DIR__ . '/../templates/app.php';
     }
@@ -268,7 +270,18 @@ final class App
         $script('overview', 'assets/js/overview.js', ['novemberkind-produkte-common']);
         $script('product-form', 'assets/js/product-form.js', ['novemberkind-produkte-common']);
         $script('forms', 'assets/js/forms.js', ['novemberkind-produkte-common']);
-        $script('newsletter-form', 'assets/js/newsletter-form.js', ['novemberkind-produkte-forms']);
+        $script('grapesjs', 'assets/vendor/grapesjs/grapes.min.js');
+        $script('grapesjs-de', 'assets/vendor/grapesjs/locale-de.js');
+        $script('grapesjs-mjml', 'assets/vendor/grapesjs-mjml/grapesjs-mjml.min.js', ['novemberkind-produkte-grapesjs']);
+        $script('grapesjs-mjml-de', 'assets/vendor/grapesjs-mjml/locale-de.js');
+        $script('newsletter-form', 'assets/js/newsletter-form.js', [
+            'novemberkind-produkte-forms',
+            'novemberkind-produkte-grapesjs-de',
+            'novemberkind-produkte-grapesjs-mjml',
+            'novemberkind-produkte-grapesjs-mjml-de',
+        ]);
+        wp_register_style('novemberkind-produkte-grapesjs', Plugin::asset_url('assets/vendor/grapesjs/grapes.min.css'), [], Plugin::asset_version('assets/vendor/grapesjs/grapes.min.css'));
+        wp_register_style('novemberkind-produkte-newsletter-form', false, ['novemberkind-produkte-grapesjs']);
         $script('vine', 'assets/js/vine.js', ['novemberkind-produkte-common']);
 
         wp_localize_script('novemberkind-produkte-common', 'novemberkindConfig', [
@@ -300,8 +313,10 @@ final class App
         ]);
         wp_localize_script('novemberkind-produkte-newsletter-form', 'novemberkindNewsletter', [
             'i18n' => [
-                'testSending' => __('Wird verschickt …', 'novemberkind-produkte'),
-                'linkPrompt'  => __('Adresse des Links, z. B. https://novemberkind.art/shop/', 'novemberkind-produkte'),
+                'testSending'  => __('Wird verschickt …', 'novemberkind-produkte'),
+                'compileError' => __('Der Inhalt enthält Fehler und sieht in der Mail eventuell anders aus.', 'novemberkind-produkte'),
+                'uploading'    => __('Foto wird hochgeladen …', 'novemberkind-produkte'),
+                'uploaded'     => __('Foto hochgeladen. Klick es an, um es einzusetzen.', 'novemberkind-produkte'),
             ],
         ]);
     }

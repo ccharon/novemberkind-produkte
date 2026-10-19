@@ -15,6 +15,7 @@
  * @var int                   $logo_width      Breite des Logos in der Mail
  * @var array<string, string> $colors          Farben aus NewsletterMail::COLORS
  * @var string                $font            Schriften
+ * @var string|null           $css             Stile aus dem Designer, null beim Text aus dem früheren Editor
  */
 
 declare(strict_types=1);
@@ -26,12 +27,18 @@ defined('ABSPATH') || exit;
 $footer_link = 'color:#ffffff;text-decoration:underline;';
 ?>
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light">
     <title><?php echo esc_html($subject); ?></title>
+    <!--[if mso]>
+    <noscript><xml><o:OfficeDocumentSettings><o:AllowPNG/><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
+    <![endif]-->
+    <!--[if lte mso 11]>
+    <style>.mj-outlook-group-fix { width:100% !important; }</style>
+    <![endif]-->
     <style>
         @media (max-width: 520px) {
             .nkp-mail-card { display: block !important; width: 100% !important; }
@@ -39,6 +46,11 @@ $footer_link = 'color:#ffffff;text-decoration:underline;';
             .nkp-mail-body { padding: 8px 20px 28px !important; }
         }
     </style>
+    <?php if ($css !== null && $css !== '') : ?>
+        <style>
+            <?php echo $css; // phpcs:ignore WordPress.Security.EscapeOutput -- NewsletterHtml::css() entfernt alles, was das Element verlassen könnte ?>
+        </style>
+    <?php endif; ?>
 </head>
 <body style="margin:0;padding:0;background:<?php echo esc_attr($colors['page']); ?>;color:<?php echo esc_attr($colors['text']); ?>;font-family:<?php echo esc_attr($font); ?>;">
     <?php if ($preheader !== '') : ?>
@@ -60,7 +72,7 @@ $footer_link = 'color:#ffffff;text-decoration:underline;';
             <td align="center" style="padding:0 12px;">
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;">
                     <tr>
-                        <td class="nkp-mail-body" style="padding:8px 28px 36px;font-size:16px;line-height:1.7;color:<?php echo esc_attr($colors['text']); ?>;">
+                        <td class="<?php echo $css !== null ? 'nkp-mail-design' : 'nkp-mail-body'; ?>" style="padding:<?php echo $css !== null ? '0 0 36px' : '8px 28px 36px'; ?>;font-size:16px;line-height:1.7;color:<?php echo esc_attr($colors['text']); ?>;">
                             <?php echo $content; // phpcs:ignore WordPress.Security.EscapeOutput -- beim Speichern mit wp_kses_post bereinigt, Karten und Knöpfe escapen selbst ?>
                         </td>
                     </tr>

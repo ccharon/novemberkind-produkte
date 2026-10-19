@@ -7,6 +7,7 @@
  * @var string   $title   Seitentitel
  * @var string   $section Bereich für den aktiven Eintrag in der Kopfzeile, siehe App::sections()
  * @var string[] $scripts Skripte der Seite
+ * @var string[] $styles  Stile der Seite
  */
 
 declare(strict_types=1);
@@ -32,7 +33,7 @@ $shop_name = get_bloginfo('name');
     <link rel="apple-touch-icon" href="<?php echo esc_url(Plugin::asset_url('assets/icons/app-icon-180.png')); ?>">
     <title><?php echo esc_html($title . ' · ' . $shop_name); ?></title>
     <link rel="icon" href="<?php echo esc_url(has_site_icon() ? get_site_icon_url(64) : Plugin::asset_url('assets/icons/app-icon-192.png')); ?>">
-    <?php wp_print_styles('novemberkind-produkte-app'); ?>
+    <?php wp_print_styles($styles); ?>
 </head>
 <body class="nkp-page">
     <header class="nkp-topbar">
