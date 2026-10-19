@@ -9,7 +9,7 @@ defined('ABSPATH') || exit;
 /**
  * Ausgaben des Newsletters: anlegen, testen, planen und im Hintergrund in Päckchen versenden.
  *
- * @phpstan-type Issue array{id: int, subject: string, preheader: string, content: string, products: int[], status: string, scheduled: int, recipients: int, sent: int, failed: int, finished: int, modified: int}
+ * @phpstan-type Issue array{id: int, subject: string, preheader: string, mjml: string, content: string, css: string, products: int[], status: string, scheduled: int, recipients: int, sent: int, failed: int, finished: int, modified: int}
  */
 final class Newsletters
 {
@@ -106,7 +106,7 @@ final class Newsletters
      * Prüft die Eingaben aus dem Formular.
      *
      * @param array<string, mixed> $data
-     * @return array{subject: string, preheader: string, content: string, products: int[]}|\WP_Error
+     * @return array{subject: string, preheader: string, mjml: string, content: string, css: string, products: int[]}|\WP_Error
      */
     public function parse(array $data): array|\WP_Error
     {
@@ -126,21 +126,28 @@ final class Newsletters
             $errors['preheader'] = sprintf(__('Die Vorschauzeile darf höchstens %d Zeichen lang sein.', 'novemberkind-produkte'), self::PREHEADER_MAX_LENGTH);
         }
 
-        // Offene Elemente würden in der Mail den Fuß mit dem Abmeldelink umschließen
-        $content  = trim(force_balance_tags(Input::html($data, 'content')));
+        // Browser senden Zeilenumbrüche in Formularen als CRLF
+        $mjml = str_replace("\r\n", "\n", wp_unslash(Input::value($data, 'mjml')));
+        $html = str_replace("\r\n", "\n", wp_unslash(Input::value($data, 'html')));
+        if (strlen($mjml) + strlen($html) > NewsletterHtml::MAX_BYTES) {
+            $errors['content'] = __('Der Newsletter ist zu groß. Bitte kürze ihn oder teile ihn auf zwei Ausgaben auf.', 'novemberkind-produkte');
+            $mjml = $html = '';
+        }
+        $mjml     = NewsletterHtml::source($mjml);
+        $design   = $mjml !== '' ? NewsletterHtml::document($html) : ['content' => '', 'css' => ''];
         $products = array_values(array_filter(
             Input::ids($data, 'products'),
             static fn(int $product_id): bool => get_post_type($product_id) === 'product'
         ));
-        if (trim(wp_strip_all_tags($content)) === '' && $products === []) {
-            $errors['content'] = __('Bitte schreib einen Text oder wähle Produkte aus.', 'novemberkind-produkte');
+        if (!isset($errors['content']) && trim(wp_strip_all_tags($design['content'])) === '' && !str_contains($design['content'], '<img') && $products === []) {
+            $errors['content'] = __('Bitte gestalte einen Inhalt oder wähle Produkte aus.', 'novemberkind-produkte');
         }
 
         if ($errors !== []) {
             return Input::invalid($errors);
         }
 
-        return ['subject' => $subject, 'preheader' => $preheader, 'content' => $content, 'products' => $products];
+        return ['subject' => $subject, 'preheader' => $preheader, 'mjml' => $mjml, 'content' => $design['content'], 'css' => $design['css'], 'products' => $products];
     }
 
     /**
@@ -509,7 +516,9 @@ final class Newsletters
             'id'         => (int) ($values['id'] ?? 0),
             'subject'    => (string) ($values['subject'] ?? ''),
             'preheader'  => (string) ($values['preheader'] ?? ''),
+            'mjml'       => (string) ($values['mjml'] ?? ''),
             'content'    => (string) ($values['content'] ?? ''),
+            'css'        => (string) ($values['css'] ?? ''),
             'products'   => array_map('intval', (array) ($values['products'] ?? [])),
             'status'     => in_array($values['status'] ?? '', self::STATUSES, true) ? (string) $values['status'] : 'draft',
             'scheduled'  => (int) ($values['scheduled'] ?? 0),

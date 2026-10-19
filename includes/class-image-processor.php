@@ -16,11 +16,14 @@ final class ImageProcessor
     public const QUALITY = 85;
     public const MAX_SOURCE_SIDE = 8000;
     public const META_UPLOAD = '_novemberkind_produkte_upload';
-    // Endung der JPEG-Fassungen für Mails, weil Outlook für Windows kein WebP anzeigt
+    // Fassungen für Mails, weil Outlook für Windows kein WebP anzeigt. PNG nur für Fotos mit Transparenz.
     private const MAIL_SUFFIX = '-mail.jpg';
+    private const MAIL_SUFFIX_TRANSPARENT = '-mail.png';
+    // Stichproben je Kante bei der Suche nach durchsichtigen Pixeln
+    private const ALPHA_SAMPLES = 100;
 
     /**
-     * Meldet an, dass beim Löschen eines Fotos auch seine JPEG-Fassungen für Mails verschwinden.
+     * Meldet an, dass beim Löschen eines Fotos auch seine Fassungen für Mails verschwinden.
      */
     public function register(): void
     {
@@ -28,8 +31,9 @@ final class ImageProcessor
     }
 
     /**
-     * Adresse eines Fotos in einer Größe, bei WebP als JPEG-Fassung. Die Fassung entsteht beim ersten Aufruf
-     * neben der Originaldatei und wird danach wiederverwendet. Schlägt die Umwandlung fehl, bleibt es beim WebP.
+     * Adresse eines Fotos in einer Größe, bei WebP als JPEG-Fassung, mit Transparenz als PNG-Fassung. Die Fassung
+     * entsteht beim ersten Aufruf neben der Originaldatei und wird danach wiederverwendet. Schlägt die Umwandlung
+     * fehl, bleibt es beim WebP.
      */
     public static function mail_url(int $attachment_id, string $size): string
     {
@@ -46,15 +50,19 @@ final class ImageProcessor
         if ($file === '') {
             return $url;
         }
-        $copy = self::mail_copy_path($file);
+        $copy = self::mail_copy_path($file, self::MAIL_SUFFIX_TRANSPARENT);
         if (!file_exists($copy)) {
-            $editor = wp_get_image_editor($file);
-            if (is_wp_error($editor)) {
-                return $url;
-            }
-            $editor->set_quality(self::QUALITY);
-            if (is_wp_error($editor->save($copy, 'image/jpeg'))) {
-                return $url;
+            $transparent = self::has_transparency($file);
+            $copy = self::mail_copy_path($file, $transparent ? self::MAIL_SUFFIX_TRANSPARENT : self::MAIL_SUFFIX);
+            if (!file_exists($copy)) {
+                $editor = wp_get_image_editor($file);
+                if (is_wp_error($editor)) {
+                    return $url;
+                }
+                $editor->set_quality(self::QUALITY);
+                if (is_wp_error($editor->save($copy, $transparent ? 'image/png' : 'image/jpeg'))) {
+                    return $url;
+                }
             }
         }
 
@@ -62,7 +70,7 @@ final class ImageProcessor
     }
 
     /**
-     * Löscht die JPEG-Fassungen zu Originaldatei und Vorschaubildern eines Fotos.
+     * Löscht die Fassungen für Mails zu Originaldatei und Vorschaubildern eines Fotos.
      */
     public function delete_mail_copies(int $attachment_id): void
     {
@@ -75,16 +83,65 @@ final class ImageProcessor
             $files[] = dirname($file) . '/' . $size['file'];
         }
         foreach ($files as $path) {
-            $copy = self::mail_copy_path($path);
-            if (file_exists($copy)) {
-                wp_delete_file($copy);
+            foreach ([self::MAIL_SUFFIX, self::MAIL_SUFFIX_TRANSPARENT] as $suffix) {
+                $copy = self::mail_copy_path($path, $suffix);
+                if (file_exists($copy)) {
+                    wp_delete_file($copy);
+                }
             }
         }
     }
 
-    private static function mail_copy_path(string $file): string
+    private static function mail_copy_path(string $file, string $suffix): string
     {
-        return dirname($file) . '/' . pathinfo($file, PATHINFO_FILENAME) . self::MAIL_SUFFIX;
+        return dirname($file) . '/' . pathinfo($file, PATHINFO_FILENAME) . $suffix;
+    }
+
+    /**
+     * Ob ein Foto durchsichtige Stellen hat. Fotos aus dem Browser tragen immer einen Alphakanal,
+     * deshalb zählen nur Pixel, die wirklich durchsichtig sind, geprüft an Stichproben.
+     */
+    public static function has_transparency(string $file): bool
+    {
+        $type = wp_check_filetype($file)['type'];
+        if (!in_array($type, ['image/webp', 'image/png'], true)) {
+            return false;
+        }
+        $open = $type === 'image/webp' ? 'imagecreatefromwebp' : 'imagecreatefrompng';
+        if (function_exists($open)) {
+            $image = $open($file);
+            if ($image instanceof \GdImage) {
+                imagepalettetotruecolor($image);
+                $width = imagesx($image);
+                $height = imagesy($image);
+                $step = max(1, intdiv(max($width, $height), self::ALPHA_SAMPLES));
+                for ($y = 0; $y < $height; $y += $step) {
+                    for ($x = 0; $x < $width; $x += $step) {
+                        if ((imagecolorat($image, $x, $y) >> 24) & 0x7F) {
+                            return true;
+                        }
+                    }
+                }
+
+                return false;
+            }
+        }
+        if (class_exists(\Imagick::class)) {
+            try {
+                $image = new \Imagick($file);
+                if (!$image->getImageAlphaChannel()) {
+                    return false;
+                }
+                $image->thumbnailImage(self::ALPHA_SAMPLES, self::ALPHA_SAMPLES, true);
+                $alpha = $image->exportImagePixels(0, 0, $image->getImageWidth(), $image->getImageHeight(), 'A', \Imagick::PIXEL_CHAR);
+
+                return $alpha !== [] && min($alpha) < 255;
+            } catch (\ImagickException) {
+                return false;
+            }
+        }
+
+        return false;
     }
 
     /**

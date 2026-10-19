@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Statische Prüfungen ohne Testumgebung: Sicherheitsmeldungen zu Abhängigkeiten, PHPStan, WordPress-Regeln, PSR-12, JavaScript-Syntax.
+# Statische Prüfungen ohne Testumgebung: Sicherheitsmeldungen zu Abhängigkeiten, Stand der Designer-Bibliotheken,
+# PHPStan, WordPress-Regeln, PSR-12, JavaScript-Syntax.
 # Läuft lokal und in der CI; braucht nur Docker.
 set -uo pipefail
 cd "$(dirname "$0")/.."
@@ -22,6 +23,8 @@ step 'Plugin installiert' composer install --no-dev --no-progress --quiet
 step 'Werkzeuge installiert' composer install -d tools --no-progress --quiet
 step 'keine bekannten Sicherheitslücken (Plugin)' composer audit --no-dev --locked
 step 'keine bekannten Sicherheitslücken (Werkzeuge)' composer audit -d tools --locked
+step 'keine bekannten Sicherheitslücken (Designer)' docker run --rm -v "$PWD:/app:ro" -w /app -e npm_config_cache=/tmp/npm -e npm_config_update_notifier=false node:22-alpine npm audit --omit=dev --package-lock-only
+step 'assets/vendor/ passt zu package-lock.json' bin/vendor --check
 
 echo
 echo "PHP"

@@ -10,6 +10,9 @@
 /bin
 /CLAUDE.md
 /composer.lock
+/node_modules
+/package.json
+/package-lock.json
 /data
 /dist
 /docker-compose.yml

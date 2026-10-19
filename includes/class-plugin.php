@@ -70,6 +70,14 @@ final class Plugin
         $version = (int) get_option(self::DB_VERSION_OPTION, 0);
         $steps   = [
             1 => static fn() => delete_option('novemberkind_produkte_webp_supported'),
+            // Fassungen für Mails neu erzeugen, damit Fotos mit Transparenz eine PNG-Fassung bekommen
+            2 => static function (): void {
+                $processor = new ImageProcessor();
+                // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- läuft einmal beim Update
+                foreach (get_posts(['post_type' => 'attachment', 'post_status' => 'inherit', 'numberposts' => -1, 'fields' => 'ids', 'meta_key' => ImageProcessor::META_UPLOAD]) as $attachment_id) {
+                    $processor->delete_mail_copies((int) $attachment_id);
+                }
+            },
         ];
         foreach ($steps as $step => $run) {
             if ($version < $step) {

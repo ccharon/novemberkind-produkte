@@ -194,6 +194,8 @@ mail_text() {
 subscriber_status() {
   bin/wp eval "\$s = NovemberkindProdukte\Subscribers::find('$1'); echo \$s ? \$s['status'] : 'weg';"
 }
+# Inhalt wie aus dem Designer; der Server übernimmt das kompilierte HTML, MJML bleibt zum Weiterbearbeiten
+MJML='<mjml><mj-body><mj-section><mj-column><mj-text>Text</mj-text></mj-column></mj-section></mj-body></mjml>'
 # Konto mit Produktrechten, aber ohne manage_woocommerce: kein Zugang zum Newsletter
 bin/wp role create nkp_nur_produkte 'Nur Produkte' >/dev/null 2>&1
 for cap in read edit_products upload_files; do bin/wp cap add nkp_nur_produkte "$cap" >/dev/null; done
@@ -203,7 +205,7 @@ curl -s -c "$LIMITED_JAR" -b "$LIMITED_JAR" -o /dev/null "$BASE/wp-login.php"
 curl -s -c "$LIMITED_JAR" -b "$LIMITED_JAR" -o /dev/null -d 'log=nurprodukte&pwd=password&testcookie=1' "$BASE/wp-login.php"
 check 'Newsletter-Seiten ohne manage_woocommerce gesperrt' "$(curl -s -b "$LIMITED_JAR" -o /dev/null -w '%{http_code}' "$APP/newsletter/")" 403
 limited_nonce=$(curl -s -b "$LIMITED_JAR" "$APP/neu/button/" | grep -oP 'var novemberkindConfig = .*?"nonce":"\K[a-f0-9]+')
-check 'Newsletter speichern ohne manage_woocommerce abgelehnt' "$(curl -s -b "$LIMITED_JAR" -o /dev/null -w '%{http_code}' -d action=novemberkind_produkte_save_newsletter -d "nonce=$limited_nonce" -d subject=x --data-urlencode 'content=<p>x</p>' "$BASE/wp-admin/admin-ajax.php")" 403
+check 'Newsletter speichern ohne manage_woocommerce abgelehnt' "$(curl -s -b "$LIMITED_JAR" -o /dev/null -w '%{http_code}' -d action=novemberkind_produkte_save_newsletter -d "nonce=$limited_nonce" -d subject=x --data-urlencode "mjml=$MJML" --data-urlencode 'html=<body><div>x</div></body>' "$BASE/wp-admin/admin-ajax.php")" 403
 check 'Newsletter löschen ohne manage_woocommerce abgelehnt' "$(curl -s -b "$LIMITED_JAR" -o /dev/null -w '%{http_code}' -d action=novemberkind_produkte_delete_newsletter -d "nonce=$limited_nonce" -d id=1 "$BASE/wp-admin/admin-ajax.php")" 403
 bin/wp user delete nurprodukte --yes >/dev/null
 bin/wp role delete nkp_nur_produkte >/dev/null
@@ -216,6 +218,11 @@ reset_signup_limits() {
 reset_signup_limits
 check 'Newsletter: Liste lädt' "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$APP/newsletter/")" 200
 check 'Newsletter: Formular lädt' "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$APP/newsletter/neu/")" 200
+form_page=$(curl -s -b "$JAR" "$APP/newsletter/neu/")
+check 'Newsletter: Formular mit Designer, Vorlage und Bibliotheken' "$(grep -cF 'data-nkp-designer-source>"\u003Cmjml\u003E' <<<"$form_page")/$(grep -c 'assets/vendor/grapesjs/grapes.min.js' <<<"$form_page")/$(grep -c 'assets/vendor/grapesjs/grapes.min.css' <<<"$form_page")" 1/1/1
+for file in grapesjs/grapes.min.js grapesjs-mjml/grapesjs-mjml.min.js font-awesome/fonts/fontawesome-webfont.woff2; do
+  check "Designer-Datei $file erreichbar" "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/wp-content/plugins/novemberkind-produkte/assets/vendor/$file")" 200
+done
 check 'Newsletter: unbekannte Ausgabe liefert 404' "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$APP/newsletter/999999/")" 404
 check 'Newsletter: ohne Nonce abgelehnt' "$(ajax -d action=novemberkind_produkte_save_newsletter -d nonce=falsch -d subject=x)" 403
 check 'Newsletter: Pflichtfehler liefert 422' "$(ajax -d action=novemberkind_produkte_save_newsletter -d "nonce=$nonce" -d subject=)" 422
@@ -248,15 +255,16 @@ check 'Bestätigungsseite ohne Skripte, Referer und Einbetten' "$(grep -ciE "^co
 check 'Aufruf des Links zeigt nur den Knopf' "$(curl -s "$confirm_url" | grep -c 'type="submit"')/$(subscriber_status http-abo@example.org)" 1/pending
 check 'Knopf bestätigt die Anmeldung' "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$confirm_url")/$(subscriber_status http-abo@example.org)" 200/confirmed
 
-check 'Testmail erfolgreich' "$(ajax -d action=novemberkind_produkte_test_newsletter -d "nonce=$nonce" -d subject=HTTP-Test --data-urlencode 'content=<p>Hallo</p>')" 200
+bin/wp user meta delete shop _novemberkind_produkte_test_email >/dev/null 2>&1 || true
+check 'Testmail erfolgreich' "$(ajax -d action=novemberkind_produkte_test_newsletter -d "nonce=$nonce" -d subject=HTTP-Test --data-urlencode "mjml=$MJML" --data-urlencode 'html=<body><div>Hallo</div></body>')" 200
 check 'Testmail angekommen' "$(mail_text shop@example.org | grep -c 'Hallo')" 1
 bin/wp user meta delete shop _novemberkind_produkte_test_email >/dev/null 2>&1 || true
 check 'Feld „Testmail an“ mit der Adresse des Kontos' "$(curl -s -b "$JAR" "$APP/newsletter/neu/" | grep -c 'name="test_email"[^>]*value="shop@example.org"')" 1
-check 'ungültiger Empfänger der Testmail liefert Fehler am Feld' "$(ajax -d action=novemberkind_produkte_test_newsletter -d "nonce=$nonce" -d subject=HTTP-Test -d test_email=keine-adresse --data-urlencode 'content=<p>Hallo</p>')/$(grep -c '"test_email"' "$TMP/body")" 422/1
-check 'Testmail an eine andere Adresse' "$(ajax -d action=novemberkind_produkte_test_newsletter -d "nonce=$nonce" -d subject=HTTP-Test -d test_email=Heike@Example.org --data-urlencode 'content=<p>Hallo Heike</p>')/$(mail_text heike@example.org | grep -c 'Hallo Heike')" 200/1
+check 'ungültiger Empfänger der Testmail liefert Fehler am Feld' "$(ajax -d action=novemberkind_produkte_test_newsletter -d "nonce=$nonce" -d subject=HTTP-Test -d test_email=keine-adresse --data-urlencode "mjml=$MJML" --data-urlencode 'html=<body><div>Hallo</div></body>')/$(grep -c '"test_email"' "$TMP/body")" 422/1
+check 'Testmail an eine andere Adresse' "$(ajax -d action=novemberkind_produkte_test_newsletter -d "nonce=$nonce" -d subject=HTTP-Test -d test_email=Heike@Example.org --data-urlencode "mjml=$MJML" --data-urlencode 'html=<body><div>Hallo Heike</div></body>')/$(mail_text heike@example.org | grep -c 'Hallo Heike')" 200/1
 check 'Formular merkt sich den Empfänger der Testmail' "$(curl -s -b "$JAR" "$APP/newsletter/neu/" | grep -c 'name="test_email"[^>]*value="heike@example.org"')" 1
 bin/wp user meta delete shop _novemberkind_produkte_test_email >/dev/null
-check 'Verschicken erfolgreich' "$(ajax -d action=novemberkind_produkte_save_newsletter -d "nonce=$nonce" -d subject=HTTP-Newsletter --data-urlencode 'content=<p>Neuigkeiten</p>' -d send=now)" 200
+check 'Verschicken erfolgreich' "$(ajax -d action=novemberkind_produkte_save_newsletter -d "nonce=$nonce" -d subject=HTTP-Newsletter --data-urlencode "mjml=$MJML" --data-urlencode 'html=<body><div>Neuigkeiten</div></body>' -d send=now)" 200
 issue_id=$(grep -oP '"id":\K\d+' "$TMP/body")
 bin/wp action-scheduler run --hooks=novemberkind_produkte_newsletter_batch --quiet >/dev/null 2>&1
 check 'Newsletter angekommen' "$(mail_text http-abo@example.org | grep -c 'Neuigkeiten')" 1
