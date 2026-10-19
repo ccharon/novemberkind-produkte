@@ -26,6 +26,8 @@
 			storageManager: false,
 			// Symbole der Oberfläche vom eigenen Server statt von einem CDN
 			cssIcons: container.dataset.nkpIcons,
+			// Auswahlrahmen im Arbeitsbereich in Terrakotta statt Blau
+			canvasCss: '.gjs-selected { outline-color: #b0553a !important; } .gjs-selected-parent { outline-color: #e3a088 !important; }',
 			components: mjml,
 			i18n: { locale: 'de', detectLocale: false, localeFallback: 'en', messages: { de: window.nkpGrapesLocaleDe } },
 			assetManager: {
@@ -56,6 +58,8 @@
 				[MJML]: {
 					i18n: { de: window.nkpMjmlLocaleDe },
 					imagePlaceholderSrc: container.dataset.nkpPlaceholder,
+					// Farben kommen aus app.css
+					useCustomTheme: false,
 					// Keine Webfonts von fremden Servern
 					fonts: {},
 					// Ohne Social-Icons und Hintergrundbilder, die von fremden Servern kämen, und ohne rohes HTML
