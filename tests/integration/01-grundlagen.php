@@ -36,7 +36,7 @@ section('Datenbank-Stand');
 update_option('novemberkind_produkte_webp_supported', 'yes');
 update_option('novemberkind_produkte_db_version', 0);
 NovemberkindProdukte\Plugin::upgrade();
-check('Upgrade entfernt die alte WebP-Option und merkt sich den Stand', get_option('novemberkind_produkte_webp_supported') === false && (int) get_option('novemberkind_produkte_db_version') === 1);
+check('Upgrade entfernt die alte WebP-Option und merkt sich den Stand', get_option('novemberkind_produkte_webp_supported') === false && (int) get_option('novemberkind_produkte_db_version') === 2);
 
 section('Eingaben einlesen');
 foreach (['24,90' => '24.90', '24.90' => '24.90', '1.234,50' => '1234.50', '5' => '5.00', ' 9,5 € ' => '9.50'] as $in => $out) {

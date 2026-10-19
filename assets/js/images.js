@@ -27,7 +27,7 @@
 
 	/**
 	 * Verkleinert auf maximal `maxWidth` Pixel Breite und liefert ein verlustfreies PNG.
-	 * Nur wenn das PNG über der Upload-Grenze des Servers liegt, wird ein hochwertiges JPEG geschickt.
+	 * Nur wenn das PNG über der Upload-Grenze des Servers liegt, wird ein hochwertiges JPEG auf weißem Grund geschickt.
 	 */
 	async function resize(file, { maxWidth, maxBytes, unreadable }) {
 		const image = await decode(file, unreadable);
@@ -46,6 +46,10 @@
 		if (png && png.size <= maxBytes * 0.95) {
 			return { blob: png, name: `${baseName}.png` };
 		}
+		// JPEG kennt keine Transparenz, durchsichtige Stellen würden schwarz
+		context.globalCompositeOperation = 'destination-over';
+		context.fillStyle = '#ffffff';
+		context.fillRect(0, 0, canvas.width, canvas.height);
 		const jpeg = await toBlob(canvas, 'image/jpeg', 0.95);
 		return { blob: jpeg, name: `${baseName}.jpg` };
 	}
