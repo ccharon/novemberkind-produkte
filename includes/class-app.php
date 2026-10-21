@@ -274,11 +274,13 @@ final class App
         $script('grapesjs-de', 'assets/vendor/grapesjs/locale-de.js');
         $script('grapesjs-mjml', 'assets/vendor/grapesjs-mjml/grapesjs-mjml.min.js', ['novemberkind-produkte-grapesjs']);
         $script('grapesjs-mjml-de', 'assets/vendor/grapesjs-mjml/locale-de.js');
+        $script('grapesjs-touch', 'assets/vendor/grapesjs-touch/grapesjs-touch.min.js');
         $script('newsletter-form', 'assets/js/newsletter-form.js', [
             'novemberkind-produkte-forms',
             'novemberkind-produkte-grapesjs-de',
             'novemberkind-produkte-grapesjs-mjml',
             'novemberkind-produkte-grapesjs-mjml-de',
+            'novemberkind-produkte-grapesjs-touch',
         ]);
         wp_register_style('novemberkind-produkte-grapesjs', Plugin::asset_url('assets/vendor/grapesjs/grapes.min.css'), [], Plugin::asset_version('assets/vendor/grapesjs/grapes.min.css'));
         wp_register_style('novemberkind-produkte-newsletter-form', false, ['novemberkind-produkte-grapesjs']);
@@ -317,6 +319,8 @@ final class App
                 'compileError' => __('Der Inhalt enthält Fehler und sieht in der Mail eventuell anders aus.', 'novemberkind-produkte'),
                 'uploading'    => __('Foto wird hochgeladen …', 'novemberkind-produkte'),
                 'uploaded'     => __('Foto hochgeladen. Klick es an, um es einzusetzen.', 'novemberkind-produkte'),
+                'moveUp'       => __('Nach oben', 'novemberkind-produkte'),
+                'moveDown'     => __('Nach unten', 'novemberkind-produkte'),
             ],
         ]);
     }

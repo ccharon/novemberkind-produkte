@@ -22,8 +22,8 @@ wrap_locale() {
   } > "$3"
 }
 
-rm -rf "$target/grapesjs" "$target/grapesjs-mjml" "$target/font-awesome"
-mkdir -p "$target/grapesjs" "$target/grapesjs-mjml" "$target/font-awesome/css" "$target/font-awesome/fonts"
+rm -rf "$target/grapesjs" "$target/grapesjs-mjml" "$target/grapesjs-touch" "$target/font-awesome"
+mkdir -p "$target/grapesjs" "$target/grapesjs-mjml" "$target/grapesjs-touch" "$target/font-awesome/css" "$target/font-awesome/fonts"
 # Ohne Verweis auf die Source Maps, die nicht mitkommen
 sed '/^\/\/# sourceMappingURL=/d' node_modules/grapesjs/dist/grapes.min.js > "$target/grapesjs/grapes.min.js"
 cp node_modules/grapesjs/dist/css/grapes.min.css node_modules/grapesjs/LICENSE "$target/grapesjs/"
@@ -31,6 +31,8 @@ wrap_locale node_modules/grapesjs/locale/de.js nkpGrapesLocaleDe "$target/grapes
 sed '/^\/\/# sourceMappingURL=/d' node_modules/grapesjs-mjml/dist/index.js > "$target/grapesjs-mjml/grapesjs-mjml.min.js"
 cp node_modules/grapesjs-mjml/LICENSE "$target/grapesjs-mjml/"
 wrap_locale node_modules/grapesjs-mjml/locale/de.js nkpMjmlLocaleDe "$target/grapesjs-mjml/locale-de.js"
+sed '/^\/\/# sourceMappingURL=/d' node_modules/grapesjs-touch/dist/grapesjs-touch.min.js > "$target/grapesjs-touch/grapesjs-touch.min.js"
+cp node_modules/grapesjs-touch/LICENSE "$target/grapesjs-touch/"
 sed -i "s#^/\* $target/#/* #; s# aus node_modules/# aus #" "$target"/*/locale-de.js
 # Symbole der Oberfläche von GrapesJS. Das Paket hat keine Lizenzdatei, die Angaben stehen in seiner README.
 cp node_modules/font-awesome/css/font-awesome.min.css "$target/font-awesome/css/"
