@@ -16,7 +16,7 @@ section('Löschen');
 $at = static fn(string $key, int $timestamp): array => ["{$key}_date" => \NovemberkindProdukte\Time::format('Y-m-d', $timestamp), "{$key}_time" => \NovemberkindProdukte\Time::format('H:i', $timestamp)];
 
 $campaigns = new Campaigns();
-$campaign  = $campaigns->save(['name' => 'Löschtest', 'percent' => '10', ...$at('start', time()), ...$at('end', time() + DAY_IN_SECONDS), 'scope' => 'all']);
+$campaign  = $campaigns->save(['name' => 'Löschtest', 'percent' => '10', ...$at('start', time() - MINUTE_IN_SECONDS), ...$at('end', time() + DAY_IN_SECONDS), 'scope' => 'all']);
 check('laufende Aktion lässt sich nicht löschen', is_wp_error($campaigns->delete($campaign['id'])) && Campaigns::get($campaign['id']) !== null);
 $ended_campaign = $campaigns->end($campaign['id']);
 check('gerade beendete Aktion zählt für die 30-Tage-Regel', Campaigns::is_recent_reference($ended_campaign));
