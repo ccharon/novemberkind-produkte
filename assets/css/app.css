@@ -1838,6 +1838,20 @@ body.nkp-page {
 	--gjs-main-font: var(--nkp-font-body);
 }
 
+/* Größere Klickflächen für Finger */
+@media (pointer: coarse) {
+	.nkp-designer .gjs-toolbar-item {
+		padding: 6px;
+		width: 36px;
+	}
+
+	.nkp-designer .gjs-pn-btn {
+		font-size: 22px;
+		min-height: 40px;
+		min-width: 40px;
+	}
+}
+
 .nkp-designer-small {
 	display: none;
 }
