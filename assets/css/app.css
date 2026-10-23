@@ -1849,6 +1849,16 @@ body.nkp-page {
 	overflow-y: auto;
 }
 
+/* In der Blockauswahl nur Blöcke, Vorlagen und Mediathek gibt es im Newsletter nicht */
+.block-editor-inserter__menu .block-editor-tabbed-sidebar__tab:is([id$="-patterns"], [id$="-media"]) {
+	display: none;
+}
+
+/* Die Popover-Komponente setzt overflow inline */
+.block-editor-inserter__popover .components-popover__content {
+	overflow-x: hidden !important;
+}
+
 @media (max-width: 960px) {
 	.nkp-block-editor__main {
 		grid-template-columns: minmax(0, 1fr);
