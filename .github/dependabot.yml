@@ -19,16 +19,6 @@ updates:
       tools:
         patterns: ['*']
 
-  # Bibliotheken des Newsletter-Designers; nach einem Update bin/vendor ausführen, sonst schlägt bin/analyse fehl
-  - package-ecosystem: npm
-    directory: /
-    target-branch: develop
-    schedule:
-      interval: weekly
-    groups:
-      designer:
-        patterns: ['*']
-
   - package-ecosystem: github-actions
     directory: /
     target-branch: develop

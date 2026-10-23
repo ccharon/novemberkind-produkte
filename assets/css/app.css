@@ -1818,48 +1818,47 @@ body.nkp-page {
 	max-width: none;
 }
 
-/* Designer für Newsletter: GrapesJS bringt eigene Stile mit, hier nur Größe und Rahmen */
-.nkp-designer {
+/* Blockeditor für Newsletter: Werkzeugleiste, Arbeitsbereich und Einstellungen des gewählten Blocks */
+.nkp-block-editor {
 	border: 1px solid var(--nkp-border-strong);
 	border-radius: var(--nkp-radius-small);
-	height: max(600px, 80vh);
+	background: #ffffff;
 	overflow: hidden;
-	/* Farben von GrapesJS: dunkle Leisten bleiben, in warmem Braun mit Terrakotta und Salbeigrün */
-	--gjs-main-color: #3a322c;
-	--gjs-primary-color: #3a322c;
-	--gjs-secondary-color: #efe6da;
-	--gjs-tertiary-color: var(--nkp-accent);
-	--gjs-quaternary-color: #e3a088;
-	--gjs-font-color: #e6dccf;
-	--gjs-font-color-active: #fffdf9;
-	--gjs-color-blue: var(--nkp-accent);
-	--gjs-color-highlight: #e3a088;
-	--gjs-color-green: var(--nkp-leaf);
-	--gjs-main-font: var(--nkp-font-body);
 }
 
-/* Größere Klickflächen für Finger */
-@media (pointer: coarse) {
-	.nkp-designer .gjs-toolbar-item {
-		padding: 6px;
-		width: 36px;
+.nkp-block-editor__bar {
+	align-items: center;
+	border-bottom: 1px solid var(--nkp-border);
+	display: flex;
+	gap: 8px;
+	padding: 8px;
+}
+
+.nkp-block-editor__main {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 280px;
+	height: max(600px, 75vh);
+}
+
+.nkp-block-editor__canvas {
+	min-width: 0;
+}
+
+.nkp-block-editor__inspector {
+	border-left: 1px solid var(--nkp-border);
+	overflow-y: auto;
+}
+
+@media (max-width: 960px) {
+	.nkp-block-editor__main {
+		grid-template-columns: minmax(0, 1fr);
+		grid-template-rows: max(480px, 65vh) auto;
+		height: auto;
 	}
 
-	.nkp-designer .gjs-pn-btn {
-		font-size: 22px;
-		min-height: 40px;
-		min-width: 40px;
-	}
-}
-
-.nkp-designer-small {
-	display: none;
-}
-
-@media (max-width: 760px) {
-	.nkp-designer-small {
-		color: var(--nkp-accent-dark);
-		display: block;
+	.nkp-block-editor__inspector {
+		border-left: 0;
+		border-top: 1px solid var(--nkp-border);
 	}
 }
 

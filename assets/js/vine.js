@@ -42,8 +42,8 @@
 		blossomCenter: 'rgb(204 158 84)',
 	};
 
-	// Neben dem Newsletter-Designer steht die Ranke still, damit er in Safari flüssig bleibt
-	const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches || Boolean(document.querySelector('[data-nkp-designer]'));
+	// Neben dem Newsletter-Editor steht die Ranke still, damit er in Safari flüssig bleibt
+	const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches || Boolean(document.querySelector('[data-nkp-block-editor]'));
 
 	// ------------------------------------------------------------ Zustand im Browser
 

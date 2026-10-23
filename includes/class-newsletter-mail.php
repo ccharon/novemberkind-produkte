@@ -88,8 +88,8 @@ final class NewsletterMail
     }
 
     /**
-     * Baut die Mail einer Ausgabe. Der Abmeldelink enthält TOKEN_PLACEHOLDER. Ausgaben ohne MJML stammen
-     * aus dem früheren Texteditor und bekommen dessen Gestaltung.
+     * Baut die Mail einer Ausgabe. Der Abmeldelink enthält TOKEN_PLACEHOLDER. Ausgaben ohne Blöcke stammen
+     * aus dem früheren Designer (mit MJML) oder dem früheren Texteditor und bekommen deren Gestaltung.
      *
      * @param array<string, mixed> $issue
      * @return array{html: string, text: string}
@@ -98,7 +98,9 @@ final class NewsletterMail
     {
         $unsubscribe = NewsletterSignup::url('abmelden', self::TOKEN_PLACEHOLDER);
         $cards       = self::cards_html(array_filter(array_map([self::class, 'card'], (array) $issue['products'])));
-        if ((string) ($issue['mjml'] ?? '') !== '') {
+        if ((string) ($issue['blocks'] ?? '') !== '') {
+            $html = self::layout((string) $issue['subject'], (string) $issue['preheader'], NewsletterHtml::mail((string) $issue['blocks']) . $cards, $unsubscribe);
+        } elseif ((string) ($issue['mjml'] ?? '') !== '') {
             $content = NewsletterHtml::mail_images((string) $issue['content']) . ($cards !== '' ? '<div style="padding:0 15px;">' . $cards . '</div>' : '');
             $html    = self::layout((string) $issue['subject'], (string) $issue['preheader'], $content, $unsubscribe, (string) ($issue['css'] ?? ''));
         } else {
@@ -173,7 +175,7 @@ final class NewsletterMail
 
     /**
      * Rahmen der Mail: Kopf mit Logo oder Shopname, Inhalt, Fuß mit Shopname und rechtlichen Links.
-     * Mit $css stammt der Inhalt aus dem Designer, bringt eigene Abstände mit und $css kommt in den Kopf.
+     * Mit $css stammt der Inhalt aus dem früheren Designer, bringt eigene Abstände mit und $css kommt in den Kopf.
      */
     private static function layout(string $subject, string $preheader, string $content, string $unsubscribe_url, ?string $css = null): string
     {
@@ -338,10 +340,17 @@ final class NewsletterMail
      */
     private static function button(string $url, string $label): string
     {
-        return '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 24px;"><tr>'
-            . '<td style="border:2px solid ' . self::COLORS['text'] . ';border-radius:3px;">'
+        return '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 24px;"><tr>' . self::button_cell($url, $label) . '</tr></table>';
+    }
+
+    /**
+     * Zelle eines umrandeten Knopfs, auch für Knöpfe aus dem Blockeditor.
+     */
+    public static function button_cell(string $url, string $label): string
+    {
+        return '<td style="border:2px solid ' . self::COLORS['text'] . ';border-radius:3px;">'
             . '<a href="' . esc_url($url) . '" style="display:inline-block;padding:10px 22px;font-size:18px;color:' . self::COLORS['text'] . ';text-decoration:none;font-weight:500;">' . esc_html($label) . '</a>'
-            . '</td></tr></table>';
+            . '</td>';
     }
 
     /**

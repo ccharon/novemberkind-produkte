@@ -88,28 +88,29 @@ check('Absender aus den WooCommerce-Einstellungen', $from['email'] === get_optio
 
 $letter_product = $service->save(ProductType::get('sticker'), ['sku' => ShopData::next_sku(), 'motif' => 'Newslettertest', 'price' => '2,5', 'width' => '5', 'height' => '5', 'finish' => 'matt', 'status' => 'publish']);
 $cleanup['products'][] = $letter_product->get_id();
-$empty_issue = $newsletters->save(['subject' => '', 'mjml' => '<mjml><mj-body></mj-body></mjml>', 'html' => '<html><body><div> </div></body></html>']);
+$empty_issue = $newsletters->save(['subject' => '', 'blocks' => '<!-- wp:paragraph --><p> </p><!-- /wp:paragraph -->']);
 check('Newsletter: Betreff und Inhalt werden geprüft', is_wp_error($empty_issue) && array_keys($empty_issue->get_error_data()) === ['subject', 'content']);
 $design = newsletter_design();
 $issue_data = [
     'subject'   => 'Tee & Kekse \\o/',
     'preheader' => 'Neue Sticker',
-    'mjml'      => str_replace('<mj-button ', '<mj-button onclick="alert(1)" ', $design['mjml']) . '<script>alert(1)</script>',
-    'html'      => str_replace('</body>', '<script>alert(1)</script><img src="x" onerror="alert(1)"></body>', $design['html']),
+    'blocks'    => str_replace('href="https://example.org/shop/"', 'href="https://example.org/shop/" onclick="alert(1)"', $design['blocks'])
+        . "\n\n<!-- wp:html --><script>alert(1)</script><!-- /wp:html -->"
+        . "\n\n<!-- wp:paragraph --><p>Klick <a href=\"javascript:alert(1)\">mich</a><img src=\"x\" onerror=\"alert(1)\"></p><!-- /wp:paragraph -->",
     'products'  => [$letter_product->get_id()],
     'send'      => 'draft',
 ];
 $draft = $newsletters->save(wp_slash($issue_data));
 $issue_ids = [$draft['id']];
 check('Entwurf gespeichert, Betreff unverändert', $draft['status'] === 'draft' && $draft['subject'] === 'Tee & Kekse \\o/');
-check('Inhalt ohne Skript und Event-Handler', !str_contains($draft['content'], 'script') && !str_contains($draft['content'], 'onerror') && str_contains($draft['content'], '<strong>du</strong>'));
-check('MJML ohne Skript und Event-Handler, Elemente bleiben', !str_contains($draft['mjml'], 'script') && !str_contains($draft['mjml'], 'onclick') && str_contains($draft['mjml'], '<mj-button href="https://example.org/shop/">'));
-check('bedingte Kommentare für Outlook bleiben', str_contains($draft['content'], '<!--[if mso | IE]><table align="center"') && str_contains($draft['content'], '<!--[if mso | IE]></td></tr></table><![endif]-->'));
-check('Stile für Spalten ohne Webfonts', str_contains($draft['css'], '.mj-column-per-50 { width:50% !important;') && !str_contains($draft['css'], 'googleapis') && !str_contains($draft['css'], '@import'));
-check('Mail-CSS in Inline-Stilen bleibt', str_contains($draft['content'], 'mso-line-height-rule:exactly') && str_contains($draft['content'], 'border-collapse:collapse;border-spacing:0px'));
+check('Blöcke ohne Skript, Event-Handler, fremde Adressen und andere Blöcke', !str_contains($draft['blocks'], 'script') && !str_contains($draft['blocks'], 'onclick') && !str_contains($draft['blocks'], 'onerror') && !str_contains($draft['blocks'], 'wp:html') && str_contains($draft['blocks'], '<!-- wp:buttons {"layout":{"type":"flex","justifyContent":"center"}} -->'));
+check('Blöcke ersetzen Inhalte aus dem früheren Designer', $draft['mjml'] === '' && $draft['content'] === '' && $draft['css'] === '');
 $rendered = NewsletterMail::render($draft);
-check('Stile aus dem Designer im Kopf, Inhalt ohne Innenabstand', str_contains($rendered['html'], '.mj-column-per-50') && str_contains($rendered['html'], 'class="nkp-mail-design" style="padding:0 0 36px'));
-check('Foto außerhalb der Mediathek fällt weg', !str_contains($rendered['html'], NEWSLETTER_FIXTURE_IMAGE));
+check('Text mit Auszeichnung, Link in den Farben des Shops, andere Links fallen weg', str_contains($rendered['html'], '<strong>du</strong>') && str_contains($rendered['html'], '<a style="color:#3a5f95;font-weight:bold;font-style:italic;text-decoration:none;" href="https://example.org/neu/">hier entlang</a>') && str_contains($rendered['html'], 'Klick mich</p>'));
+check('Überschrift zentriert, Liste, Trenner und Abstand', str_contains($rendered['html'], 'color:#526077;text-align:center;">Herbst im Shop</h2>') && str_contains($rendered['html'], '<li style="margin:0 0 6px;">Zweiter Punkt</li>') && str_contains($rendered['html'], 'border-top:1px solid #d2e4fc') && str_contains($rendered['html'], 'height:32px;'));
+check('Knopf zentriert als umrandete Tabelle', str_contains($rendered['html'], '<td align="center" style="padding:8px 0 24px;">') && str_contains($rendered['html'], 'href="https://example.org/shop/" style="display:inline-block'));
+check('Spalten als Tabelle mit Breiten, auf dem Handy untereinander', str_contains($rendered['html'], 'class="nkp-mail-column" width="33.33%"') && str_contains($rendered['html'], 'width="66.67%"') && str_contains($rendered['html'], '.nkp-mail-column {'));
+check('Foto außerhalb der Mediathek fällt weg', !str_contains($rendered['html'], 'uploads/foto.webp') && !str_contains($rendered['html'], 'Neue Karten'));
 check('Mail mit Vorschauzeile, Produkt und Abmeldelink', str_contains($rendered['html'], 'Neue Sticker') && str_contains($rendered['html'], 'Sticker: Newslettertest') && str_contains($rendered['html'], 'nkp-newsletter=abmelden&#038;t=' . NewsletterMail::TOKEN_PLACEHOLDER));
 $store_address = get_option('woocommerce_store_address');
 update_option('woocommerce_store_address', 'Teststraße 12');
@@ -122,14 +123,8 @@ check('Textfassung mit Link und Preis', str_contains($rendered['text'], 'hier en
 $angle = $newsletters->parse(['subject' => 'Herz <3 & mehr', 'preheader' => 'a < b'] + $design);
 check('einzelnes < in Betreff und Vorschauzeile bleibt lesbar', !is_wp_error($angle) && $angle['subject'] === 'Herz <3 & mehr' && $angle['preheader'] === 'a < b');
 check('Tags im Betreff werden entfernt', $newsletters->parse(['subject' => '<b>Fett</b>'] + $design)['subject'] === 'Fett');
-check('Zeilenumbrüche aus dem Browser werden vereinheitlicht', !str_contains($newsletters->parse(['subject' => 'x', 'mjml' => str_replace("\n", "\r\n", $design['mjml']), 'html' => str_replace("\n", "\r\n", $design['html'])])['content'], "\r"));
-check('zu großer Inhalt wird abgelehnt', array_keys($newsletters->parse(['subject' => 'x', 'mjml' => $design['mjml'], 'html' => str_repeat(' ', NewsletterHtml::MAX_BYTES)])->get_error_data()) === ['content']);
-$tricky = NewsletterHtml::document('<html><head><style>a { color: red }</style></style><script>x()</script><style>@import url(https://fremd.example/a.css); b { background: url(https://fremd.example/b.png) }</style></head>'
-    . '<body><!--[if foo]><b>weg</b><![endif]--><!-- Notiz --><!--[if mso]><script>alert(1)</script><table><tr><td><![endif]--><div style="background-image:url(https://fremd.example/c.png);color:#123456">Text</div></body></html>');
-check('Stile im Kopf ohne Ausbruch, Importe und fremde Adressen', !str_contains($tricky['css'], '<') && !str_contains($tricky['css'], 'fremd.example') && !str_contains($tricky['css'], '@import') && str_contains($tricky['css'], 'a { color: red }'));
-check('fremde Kommentare fallen weg, Outlook-Kommentare ohne Skript', !str_contains($tricky['content'], 'weg') && !str_contains($tricky['content'], 'Notiz') && !str_contains($tricky['content'], 'script') && str_contains($tricky['content'], '<!--[if mso]>') && str_contains($tricky['content'], '<table><tr><td><![endif]-->'));
-check('Hintergrundbilder von fremden Servern fallen weg', !str_contains($tricky['content'], 'fremd.example') && str_contains($tricky['content'], 'color:#123456'));
-check('älterer Text bekommt MJML für den Designer', str_contains(NewsletterHtml::from_text('<p>Alt <script>x</script></p>'), '<mj-text') && !str_contains(NewsletterHtml::from_text('<p>Alt <script>x</script></p>'), '<script'));
+check('Zeilenumbrüche aus dem Browser werden vereinheitlicht', !str_contains($newsletters->parse(['subject' => 'x', 'blocks' => str_replace("\n", "\r\n", $design['blocks'])])['blocks'], "\r"));
+check('zu großer Inhalt wird abgelehnt', array_keys($newsletters->parse(['subject' => 'x', 'blocks' => $design['blocks'] . str_repeat(' ', NewsletterHtml::MAX_BYTES)])->get_error_data()) === ['content']);
 
 $mails = [];
 check('Testmail an eine Adresse', $newsletters->send_test(wp_slash($issue_data), 'shop@example.org') === true && count($mails) === 1 && $mails[0]['subject'] === '[Test] Tee & Kekse \\o/');
@@ -244,8 +239,8 @@ wp_delete_attachment($clear_id, true);
 check('beim Löschen des Fotos verschwindet die PNG-Fassung', !file_exists($clear_copy));
 $with_photo = NewsletterMail::render(['subject' => 'Foto', 'preheader' => '', 'products' => [], 'content' => '<p>Vorher</p><p><img src="x.webp" class="wp-image-' . $photo_id . '" alt="Herbst &amp; Laub"></p><p><img src="https://fremd.example/bild.jpg" alt="fremd"></p>']);
 check('Foto im älteren Text als JPEG in voller Breite, fremde Bilder fallen weg', str_contains($with_photo['html'], 'src="' . $mail_url . '"') && str_contains($with_photo['html'], 'alt="Herbst &amp; Laub"') && !str_contains($with_photo['html'], 'fremd.example'));
-$designed_photo = NewsletterMail::render(['subject' => 'Foto', 'preheader' => '', 'products' => []] + $newsletters->parse(['subject' => 'Foto'] + newsletter_design((string) wp_get_attachment_url($photo_id))));
-check('Foto aus dem Designer als JPEG mit den Maßen aus MJML', str_contains($designed_photo['html'], 'src="' . $mail_url . '"') && str_contains($designed_photo['html'], 'width="250"'));
+$designed_photo = NewsletterMail::render($newsletters->parse(['subject' => 'Foto'] + newsletter_design($photo_id)));
+check('Foto aus dem Editor als JPEG in der gewählten Breite mit Bildunterschrift', str_contains($designed_photo['html'], 'src="' . $mail_url . '" alt="Herbst &amp; Laub" width="250"') && str_contains($designed_photo['html'], 'Neue Karten</p>'));
 $letter_product->set_image_id($photo_id);
 $letter_product->save();
 check('Produktfotos in der Mail als JPEG', str_contains(NewsletterMail::render($draft)['html'], '-mail.jpg'));
@@ -267,10 +262,12 @@ $letter_product->set_post_password('geheim');
 $letter_product->save();
 check('passwortgeschützte Produkte erscheinen nicht in der Mail', !str_contains(NewsletterMail::render($draft)['html'], 'Sticker: Newslettertest'));
 
-$open_link = NewsletterMail::render($newsletters->parse(['subject' => 'x', 'mjml' => $design['mjml'], 'html' => '<body><div>Text <a href="https://example.org/">offen</body>']) + ['products' => []]);
+$open_link = NewsletterMail::render($newsletters->parse(['subject' => 'x', 'blocks' => '<!-- wp:paragraph --><p>Text <a href="https://example.org/">offen</p><!-- /wp:paragraph -->']));
 check('offener Link im Inhalt umschließt nicht den Abmeldelink', str_contains($open_link['text'], 'Vom Newsletter abmelden (' . NewsletterSignup::url('abmelden', NewsletterMail::TOKEN_PLACEHOLDER) . ')'));
 $old_text = NewsletterMail::render(['subject' => 'x', 'preheader' => '', 'products' => [], 'content' => '<p style="color:red">Text</p>']);
-check('älterer Text behält die Gestaltung des Editors', !str_contains($old_text['html'], 'color:red') && str_contains($old_text['html'], 'class="nkp-mail-body"'));
+$old_design = NewsletterMail::render(['subject' => 'x', 'preheader' => '', 'products' => [], 'mjml' => '<mjml></mjml>', 'content' => '<div>Alter Entwurf</div>', 'css' => '.mj-column-per-50 { width:50% !important; }']);
+check('Ausgabe aus dem früheren Designer behält ihr HTML und ihre Stile', str_contains($old_design['html'], 'class="nkp-mail-design"') && str_contains($old_design['html'], 'Alter Entwurf') && str_contains($old_design['html'], '.mj-column-per-50'));
+check('älterer Text behält die Gestaltung des früheren Editors', !str_contains($old_text['html'], 'color:red') && str_contains($old_text['html'], 'class="nkp-mail-body"'));
 check('Listen statt Text in Formularfeldern ergeben leeren Text', NovemberkindProdukte\Input::value(['email' => ['a@b.de']], 'email') === '');
 
 $form = do_shortcode('[novemberkind_newsletter]');

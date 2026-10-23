@@ -9,7 +9,7 @@ defined('ABSPATH') || exit;
 /**
  * Ausgaben des Newsletters: anlegen, testen, planen und im Hintergrund in Päckchen versenden.
  *
- * @phpstan-type Issue array{id: int, subject: string, preheader: string, mjml: string, content: string, css: string, products: int[], status: string, scheduled: int, recipients: int, sent: int, failed: int, finished: int, modified: int}
+ * @phpstan-type Issue array{id: int, subject: string, preheader: string, blocks: string, mjml: string, content: string, css: string, products: int[], status: string, scheduled: int, recipients: int, sent: int, failed: int, finished: int, modified: int}
  */
 final class Newsletters
 {
@@ -106,7 +106,7 @@ final class Newsletters
      * Prüft die Eingaben aus dem Formular.
      *
      * @param array<string, mixed> $data
-     * @return array{subject: string, preheader: string, mjml: string, content: string, css: string, products: int[]}|\WP_Error
+     * @return array{subject: string, preheader: string, blocks: string, mjml: string, content: string, css: string, products: int[]}|\WP_Error
      */
     public function parse(array $data): array|\WP_Error
     {
@@ -127,19 +127,18 @@ final class Newsletters
         }
 
         // Browser senden Zeilenumbrüche in Formularen als CRLF
-        $mjml = str_replace("\r\n", "\n", wp_unslash(Input::value($data, 'mjml')));
-        $html = str_replace("\r\n", "\n", wp_unslash(Input::value($data, 'html')));
-        if (strlen($mjml) + strlen($html) > NewsletterHtml::MAX_BYTES) {
+        $blocks = str_replace("\r\n", "\n", wp_unslash(Input::value($data, 'blocks')));
+        if (strlen($blocks) > NewsletterHtml::MAX_BYTES) {
             $errors['content'] = __('Der Newsletter ist zu groß. Bitte kürze ihn oder teile ihn auf zwei Ausgaben auf.', 'novemberkind-produkte');
-            $mjml = $html = '';
+            $blocks = '';
         }
-        $mjml     = NewsletterHtml::source($mjml);
-        $design   = $mjml !== '' ? NewsletterHtml::document($html) : ['content' => '', 'css' => ''];
+        $blocks   = NewsletterHtml::source($blocks);
+        $content  = NewsletterHtml::mail($blocks);
         $products = array_values(array_filter(
             Input::ids($data, 'products'),
             static fn(int $product_id): bool => get_post_type($product_id) === 'product'
         ));
-        if (!isset($errors['content']) && trim(wp_strip_all_tags($design['content'])) === '' && !str_contains($design['content'], '<img') && $products === []) {
+        if (!isset($errors['content']) && trim(wp_strip_all_tags($content)) === '' && !str_contains($content, '<img') && $products === []) {
             $errors['content'] = __('Bitte gestalte einen Inhalt oder wähle Produkte aus.', 'novemberkind-produkte');
         }
 
@@ -147,7 +146,8 @@ final class Newsletters
             return Input::invalid($errors);
         }
 
-        return ['subject' => $subject, 'preheader' => $preheader, 'mjml' => $mjml, 'content' => $design['content'], 'css' => $design['css'], 'products' => $products];
+        // Inhalte aus dem früheren Designer und Texteditor werden beim Speichern durch Blöcke ersetzt
+        return ['subject' => $subject, 'preheader' => $preheader, 'blocks' => $blocks, 'mjml' => '', 'content' => '', 'css' => '', 'products' => $products];
     }
 
     /**
@@ -516,6 +516,7 @@ final class Newsletters
             'id'         => (int) ($values['id'] ?? 0),
             'subject'    => (string) ($values['subject'] ?? ''),
             'preheader'  => (string) ($values['preheader'] ?? ''),
+            'blocks'     => (string) ($values['blocks'] ?? ''),
             'mjml'       => (string) ($values['mjml'] ?? ''),
             'content'    => (string) ($values['content'] ?? ''),
             'css'        => (string) ($values['css'] ?? ''),

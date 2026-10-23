@@ -15,7 +15,7 @@
  * @var int                   $logo_width      Breite des Logos in der Mail
  * @var array<string, string> $colors          Farben aus NewsletterMail::COLORS
  * @var string                $font            Schriften
- * @var string|null           $css             Stile aus dem Designer, null beim Text aus dem früheren Editor
+ * @var string|null           $css             Stile aus dem früheren Designer, sonst null
  */
 
 declare(strict_types=1);
@@ -44,6 +44,7 @@ $footer_link = 'color:#ffffff;text-decoration:underline;';
             .nkp-mail-card { display: block !important; width: 100% !important; }
             .nkp-mail-card img { max-width: 100% !important; }
             .nkp-mail-body { padding: 8px 20px 28px !important; }
+            .nkp-mail-column { display: block !important; width: 100% !important; padding: 0 !important; }
         }
     </style>
     <?php if ($css !== null && $css !== '') : ?>
