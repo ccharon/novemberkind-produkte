@@ -45,23 +45,13 @@ function make_png(int $width, int $height): string
 }
 
 /**
- * Newsletter-Inhalt wie aus dem Designer: MJML und das mit mjml-browser kompilierte HTML aus tests/fixtures/.
- * Das Foto der Vorlage liegt nicht in der Mediathek, außer $image setzt eine andere Adresse.
+ * Newsletter-Inhalt wie aus dem Blockeditor, aus tests/fixtures/newsletter.html.
+ * Ohne $image_id steht kein Foto aus der Mediathek darin.
  */
-function newsletter_design(string $image = ''): array
+function newsletter_design(int $image_id = 0): array
 {
-    $dir  = dirname(__FILE__) . '/fixtures/';
-    $mjml = (string) file_get_contents($dir . 'newsletter.mjml');
-    $html = (string) file_get_contents($dir . 'newsletter.html');
-    if ($image !== '') {
-        $mjml = str_replace(NEWSLETTER_FIXTURE_IMAGE, $image, $mjml);
-        $html = str_replace(NEWSLETTER_FIXTURE_IMAGE, $image, $html);
-    }
-
-    return ['mjml' => $mjml, 'html' => $html];
+    return ['blocks' => str_replace('IMAGE_ID', (string) $image_id, (string) file_get_contents(dirname(__FILE__) . '/fixtures/newsletter.html'))];
 }
-
-const NEWSLETTER_FIXTURE_IMAGE = 'http://localhost:8888/wp-content/uploads/foto.webp';
 
 function same_ids(array $a, array $b): bool
 {

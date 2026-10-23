@@ -1,4 +1,4 @@
-/* Novemberkind Produkte, Newsletter-Formular: Designer (GrapesJS mit MJML), Testmail und Rückfrage vor dem Versand. */
+/* Novemberkind Produkte, Newsletter-Formular: Blockeditor aus WordPress, Testmail und Rückfrage vor dem Versand. */
 (() => {
 	'use strict';
 
@@ -8,181 +8,225 @@
 		return;
 	}
 	const { config, showToast } = base;
-	const i18n = { ...config.i18n, ...window.novemberkindNewsletter?.i18n };
+	const data = window.novemberkindNewsletter ?? {};
+	const i18n = { ...config.i18n, ...data.i18n };
 	const controller = base.formController(form);
-	const MJML = 'grapesjs-mjml';
+	const TEXT_BLOCKS = ['core/paragraph', 'core/heading'];
+	// Formate im Text, die der Server in die Mail übernimmt
+	const FORMATS = ['core/bold', 'core/italic', 'core/link', 'core/strikethrough'];
 
-	// Fotos, die schon im Newsletter stehen, damit sie in der Auswahl erscheinen
-	function imagesIn(mjml) {
-		return [...new Set([...mjml.matchAll(/<mj-image\b[^>]*\ssrc="([^"]+)"/g)].map((match) => match[1]))]
-			.filter((src) => /^https?:/.test(src))
-			.map((src) => ({ src }));
+	// Arbeitsbereich in der Gestaltung der Mail
+	function canvasCss() {
+		const { colors = {}, font = 'sans-serif', width = 544 } = data;
+		return `
+			body { background: ${colors.page}; color: ${colors.text}; font-family: ${font}; font-size: 16px; line-height: 1.7; padding: 16px; }
+			.is-root-container { max-width: ${width}px; margin: 0 auto; padding-bottom: 48px; }
+			p, ul, ol { margin: 0 0 16px; }
+			h2, h3 { font-weight: normal; line-height: 1.3; margin: 28px 0 12px; }
+			h2 { font-size: 24px; }
+			h3 { font-size: 20px; }
+			a { color: ${colors.link}; font-weight: bold; font-style: italic; text-decoration: none; }
+			.wp-block-image img { display: block; margin: 0 auto; }
+			.wp-block-image figcaption { color: ${colors.muted}; font-size: 14px; text-align: center; }
+			.wp-block-button__link { background: transparent !important; border: 2px solid ${colors.text}; border-radius: 3px; color: ${colors.text} !important; font-size: 18px; font-style: normal; font-weight: 500; padding: 10px 22px; }
+			.wp-block-separator { border: 0; border-top: 1px solid ${colors.sky}; margin: 24px 0; opacity: 1; }
+			.wp-block-columns { gap: 24px; margin: 0 0 8px; }
+			/* Fotos nur aus der Mediathek, fremde Adressen fallen in der Mail weg */
+			.block-editor-media-placeholder__url-input-container { display: none; }
+		`;
 	}
 
-	const LAYOUT_BLOCKS = ['mj-1-column', 'mj-2-columns', 'mj-3-columns', 'mj-wrapper'];
-	const CHEVRON_UP = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M7.41,15.41L12,10.83L16.59,15.41L18,14L12,8L6,14L7.41,15.41Z" /></svg>';
-	const CHEVRON_DOWN = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z" /></svg>';
-
-	// Das Touch-Plugin biegt ohne Touch-Unterstützung alle Event-Listener um, deshalb nur auf Touch-Geräten
-	function touchPlugins() {
-		const plugin = window['grapesjs-touch'];
-		return 'ontouchstart' in window && plugin ? [plugin.default ?? plugin] : [];
-	}
-
-	// Vorfahre von component, dessen Elternteil parent ist
-	function childOf(parent, component) {
-		let child = component;
-		while (child && child.parent() !== parent) {
-			child = child.parent();
+	// Nur die Einstellungen, die die Mail umsetzt: Ausrichtung von Text, Knöpfen und Spalten. Dazu die Texte auf Deutsch.
+	function restrictBlock(settings, name) {
+		if (!data.blocks.includes(name)) {
+			return settings;
 		}
-		return child;
+		const supports = { ...settings.supports };
+		['anchor', 'background', 'border', 'color', 'dimensions', 'filter', 'shadow', 'spacing', '__experimentalBorder'].forEach((key) => {
+			supports[key] = false;
+		});
+		Object.assign(supports, {
+			align: false,
+			alignWide: false,
+			className: false,
+			customClassName: false,
+			html: false,
+			lock: false,
+			typography: TEXT_BLOCKS.includes(name) ? { textAlign: true } : false,
+		});
+		const attributes = { ...settings.attributes };
+		if (name === 'core/heading') {
+			attributes.levelOptions = { ...attributes.levelOptions, default: [2, 3] };
+		}
+		return { ...settings, ...data.blockTexts?.[name], supports, attributes, styles: [] };
+	}
+
+	function setupBlocks() {
+		const { addFilter } = window.wp.hooks;
+		addFilter('blocks.registerBlockType', 'novemberkind/newsletter', restrictBlock);
+		window.wp.blockLibrary.registerCoreBlocks();
+		const { unregisterFormatType, store } = window.wp.richText;
+		window.wp.data.select(store).getFormatTypes().filter((format) => !FORMATS.includes(format.name)).forEach((format) => unregisterFormatType(format.name));
+	}
+
+	// Blöcke aus dem Editor ohne Blöcke, die die Mail nicht kennt; deren erlaubte Inhalte bleiben
+	function allowedOnly(blocks) {
+		return blocks.flatMap((block) => {
+			const innerBlocks = allowedOnly(block.innerBlocks ?? []);
+			return data.blocks.includes(block.name) ? [{ ...block, innerBlocks }] : innerBlocks;
+		});
+	}
+
+	function initialBlocks(source) {
+		const { parse, rawHandler, createBlock } = window.wp.blocks;
+		let blocks = [];
+		if (source.blocks) {
+			blocks = parse(source.blocks);
+		} else if (source.legacy) {
+			blocks = rawHandler({ HTML: source.legacy });
+		}
+		blocks = allowedOnly(blocks);
+		return blocks.length ? blocks : [createBlock('core/paragraph')];
+	}
+
+	// Fotos werden im Browser verkleinert und landen über die AJAX-Aktion in der Mediathek
+	async function mediaUpload({ filesList, onFileChange, onError }) {
+		for (const file of [...filesList].filter(base.isImage)) {
+			showToast(i18n.uploading, 'info');
+			try {
+				const result = await controller.upload(file);
+				onFileChange([{ id: result.id, url: result.full, alt: '' }]);
+				showToast(i18n.uploaded);
+			} catch (error) {
+				onError?.(error.message);
+				showToast(error.message, 'error');
+			}
+		}
+	}
+
+	function editorSettings() {
+		const { __experimentalFetchLinkSuggestions: fetchLinks } = window.wp.coreData;
+		return {
+			allowedBlockTypes: data.blocks,
+			mediaUpload,
+			// Links auf Produkte und Seiten des Shops über die Suche
+			__experimentalFetchLinkSuggestions: (search, options) => fetchLinks(search, options, {}),
+			__unstableResolvedAssets: { styles: data.canvasStyles ?? '', scripts: '' },
+			__experimentalBlockPatterns: [],
+			__experimentalBlockPatternCategories: [],
+			__experimentalFeatures: { typography: { dropCap: false } },
+			colors: [],
+			disableCustomColors: true,
+			gradients: [],
+			disableCustomGradients: true,
+			fontSizes: [],
+			disableCustomFontSizes: true,
+			imageEditing: false,
+			canLockBlocks: false,
+			codeEditingEnabled: false,
+			enableOpenverseMediaCategory: false,
+			inserterMediaCategories: [],
+		};
 	}
 
 	/**
-	 * Fügt einen Baustein per Antippen oder Klick ein: Spalten und Bereiche hinter den aktuellen Abschnitt,
-	 * Inhalte hinter das gewählte Element oder ans Ende der letzten Spalte.
+	 * Editor mit einfachem Verlauf für Rückgängig: Tippen ändert nur den Stand,
+	 * abgeschlossene Änderungen kommen in den Verlauf.
 	 */
-	function insertBlock(editor, block) {
-		const body = editor.getWrapper()?.findType('mj-body')[0];
-		const selected = editor.getSelected();
-		const content = block.get('content');
-		if (!body) {
-			return;
-		}
-		let parent;
-		let after;
-		if (LAYOUT_BLOCKS.includes(block.getId())) {
-			parent = body;
-			after = selected && childOf(body, selected);
-		} else if (block.getId() === 'mj-navbar-link') {
-			parent = selected?.is('mj-navbar') ? selected : selected?.closestType('mj-navbar');
-			after = parent && selected !== parent ? childOf(parent, selected) : undefined;
-		} else {
-			parent = selected?.is('mj-column') ? selected : selected?.closestType('mj-column');
-			after = parent && selected !== parent ? childOf(parent, selected) : undefined;
-			if (!parent) {
-				const columns = (selected ?? body).findType('mj-column');
-				parent = columns.length ? columns[columns.length - 1] : body.findType('mj-column').pop();
-				parent ??= body.append('<mj-section><mj-column></mj-column></mj-section>')[0].findType('mj-column')[0];
+	function Editor({ initial, onUpdate }) {
+		const { createElement: el, useState, useEffect, useMemo } = window.wp.element;
+		const { BlockEditorProvider, BlockCanvas, BlockInspector, BlockEditorKeyboardShortcuts, Inserter } = window.wp.blockEditor;
+		const { SlotFillProvider, Popover, Button } = window.wp.components;
+		const settings = useMemo(editorSettings, []);
+		const [history, setHistory] = useState({ past: [], blocks: initial, committed: initial, future: [] });
+
+		useEffect(() => onUpdate(history.blocks), [history.blocks]);
+
+		const input = (blocks) => setHistory((state) => ({ ...state, blocks }));
+		const change = (blocks) => setHistory((state) => ({ past: [...state.past.slice(-99), state.committed], blocks, committed: blocks, future: [] }));
+		const undo = () => setHistory((state) => {
+			if (!state.past.length) {
+				return state;
 			}
-		}
-		if (!parent) {
-			return;
-		}
-		const [added] = parent.append(content, after ? { at: after.index() + 1 } : {});
-		if (added) {
-			editor.select(added);
-		}
-	}
-
-	// Verschieben ohne Ziehen, für das iPad
-	function moveBy(editor, offset) {
-		const component = editor.getSelected();
-		const parent = component?.parent();
-		const index = component?.index() ?? 0;
-		if (!parent || index + offset < 0 || index + offset >= parent.components().length) {
-			return;
-		}
-		component.move(parent, { at: offset < 0 ? index + offset : index + offset + 1 });
-		editor.select(component);
-	}
-
-	function addMoveButtons(editor, component) {
-		component.initToolbar();
-		const toolbar = component.get('toolbar') ?? [];
-		if (!component.parent() || component.is('mj-body') || toolbar.some((item) => item.id === 'nkp-up')) {
-			return;
-		}
-		component.set('toolbar', [
-			{ id: 'nkp-up', label: CHEVRON_UP, attributes: { title: i18n.moveUp }, command: () => moveBy(editor, -1) },
-			{ id: 'nkp-down', label: CHEVRON_DOWN, attributes: { title: i18n.moveDown }, command: () => moveBy(editor, 1) },
-			...toolbar,
-		]);
-	}
-
-	function initDesigner(container, mjml) {
-		const editor = window.grapesjs.init({
-			container,
-			height: '100%',
-			storageManager: false,
-			// Symbole der Oberfläche vom eigenen Server statt von einem CDN
-			cssIcons: container.dataset.nkpIcons,
-			// Auswahlrahmen im Arbeitsbereich in Terrakotta statt Blau
-			canvasCss: '.gjs-selected { outline-color: #b0553a !important; } .gjs-selected-parent { outline-color: #e3a088 !important; }',
-			components: mjml,
-			i18n: { locale: 'de', detectLocale: false, localeFallback: 'en', messages: { de: window.nkpGrapesLocaleDe } },
-			assetManager: {
-				assets: imagesIn(mjml),
-				// Nur Fotos aus der Mediathek, fremde Adressen fallen beim Versand ohnehin weg
-				showUrlInput: false,
-				multiUpload: true,
-				async uploadFile(event) {
-					const files = [...(event.dataTransfer?.files ?? event.target?.files ?? [])].filter(base.isImage);
-					if (event.target?.value) {
-						event.target.value = '';
-					}
-					for (const file of files) {
-						showToast(i18n.uploading, 'info');
-						try {
-							const data = await controller.upload(file);
-							editor.AssetManager.add({ src: data.full });
-							controller.dirty = true;
-							showToast(i18n.uploaded);
-						} catch (error) {
-							showToast(error.message, 'error');
-						}
-					}
-				},
-			},
-			// Antippen oder Klicken fügt einen Baustein ein, Ziehen geht weiterhin
-			blockManager: { appendOnClick: (block, editor) => insertBlock(editor, block) },
-			plugins: [MJML, ...touchPlugins()],
-			pluginsOpts: {
-				[MJML]: {
-					i18n: { de: window.nkpMjmlLocaleDe },
-					imagePlaceholderSrc: container.dataset.nkpPlaceholder,
-					// Farben kommen aus app.css
-					useCustomTheme: false,
-					// Keine Webfonts von fremden Servern
-					fonts: {},
-					// Ohne Social-Icons und Hintergrundbilder, die von fremden Servern kämen, und ohne rohes HTML
-					blocks: ['mj-1-column', 'mj-2-columns', 'mj-3-columns', 'mj-text', 'mj-button', 'mj-image', 'mj-divider', 'mj-spacer', 'mj-navbar', 'mj-navbar-link', 'mj-wrapper'],
-				},
-			},
+			const previous = state.past[state.past.length - 1];
+			return { past: state.past.slice(0, -1), blocks: previous, committed: previous, future: [state.blocks, ...state.future] };
+		});
+		const redo = () => setHistory((state) => {
+			if (!state.future.length) {
+				return state;
+			}
+			const [next, ...future] = state.future;
+			return { past: [...state.past, state.blocks], blocks: next, committed: next, future };
 		});
 
-		// Cmd+S speichert auch, wenn der Fokus im Designer liegt
-		editor.Keymaps.add('nkp:save', '⌘+s, ctrl+s', () => controller.save(), { force: true, prevent: true });
-		editor.on('component:selected', (component) => addMoveButtons(editor, component));
-		editor.on('load', () => {
-			editor.on('update', () => {
+		// Cmd+Z und Shift+Cmd+Z, auch aus dem iframe, dessen Tastendrücke der Editor nach außen weitergibt
+		useEffect(() => {
+			const container = document.querySelector('[data-nkp-block-editor]');
+			const onKey = (event) => {
+				if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
+					event.preventDefault();
+					(event.shiftKey ? redo : undo)();
+				}
+			};
+			container.addEventListener('keydown', onKey);
+			return () => container.removeEventListener('keydown', onKey);
+		}, []);
+
+		return el(SlotFillProvider, null,
+			el(BlockEditorProvider, { value: history.blocks, onInput: input, onChange: change, settings },
+				el(BlockEditorKeyboardShortcuts.Register),
+				el('div', { className: 'nkp-block-editor__bar' },
+					el(Inserter, {
+						renderToggle: ({ onToggle, disabled, isOpen }) => el(Button, {
+							className: 'nkp-button nkp-button--secondary nkp-button--small',
+							onClick: onToggle,
+							disabled,
+							'aria-expanded': isOpen,
+						}, '+ ' + i18n.addBlock),
+					}),
+					el(Button, { className: 'nkp-button nkp-button--secondary nkp-button--small', onClick: undo, disabled: !history.past.length }, i18n.undo),
+					el(Button, { className: 'nkp-button nkp-button--secondary nkp-button--small', onClick: redo, disabled: !history.future.length }, i18n.redo),
+				),
+				el('div', { className: 'nkp-block-editor__main' },
+					el('div', { className: 'nkp-block-editor__canvas' },
+						el(BlockCanvas, { height: '100%', styles: [{ css: canvasCss() }] }),
+					),
+					el('aside', { className: 'nkp-block-editor__inspector', 'aria-label': i18n.settings },
+						el(BlockInspector),
+					),
+				),
+				el(Popover.Slot),
+			),
+		);
+	}
+
+	const container = form.querySelector('[data-nkp-block-editor]');
+	const source = form.querySelector('[data-nkp-block-source]');
+	if (container && source && window.wp?.blockEditor) {
+		setupBlocks();
+		const { serialize } = window.wp.blocks;
+		const initial = initialBlocks(JSON.parse(source.textContent));
+		const saved = serialize(initial);
+		let current = initial;
+		const onUpdate = (blocks) => {
+			current = blocks;
+			if (!controller.dirty && serialize(blocks) !== saved) {
 				controller.dirty = true;
-			});
-		});
-		return editor;
-	}
-
-	const container = form.querySelector('[data-nkp-designer]');
-	const source = form.querySelector('[data-nkp-designer-source]');
-	if (container && source && window.grapesjs) {
-		const editor = initDesigner(container, JSON.parse(source.textContent));
-		// Die Mail entsteht im Browser, der Server prüft das Ergebnis und behält das MJML zum Weiterbearbeiten
-		controller.beforeSend(() => {
-			const result = editor.runCommand('mjml-code-to-html') ?? {};
-			form.elements.mjml.value = editor.getHtml().trim();
-			form.elements.html.value = result.html ?? '';
-			if (result.errors?.length) {
-				showToast(i18n.compileError, 'info');
 			}
+		};
+		const { createElement: el, createRoot } = window.wp.element;
+		createRoot(container).render(el(Editor, { initial, onUpdate }));
+		controller.beforeSend(() => {
+			form.elements.blocks.value = serialize(current);
 		});
 	}
 
 	// Testmail mit dem aktuellen Stand, ohne zu speichern
 	form.querySelector('[data-nkp-test]')?.addEventListener('click', async (event) => {
 		const button = event.currentTarget;
-		const data = await controller.send(button.dataset.nkpTest, button, i18n.testSending);
-		if (data) {
-			showToast(data.message);
+		const result = await controller.send(button.dataset.nkpTest, button, i18n.testSending);
+		if (result) {
+			showToast(result.message);
 		}
 	});
 

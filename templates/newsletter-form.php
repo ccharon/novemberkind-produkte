@@ -9,7 +9,8 @@
  * @var int    $remaining  noch nicht verschickt
  * @var string $from       Absender
  * @var string $test_email Empfänger der Testmail
- * @var string $design     MJML für den Designer
+ * @var string $blocks     Blöcke für den Editor
+ * @var string $legacy     HTML einer älteren Ausgabe ohne Blöcke
  * @var string $preview    fertige Mail als Vorschau, nur bei gesperrten Ausgaben
  */
 
@@ -103,17 +104,12 @@ include __DIR__ . '/form-header.php';
         </section>
 
         <?php if (!$is_locked) : ?>
-            <section class="nkp-panel nkp-designer-panel">
+            <section class="nkp-panel">
                 <h2 class="nkp-panel__title"><?php esc_html_e('Inhalt', 'novemberkind-produkte'); ?></h2>
-                <p class="nkp-field__hint"><?php esc_html_e('Kopf mit Logo und Fuß mit Impressum, Datenschutz und Abmeldelink kommen beim Versand automatisch dazu. Fotos lädst du über einen Doppelklick auf ein Bild hoch.', 'novemberkind-produkte'); ?></p>
-                <p class="nkp-designer-small"><?php esc_html_e('Zum Gestalten brauchst du einen größeren Bildschirm, am besten den Computer.', 'novemberkind-produkte'); ?></p>
-                <div class="nkp-designer">
-                    <div data-nkp-designer data-nkp-placeholder="<?php echo esc_url(Plugin::asset_url('assets/icons/image-placeholder.svg')); ?>"
-                         data-nkp-icons="<?php echo esc_url(Plugin::asset_url('assets/vendor/font-awesome/css/font-awesome.min.css')); ?>"></div>
-                </div>
-                <script type="application/json" data-nkp-designer-source><?php echo wp_json_encode($design, JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE); ?></script>
-                <input type="hidden" name="mjml" value="">
-                <input type="hidden" name="html" value="">
+                <p class="nkp-field__hint"><?php esc_html_e('Kopf mit Logo und Fuß mit Impressum, Datenschutz und Abmeldelink kommen beim Versand automatisch dazu.', 'novemberkind-produkte'); ?></p>
+                <div class="nkp-block-editor" data-nkp-block-editor></div>
+                <script type="application/json" data-nkp-block-source><?php echo wp_json_encode(['blocks' => $blocks, 'legacy' => $legacy], JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE); ?></script>
+                <input type="hidden" name="blocks" value="">
                 <?php Html::field_error('content'); ?>
             </section>
         <?php endif; ?>

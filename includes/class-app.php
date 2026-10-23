@@ -249,7 +249,7 @@ final class App
         $title   = $page['title'];
         $section = $page['section'];
         $scripts = [...($page['script'] !== '' ? ['novemberkind-produkte-' . $page['script']] : []), 'novemberkind-produkte-vine'];
-        // Ein Skript kann gleichnamige Stile mitbringen, etwa den Designer im Newsletter-Formular
+        // Ein Skript kann gleichnamige Stile mitbringen, etwa den Blockeditor im Newsletter-Formular
         $styles  = ['novemberkind-produkte-app', ...($page['script'] !== '' && wp_style_is('novemberkind-produkte-' . $page['script'], 'registered') ? ['novemberkind-produkte-' . $page['script']] : [])];
         extract($page['data'], EXTR_SKIP); // phpcs:ignore WordPress.PHP.DontExtract -- Variablen für das Template
         include __DIR__ . '/../templates/app.php';
@@ -270,20 +270,21 @@ final class App
         $script('overview', 'assets/js/overview.js', ['novemberkind-produkte-common']);
         $script('product-form', 'assets/js/product-form.js', ['novemberkind-produkte-common']);
         $script('forms', 'assets/js/forms.js', ['novemberkind-produkte-common']);
-        $script('grapesjs', 'assets/vendor/grapesjs/grapes.min.js');
-        $script('grapesjs-de', 'assets/vendor/grapesjs/locale-de.js');
-        $script('grapesjs-mjml', 'assets/vendor/grapesjs-mjml/grapesjs-mjml.min.js', ['novemberkind-produkte-grapesjs']);
-        $script('grapesjs-mjml-de', 'assets/vendor/grapesjs-mjml/locale-de.js');
-        $script('grapesjs-touch', 'assets/vendor/grapesjs-touch/grapesjs-touch.min.js');
+        // Der Blockeditor kommt aus WordPress, eingeschränkt auf Blöcke, die Mails darstellen können
         $script('newsletter-form', 'assets/js/newsletter-form.js', [
             'novemberkind-produkte-forms',
-            'novemberkind-produkte-grapesjs-de',
-            'novemberkind-produkte-grapesjs-mjml',
-            'novemberkind-produkte-grapesjs-mjml-de',
-            'novemberkind-produkte-grapesjs-touch',
+            'wp-element',
+            'wp-blocks',
+            'wp-block-editor',
+            'wp-block-library',
+            'wp-format-library',
+            'wp-components',
+            'wp-core-data',
+            'wp-data',
+            'wp-hooks',
+            'wp-rich-text',
         ]);
-        wp_register_style('novemberkind-produkte-grapesjs', Plugin::asset_url('assets/vendor/grapesjs/grapes.min.css'), [], Plugin::asset_version('assets/vendor/grapesjs/grapes.min.css'));
-        wp_register_style('novemberkind-produkte-newsletter-form', false, ['novemberkind-produkte-grapesjs']);
+        wp_register_style('novemberkind-produkte-newsletter-form', false, ['wp-components', 'wp-block-editor', 'wp-format-library']);
         $script('vine', 'assets/js/vine.js', ['novemberkind-produkte-common']);
 
         wp_localize_script('novemberkind-produkte-common', 'novemberkindConfig', [
@@ -314,14 +315,51 @@ final class App
             ],
         ]);
         wp_localize_script('novemberkind-produkte-newsletter-form', 'novemberkindNewsletter', [
-            'i18n' => [
-                'testSending'  => __('Wird verschickt …', 'novemberkind-produkte'),
-                'compileError' => __('Der Inhalt enthält Fehler und sieht in der Mail eventuell anders aus.', 'novemberkind-produkte'),
-                'uploading'    => __('Foto wird hochgeladen …', 'novemberkind-produkte'),
-                'uploaded'     => __('Foto hochgeladen. Klick es an, um es einzusetzen.', 'novemberkind-produkte'),
-                'moveUp'       => __('Nach oben', 'novemberkind-produkte'),
-                'moveDown'     => __('Nach unten', 'novemberkind-produkte'),
+            'blocks'       => NewsletterHtml::BLOCKS,
+            'blockTexts'   => self::block_texts(),
+            'width'        => NewsletterHtml::WIDTH,
+            'colors'       => NewsletterMail::COLORS,
+            'font'         => NewsletterMail::FONT,
+            'canvasStyles' => self::canvas_styles(),
+            'i18n'         => [
+                'testSending' => __('Wird verschickt …', 'novemberkind-produkte'),
+                'uploading'   => __('Foto wird hochgeladen …', 'novemberkind-produkte'),
+                'uploaded'    => __('Foto hochgeladen.', 'novemberkind-produkte'),
+                'addBlock'    => __('Block hinzufügen', 'novemberkind-produkte'),
+                'undo'        => __('Rückgängig', 'novemberkind-produkte'),
+                'redo'        => __('Wiederholen', 'novemberkind-produkte'),
+                'settings'    => __('Einstellungen des Blocks', 'novemberkind-produkte'),
             ],
         ]);
+    }
+
+    /**
+     * Titel, Beschreibung und Suchwörter der erlaubten Blöcke. Übersetzt sind sie nur auf dem Server.
+     *
+     * @return array<string, array{title: string, description: string, keywords: string[]}>
+     */
+    private static function block_texts(): array
+    {
+        $texts = [];
+        foreach (NewsletterHtml::BLOCKS as $name) {
+            $type = \WP_Block_Type_Registry::get_instance()->get_registered($name);
+            if ($type) {
+                $texts[$name] = ['title' => $type->title, 'description' => $type->description, 'keywords' => $type->keywords];
+            }
+        }
+
+        return $texts;
+    }
+
+    /**
+     * Stile im Arbeitsbereich des Blockeditors, der in einem eigenen iframe läuft.
+     */
+    private static function canvas_styles(): string
+    {
+        $styles = new \WP_Styles();
+        ob_start();
+        $styles->do_items(['wp-block-editor-content', 'wp-block-library', 'wp-edit-blocks']);
+
+        return (string) ob_get_clean();
     }
 }

@@ -357,25 +357,21 @@ final class Pages
     }
 
     /**
-     * Daten für das Formular einer Ausgabe: MJML für den Designer, Vorschau, Produkte und die Zahl der Empfänger.
+     * Daten für das Formular einer Ausgabe: Blöcke für den Editor, Vorschau, Produkte und die Zahl der Empfänger.
      *
      * @param array<string, mixed>|null $issue
      * @return array<string, mixed>
      */
     private function newsletter_form_data(?array $issue): array
     {
-        $design = match (true) {
-            $issue === null          => NewsletterHtml::starter(),
-            $issue['mjml'] !== ''    => $issue['mjml'],
-            $issue['content'] !== '' => NewsletterHtml::from_text($issue['content']),
-            default                  => NewsletterHtml::starter(),
-        };
         // Versendete und laufende Ausgaben zeigen die Mail, wie sie jetzt aussehen würde
         $preview = $issue !== null && Newsletters::is_locked($issue) ? NewsletterMail::personalize(NewsletterMail::render($issue)['html'], 'vorschau') : '';
 
         return [
             'issue'      => $issue,
-            'design'     => $design,
+            'blocks'     => $issue['blocks'] ?? '',
+            // Ältere Ausgaben ohne Blöcke wandelt der Editor beim Öffnen um
+            'legacy'     => $issue !== null && $issue['blocks'] === '' ? $issue['content'] : '',
             'preview'    => $preview,
             'products'   => self::product_choices('publish'),
             'recipients' => Subscribers::counts()['confirmed'],
