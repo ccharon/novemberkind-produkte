@@ -139,7 +139,10 @@ check('Prozent-Gutschein gilt nicht für reduzierte Produkte', $wc_percent->get_
 check('gültig bis einschließlich: Ende um 0 Uhr am Folgetag', $wc_percent->get_date_expires()->getTimestamp() === (new DateTimeImmutable($percent_coupon['expires'] . ' +1 day', \NovemberkindProdukte\Time::zone()))->getTimestamp());
 $old_timezone = get_option('timezone_string');
 update_option('timezone_string', 'Europe/Berlin');
-foreach (['2026-10-25' => '2026-10-25 23:00', '2027-03-28' => '2027-03-28 22:00'] as $last_day => $end_utc) {
+$dst_year = (int) gmdate('Y') + 1;
+$dst_october = (new DateTimeImmutable("last sunday of october $dst_year", new DateTimeZone('UTC')))->format('Y-m-d');
+$dst_march = (new DateTimeImmutable("last sunday of march $dst_year", new DateTimeZone('UTC')))->format('Y-m-d');
+foreach ([$dst_october => "$dst_october 23:00", $dst_march => "$dst_march 22:00"] as $last_day => $end_utc) {
     $dst_coupon = $coupons->save(['code' => 'test-umstellung', 'kind' => 'percent', 'percent' => '5', 'expires' => $last_day]);
     check("Gutschein bis $last_day (Zeitumstellung) endet um 0 Uhr Berliner Zeit und zeigt denselben Tag", (new WC_Coupon($dst_coupon['id']))->get_date_expires()->getTimestamp() === (new DateTimeImmutable($end_utc, new DateTimeZone('UTC')))->getTimestamp() && $dst_coupon['expires'] === $last_day);
     wp_delete_post($dst_coupon['id'], true);
