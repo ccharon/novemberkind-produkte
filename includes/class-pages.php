@@ -165,6 +165,36 @@ final class Pages
     }
 
     /**
+     * Liste der Neuigkeiten.
+     *
+     * @phpstan-return Page
+     * @return array<string, mixed>
+     */
+    public function news(): array
+    {
+        return self::page('news', __('Neuigkeiten', 'novemberkind-produkte'), ['entries' => News::all()]);
+    }
+
+    /**
+     * Formular für eine neue (`$id` = „neu“) oder bestehende Neuigkeit.
+     *
+     * @phpstan-return Page
+     * @return array<string, mixed>
+     */
+    public function news_form(string $id): array
+    {
+        $news = $id === 'neu' ? null : News::get((int) $id);
+        $allowed = $news === null || current_user_can('edit_post', $news['id']);
+
+        return self::page(
+            'news-form',
+            $news ? $news['title'] : __('Neue Neuigkeit', 'novemberkind-produkte'),
+            ($id === 'neu' || $news) && $allowed ? ['news' => $news] : null,
+            __('Diese Neuigkeit gibt es nicht mehr.', 'novemberkind-produkte')
+        );
+    }
+
+    /**
      * Liste der Gutscheine.
      *
      * @phpstan-return Page

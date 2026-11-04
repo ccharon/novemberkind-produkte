@@ -87,6 +87,7 @@ require $tests_dir . '/04-newsletter.php';
 require $tests_dir . '/05-updater.php';
 require $tests_dir . '/06-abwesenheit.php';
 require $tests_dir . '/07-loeschen.php';
+require $tests_dir . '/08-neuigkeiten.php';
 
 check('unbekannte Produkt-ID liefert Fehler', is_wp_error($service->save(ProductType::get('card'), ['motif' => 'x'], 999999)));
 

@@ -47,6 +47,7 @@ require_once __DIR__ . '/includes/class-newsletter-mail.php';
 require_once __DIR__ . '/includes/class-newsletter-html.php';
 require_once __DIR__ . '/includes/class-newsletter-signup.php';
 require_once __DIR__ . '/includes/class-newsletters.php';
+require_once __DIR__ . '/includes/class-news.php';
 require_once __DIR__ . '/includes/class-product-service.php';
 require_once __DIR__ . '/includes/class-product-type.php';
 require_once __DIR__ . '/includes/class-shop-data.php';

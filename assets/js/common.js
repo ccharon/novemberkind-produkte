@@ -254,6 +254,74 @@
 		});
 	}
 
+	// Zeigt ein Foto sofort in einem .nkp-photo-Feld, lädt es hoch und trägt die ID ins versteckte Feld ein
+	async function uploadInto(controller, photo, file) {
+		const image = photo.querySelector('.nkp-photo__image');
+		const idInput = photo.querySelector('input[type="hidden"]');
+		const previousSrc = image.getAttribute('src');
+		const hadImage = photo.classList.contains('has-image');
+
+		const preview = URL.createObjectURL(file);
+		image.removeAttribute('srcset');
+		image.src = preview;
+		image.hidden = false;
+		photo.classList.add('has-image', 'is-uploading');
+
+		try {
+			const data = await controller.upload(file);
+			idInput.value = data.id;
+			image.src = data.url;
+			controller.dirty = true;
+			return true;
+		} catch (error) {
+			if (hadImage) {
+				image.src = previousSrc;
+			} else {
+				photo.classList.remove('has-image');
+				image.hidden = true;
+			}
+			showToast(error.message, 'error');
+			return false;
+		} finally {
+			URL.revokeObjectURL(preview);
+			photo.classList.remove('is-uploading');
+		}
+	}
+
+	// Auswahl, Ziehen und Ablegen auf den Dropzonen eines Formulars; handle bekommt die Zone und die Fotos
+	function onPhotoFiles(form, handle) {
+		form.querySelectorAll('[data-nkp-dropzone]').forEach((dropzone) => {
+			const input = dropzone.querySelector('[data-nkp-file]');
+			const accept = (files) => {
+				const images = [...files].filter(isImage);
+				if (images.length) {
+					handle(dropzone, images);
+				}
+			};
+			input.addEventListener('change', () => {
+				accept(input.files);
+				input.value = '';
+			});
+			dropzone.addEventListener('dragover', (event) => {
+				event.preventDefault();
+				dropzone.classList.add('is-dragover');
+			});
+			dropzone.addEventListener('dragleave', () => dropzone.classList.remove('is-dragover'));
+			dropzone.addEventListener('drop', (event) => {
+				event.preventDefault();
+				dropzone.classList.remove('is-dragover');
+				accept(event.dataTransfer.files);
+			});
+		});
+	}
+
+	// Leert das Hauptfoto-Feld, ohne es zu entfernen
+	function clearPhoto(photo) {
+		photo.classList.remove('has-image');
+		photo.querySelector('input[type="hidden"]').value = '';
+		photo.querySelector('.nkp-photo__image').hidden = true;
+	}
+
 	const controllers = new WeakMap();
 
 	// Steuert ein Formular mit Speichern: merkt ungespeicherte Änderungen und laufende Uploads, sperrt den Knopf beim
@@ -361,6 +429,9 @@
 		post,
 		upload,
 		isImage,
+		uploadInto,
+		onPhotoFiles,
+		clearPhoto,
 		clearFieldErrors,
 		showFieldErrors,
 		renameElement,

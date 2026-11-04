@@ -1818,7 +1818,7 @@ body.nkp-page {
 	max-width: none;
 }
 
-/* Blockeditor für Newsletter: Werkzeugleiste, Arbeitsbereich und Einstellungen des gewählten Blocks */
+/* Blockeditor für Newsletter und Neuigkeiten: Werkzeugleiste, Arbeitsbereich und Einstellungen des gewählten Blocks */
 .nkp-block-editor {
 	border: 1px solid var(--nkp-border-strong);
 	border-radius: var(--nkp-radius-small);
@@ -1830,8 +1830,14 @@ body.nkp-page {
 	align-items: center;
 	border-bottom: 1px solid var(--nkp-border);
 	display: flex;
+	flex-wrap: wrap;
 	gap: 8px;
 	padding: 8px;
+}
+
+/* Die Knöpfe aus WordPress haben eine feste Höhe, umbrechender Text liefe übereinander */
+.nkp-block-editor__bar .components-button {
+	white-space: nowrap;
 }
 
 .nkp-block-editor__main {
@@ -1849,7 +1855,7 @@ body.nkp-page {
 	overflow-y: auto;
 }
 
-/* In der Blockauswahl nur Blöcke, Vorlagen und Mediathek gibt es im Newsletter nicht */
+/* In der Blockauswahl nur Blöcke, Vorlagen und Mediathek gibt es nicht */
 .block-editor-inserter__menu .block-editor-tabbed-sidebar__tab:is([id$="-patterns"], [id$="-media"]) {
 	display: none;
 }
@@ -1870,6 +1876,11 @@ body.nkp-page {
 		border-left: 0;
 		border-top: 1px solid var(--nkp-border);
 	}
+}
+
+/* Beitragsbild einer Neuigkeit im breiten Formular */
+.nkp-news-photo {
+	max-width: 320px;
 }
 
 .nkp-mail-preview {

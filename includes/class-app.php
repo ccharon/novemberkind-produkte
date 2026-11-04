@@ -33,6 +33,8 @@ final class App
         'newsletter/(neu|\d+)'  => ['newsletter_form', 'newsletter', 'newsletter-form'],
         'abwesenheit'           => ['absences', 'absences', 'forms'],
         'abwesenheit/(neu|\d+)' => ['absence_form', 'absences', 'forms'],
+        'neuigkeiten'           => ['news', 'news', 'forms'],
+        'neuigkeiten/(neu|\d+)' => ['news_form', 'news', 'news-form'],
     ];
 
     /**
@@ -47,6 +49,7 @@ final class App
             'campaigns'  => ['url' => self::campaigns_url(), 'label' => __('Aktionen', 'novemberkind-produkte'), 'capability' => ''],
             'coupons'    => ['url' => self::coupons_url(), 'label' => __('Gutscheine', 'novemberkind-produkte'), 'capability' => Coupons::CAPABILITY],
             'newsletter' => ['url' => self::newsletter_url(), 'label' => __('Newsletter', 'novemberkind-produkte'), 'capability' => Newsletters::CAPABILITY],
+            'news'       => ['url' => self::news_url(), 'label' => __('Neuigkeiten', 'novemberkind-produkte'), 'capability' => News::CAPABILITY],
             'absences'   => ['url' => self::absences_url(), 'label' => __('Abwesenheit', 'novemberkind-produkte'), 'capability' => ''],
         ];
     }
@@ -113,6 +116,14 @@ final class App
     public static function absences_url(int|string $absence = ''): string
     {
         return self::url('abwesenheit/' . $absence);
+    }
+
+    /**
+     * Adresse der Liste der Neuigkeiten oder, mit ID oder „neu“, eines Formulars.
+     */
+    public static function news_url(int|string $news = ''): string
+    {
+        return self::url('neuigkeiten/' . $news);
     }
 
     /**
@@ -270,9 +281,9 @@ final class App
         $script('overview', 'assets/js/overview.js', ['novemberkind-produkte-common']);
         $script('product-form', 'assets/js/product-form.js', ['novemberkind-produkte-common']);
         $script('forms', 'assets/js/forms.js', ['novemberkind-produkte-common']);
-        // Der Blockeditor kommt aus WordPress, eingeschränkt auf Blöcke, die Mails darstellen können
-        $script('newsletter-form', 'assets/js/newsletter-form.js', [
-            'novemberkind-produkte-forms',
+        // Der Blockeditor kommt aus WordPress, eingeschränkt auf die Blöcke aus NewsletterHtml::BLOCKS
+        $script('block-editor', 'assets/js/block-editor.js', [
+            'novemberkind-produkte-common',
             'wp-element',
             'wp-blocks',
             'wp-block-editor',
@@ -284,7 +295,11 @@ final class App
             'wp-hooks',
             'wp-rich-text',
         ]);
-        wp_register_style('novemberkind-produkte-newsletter-form', false, ['wp-components', 'wp-block-editor', 'wp-format-library']);
+        $script('newsletter-form', 'assets/js/newsletter-form.js', ['novemberkind-produkte-forms', 'novemberkind-produkte-block-editor']);
+        $script('news-form', 'assets/js/news-form.js', ['novemberkind-produkte-forms', 'novemberkind-produkte-block-editor']);
+        foreach (['newsletter-form', 'news-form'] as $handle) {
+            wp_register_style('novemberkind-produkte-' . $handle, false, ['wp-components', 'wp-block-editor', 'wp-format-library']);
+        }
         $script('vine', 'assets/js/vine.js', ['novemberkind-produkte-common']);
 
         wp_localize_script('novemberkind-produkte-common', 'novemberkindConfig', [
@@ -314,22 +329,29 @@ final class App
                 'resetText'    => __('Deine Änderungen an der Beschreibung gehen dabei verloren. Trotzdem neu erstellen?', 'novemberkind-produkte'),
             ],
         ]);
-        wp_localize_script('novemberkind-produkte-newsletter-form', 'novemberkindNewsletter', [
+        wp_localize_script('novemberkind-produkte-block-editor', 'novemberkindBlockEditor', [
             'blocks'       => NewsletterHtml::BLOCKS,
             'blockTexts'   => self::block_texts(),
-            'width'        => NewsletterHtml::WIDTH,
-            'colors'       => NewsletterMail::COLORS,
-            'font'         => NewsletterMail::FONT,
             'canvasStyles' => self::canvas_styles(),
             'i18n'         => [
-                'testSending' => __('Wird verschickt …', 'novemberkind-produkte'),
-                'uploading'   => __('Foto wird hochgeladen …', 'novemberkind-produkte'),
-                'uploaded'    => __('Foto hochgeladen.', 'novemberkind-produkte'),
-                'addBlock'    => __('Block hinzufügen', 'novemberkind-produkte'),
-                'undo'        => __('Rückgängig', 'novemberkind-produkte'),
-                'redo'        => __('Wiederholen', 'novemberkind-produkte'),
-                'settings'    => __('Einstellungen des Blocks', 'novemberkind-produkte'),
+                'uploading' => __('Foto wird hochgeladen …', 'novemberkind-produkte'),
+                'uploaded'  => __('Foto hochgeladen.', 'novemberkind-produkte'),
+                'addBlock'  => __('Block hinzufügen', 'novemberkind-produkte'),
+                'undo'      => __('Rückgängig', 'novemberkind-produkte'),
+                'redo'      => __('Wiederholen', 'novemberkind-produkte'),
+                'settings'  => __('Einstellungen des Blocks', 'novemberkind-produkte'),
             ],
+        ]);
+        wp_localize_script('novemberkind-produkte-newsletter-form', 'novemberkindNewsletter', [
+            'width'  => NewsletterHtml::WIDTH,
+            'colors' => NewsletterMail::COLORS,
+            'font'   => NewsletterMail::FONT,
+            'i18n'   => [
+                'testSending' => __('Wird verschickt …', 'novemberkind-produkte'),
+            ],
+        ]);
+        wp_localize_script('novemberkind-produkte-news-form', 'novemberkindNews', [
+            'colors' => NewsletterMail::COLORS,
         ]);
     }
 

@@ -207,8 +207,25 @@ check 'Newsletter-Seiten ohne manage_woocommerce gesperrt' "$(curl -s -b "$LIMIT
 limited_nonce=$(curl -s -b "$LIMITED_JAR" "$APP/neu/button/" | grep -oP 'var novemberkindConfig = .*?"nonce":"\K[a-f0-9]+')
 check 'Newsletter speichern ohne manage_woocommerce abgelehnt' "$(curl -s -b "$LIMITED_JAR" -o /dev/null -w '%{http_code}' -d action=novemberkind_produkte_save_newsletter -d "nonce=$limited_nonce" -d subject=x --data-urlencode "$(blocks x)" "$BASE/wp-admin/admin-ajax.php")" 403
 check 'Newsletter löschen ohne manage_woocommerce abgelehnt' "$(curl -s -b "$LIMITED_JAR" -o /dev/null -w '%{http_code}' -d action=novemberkind_produkte_delete_newsletter -d "nonce=$limited_nonce" -d id=1 "$BASE/wp-admin/admin-ajax.php")" 403
+check 'Neuigkeiten ohne edit_posts gesperrt' "$(curl -s -b "$LIMITED_JAR" -o /dev/null -w '%{http_code}' "$APP/neuigkeiten/")" 403
+check 'Neuigkeit speichern ohne edit_posts abgelehnt' "$(curl -s -b "$LIMITED_JAR" -o /dev/null -w '%{http_code}' -d action=novemberkind_produkte_save_news -d "nonce=$limited_nonce" -d title=x --data-urlencode "$(blocks x)" "$BASE/wp-admin/admin-ajax.php")" 403
 bin/wp user delete nurprodukte --yes >/dev/null
 bin/wp role delete nkp_nur_produkte >/dev/null
+
+# Neuigkeiten
+check 'Neuigkeiten: Liste lädt' "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$APP/neuigkeiten/")" 200
+news_page=$(curl -s -b "$JAR" "$APP/neuigkeiten/neu/")
+check 'Neuigkeiten: Formular mit Blockeditor' "$(grep -c 'data-nkp-block-source' <<<"$news_page")/$(grep -c 'assets/js/news-form.js' <<<"$news_page")/$(grep -c 'wp-includes/js/dist/block-editor' <<<"$news_page")" 1/1/1
+check 'Neuigkeiten: unbekannte Neuigkeit liefert 404' "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$APP/neuigkeiten/999999/")" 404
+check 'Neuigkeiten: ohne Nonce abgelehnt' "$(ajax -d action=novemberkind_produkte_save_news -d nonce=falsch -d title=x)" 403
+check 'Neuigkeiten: Pflichtfehler am Feld' "$(ajax -d action=novemberkind_produkte_save_news -d "nonce=$nonce" -d title= -d status=draft)/$(json "sorted(d['data']['fields'])")" "422/['content', 'title']"
+check 'Neuigkeiten: Online stellen erfolgreich' "$(ajax -d action=novemberkind_produkte_save_news -d "nonce=$nonce" -d title=HTTP-Neuigkeit --data-urlencode "$(blocks 'Frisch aus der Werkstatt')" -d status=publish)" 200
+news_id=$(json "d['data']['id']")
+check 'Neuigkeiten: Beitrag im Shop zu sehen' "$(curl -s "$(bin/wp post url "$news_id")" | grep -c 'Frisch aus der Werkstatt')" 1
+check 'Neuigkeiten: Formular der Neuigkeit lädt' "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$APP/neuigkeiten/$news_id/")" 200
+check 'Neuigkeiten: Löschen erfolgreich' "$(ajax -d action=novemberkind_produkte_delete_news -d "nonce=$nonce" -d "id=$news_id")" 200
+check 'Neuigkeiten: gelöschte Neuigkeit im Papierkorb' "$(bin/wp post get "$news_id" --field=post_status)" trash
+bin/wp post delete "$news_id" --force >/dev/null
 
 # Reste eines abgebrochenen Laufs
 bin/wp eval 'foreach (["http-abo", "http-bot", "http-csv", "http-kasse", "http-voll", "http-a&b", "http-seite"] as $n) { $s = NovemberkindProdukte\Subscribers::find("$n@example.org"); $s && (new NovemberkindProdukte\Subscribers())->remove($s["id"]); }' >/dev/null

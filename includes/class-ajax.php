@@ -42,6 +42,8 @@ final class Ajax
             'delete_coupon'     => [Coupons::CAPABILITY],
             'delete_newsletter' => [Newsletters::CAPABILITY],
             'delete_absence'    => [],
+            'save_news'         => [News::CAPABILITY],
+            'delete_news'       => ['delete_posts'],
         ];
     }
 
@@ -343,6 +345,35 @@ final class Ajax
     private function end_absence(): void
     {
         self::back_to_list((new Absences())->end(Input::id($_POST, 'id')), App::absences_url(), static fn(): string => __('Die Abwesenheit ist beendet. Im Shop gelten wieder die normalen Lieferzeiten.', 'novemberkind-produkte'));
+    }
+
+    /**
+     * Legt eine Neuigkeit an, ändert, plant oder veröffentlicht sie.
+     */
+    private function save_news(): void
+    {
+        $id = Input::id($_POST, 'id');
+        if ($id && !current_user_can('edit_post', $id)) {
+            self::deny();
+        }
+        if (Input::choice($_POST, 'status', News::STATUSES, 'draft') !== 'draft' && !current_user_can('publish_posts')) {
+            wp_send_json_error(['message' => __('Du darfst Neuigkeiten nur als Entwurf speichern.', 'novemberkind-produkte')], 403);
+        }
+
+        self::back_to_list((new News())->save($_POST, $id), App::news_url(), static fn(array $news): string => match ($news['status']) {
+            'publish' => __('Gespeichert. Die Neuigkeit ist jetzt im Shop zu sehen.', 'novemberkind-produkte'),
+            /* translators: 1: Datum, 2: Uhrzeit */
+            'future'  => self::at(__('Gespeichert. Die Neuigkeit erscheint am %1$s um %2$s Uhr.', 'novemberkind-produkte'), $news['date']),
+            default   => __('Als Entwurf gespeichert.', 'novemberkind-produkte'),
+        });
+    }
+
+    /**
+     * Legt eine Neuigkeit in den Papierkorb.
+     */
+    private function delete_news(): void
+    {
+        self::delete_entry((new News())->delete(...), App::news_url(), __('Die Neuigkeit liegt im Papierkorb.', 'novemberkind-produkte'));
     }
 
     /**

@@ -23,76 +23,20 @@
 
 	// ---------------------------------------------------------------- Fotos
 
-	async function uploadInto(photo, file) {
-		const image = photo.querySelector('.nkp-photo__image');
-		const idInput = photo.querySelector('input[type="hidden"]');
-		const previousSrc = image.getAttribute('src');
-		const hadImage = photo.classList.contains('has-image');
-
-		const preview = URL.createObjectURL(file);
-		image.removeAttribute('srcset');
-		image.src = preview;
-		image.hidden = false;
-		photo.classList.add('has-image', 'is-uploading');
-
-		try {
-			const data = await controller.upload(file);
-			idInput.value = data.id;
-			image.src = data.url;
-			markDirty();
-			return true;
-		} catch (error) {
-			if (hadImage) {
-				image.src = previousSrc;
-			} else {
-				photo.classList.remove('has-image');
-				image.hidden = true;
-			}
-			showToast(error.message, 'error');
-			return false;
-		} finally {
-			URL.revokeObjectURL(preview);
-			photo.classList.remove('is-uploading');
-		}
-	}
-
 	function addGalleryPhotos(files) {
 		files.forEach((file) => {
 			const photo = galleryTemplate.content.firstElementChild.cloneNode(true);
 			gallery.insertBefore(photo, galleryAdd);
-			uploadInto(photo, file).then((ok) => ok || photo.remove());
+			base.uploadInto(controller, photo, file).then((ok) => ok || photo.remove());
 		});
 	}
 
-	function handleFiles(dropzone, files) {
-		const images = [...files].filter(base.isImage);
-		if (images.length === 0) {
-			return;
-		}
+	base.onPhotoFiles(form, (dropzone, images) => {
 		if (dropzone.hasAttribute('data-nkp-gallery-add')) {
 			addGalleryPhotos(images);
 		} else {
-			uploadInto(dropzone.closest('.nkp-photo'), images[0]);
+			base.uploadInto(controller, dropzone.closest('.nkp-photo'), images[0]);
 		}
-	}
-
-	form.querySelectorAll('[data-nkp-dropzone]').forEach((dropzone) => {
-		const input = dropzone.querySelector('[data-nkp-file]');
-		input.addEventListener('change', () => {
-			handleFiles(dropzone, input.files);
-			input.value = '';
-		});
-
-		dropzone.addEventListener('dragover', (event) => {
-			event.preventDefault();
-			dropzone.classList.add('is-dragover');
-		});
-		dropzone.addEventListener('dragleave', () => dropzone.classList.remove('is-dragover'));
-		dropzone.addEventListener('drop', (event) => {
-			event.preventDefault();
-			dropzone.classList.remove('is-dragover');
-			handleFiles(dropzone, event.dataTransfer.files);
-		});
 	});
 
 	form.addEventListener('click', (event) => {
@@ -102,9 +46,7 @@
 		}
 		const photo = remove.closest('.nkp-photo');
 		if (photo.hasAttribute('data-nkp-main-photo')) {
-			photo.classList.remove('has-image');
-			photo.querySelector('input[type="hidden"]').value = '';
-			photo.querySelector('.nkp-photo__image').hidden = true;
+			base.clearPhoto(photo);
 		} else {
 			photo.remove();
 		}

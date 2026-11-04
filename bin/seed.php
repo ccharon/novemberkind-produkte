@@ -63,6 +63,18 @@ if (!get_theme_mod('custom_logo') && !get_option('site_logo')) {
     echo "Angelegt: Logo\n";
 }
 
+if (NovemberkindProdukte\News::all() === []) {
+    wp_set_current_user(get_user_by('login', 'shop')->ID);
+    $paragraph = static fn(string $text): string => "<!-- wp:paragraph -->\n<p>{$text}</p>\n<!-- /wp:paragraph -->";
+    foreach ([
+        ['Neue Herbstkarten sind da', 'Sechs neue Motive mit Laub, Pilzen und Igeln, alle auf mattem Naturpapier.', 'publish'],
+        ['Weihnachtsmarkt in Leipzig', 'Am 2. Adventswochenende bin ich mit einem Stand auf dem Kunsthandwerkermarkt.', 'draft'],
+    ] as [$title, $text, $status]) {
+        $entry = (new NovemberkindProdukte\News())->save(['title' => $title, 'blocks' => $paragraph($text), 'status' => $status]);
+        echo is_wp_error($entry) ? "Fehler bei {$title}\n" : "Angelegt: Neuigkeit {$title}\n";
+    }
+}
+
 if (wc_get_products(['limit' => 1, 'status' => 'any', 'return' => 'ids']) !== []) {
     echo "Produkte vorhanden, keine Beispielprodukte angelegt.\n";
     return;
