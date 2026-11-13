@@ -8,16 +8,16 @@
     "packages": [
         {
             "name": "anthropic-ai/sdk",
-            "version": "v1.4.0",
+            "version": "v1.8.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/anthropics/anthropic-sdk-php.git",
-                "reference": "dd75a1cd36616aef627e9c129b7c9263a337ddea"
+                "reference": "67df24ec030b3d21a1b88edc057ba6d3e9593028"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/anthropics/anthropic-sdk-php/zipball/dd75a1cd36616aef627e9c129b7c9263a337ddea",
-                "reference": "dd75a1cd36616aef627e9c129b7c9263a337ddea",
+                "url": "https://api.github.com/repos/anthropics/anthropic-sdk-php/zipball/67df24ec030b3d21a1b88edc057ba6d3e9593028",
+                "reference": "67df24ec030b3d21a1b88edc057ba6d3e9593028",
                 "shasum": ""
             },
             "require": {
@@ -67,9 +67,9 @@
             "description": "Anthropic PHP SDK",
             "support": {
                 "issues": "https://github.com/anthropics/anthropic-sdk-php/issues",
-                "source": "https://github.com/anthropics/anthropic-sdk-php/tree/v1.4.0"
+                "source": "https://github.com/anthropics/anthropic-sdk-php/tree/v1.8.0"
             },
-            "time": "2026-11-02T19:07:10+00:00"
+            "time": "2026-11-10T16:24:39+00:00"
         },
         {
             "name": "nyholm/psr7",
